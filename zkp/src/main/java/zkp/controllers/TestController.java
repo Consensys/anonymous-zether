@@ -19,4 +19,12 @@ public class TestController {
         return Util.bytesToHex(r);
     }
 
+    @RequestMapping("/test-precompile")
+    boolean test(@RequestParam("input") String input) {
+        System.out.println("input: " + input);
+        byte[] r = Util.hexStringToByteArray(input);
+        System.out.println("length: " + r.length);
+        return true;
+    }
+
 }

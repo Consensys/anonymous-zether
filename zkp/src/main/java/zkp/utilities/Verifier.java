@@ -22,7 +22,7 @@ public class Verifier {
     private BurnVerifier<BN128Point> burnVerifier = new BurnVerifier<>();
     // revisit if these are necessary
 
-    public byte[] verifyTransfer(byte[] CLn, byte[] CRn, byte[] inL, byte[] outL, byte[] inOutR, byte[] y, byte[] yBar, byte[] proof) {
+    public boolean verifyTransfer(byte[] CLn, byte[] CRn, byte[] inL, byte[] outL, byte[] inOutR, byte[] y, byte[] yBar, byte[] proof) {
         ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(BN128Point.unserialize(CLn), BN128Point.unserialize(CRn), BN128Point.unserialize(inL), BN128Point.unserialize(outL), BN128Point.unserialize(inOutR),  BN128Point.unserialize(y), BN128Point.unserialize(yBar));
         ZetherProof<BN128Point> zetherProof = ZetherProof.unserialize(proof);
         boolean success = true;
@@ -31,13 +31,14 @@ public class Verifier {
         } catch (VerificationFailedException e) {
             success = false;
         }
-        byte[] arr = new byte[32];
-        if (success)
-            arr[0] = 1;
-        return arr;
+        return success;
+//        byte[] arr = new byte[32];
+//        if (success)
+//            arr[0] = 1;
+//        return arr;
     }
 
-    public byte[] verifyBurn(byte[] CLn, byte[] CRn, byte[] y, byte[] bTransfer, byte[] proof) {
+    public boolean verifyBurn(byte[] CLn, byte[] CRn, byte[] y, byte[] bTransfer, byte[] proof) {
         BurnStatement<BN128Point> burnStatement = new BurnStatement<>(BN128Point.unserialize(CLn), BN128Point.unserialize(CRn), BN128Point.unserialize(y), new BigInteger(1, bTransfer));
         BurnProof<BN128Point> burnProof = BurnProof.unserialize(proof);
         boolean success = true;
@@ -46,9 +47,10 @@ public class Verifier {
         } catch (VerificationFailedException e) {
             success = false;
         }
-        byte[] arr = new byte[32];
-        if (success)
-            arr[0] = 1;
-        return arr;
+        return success;
+//        byte[] arr = new byte[32];
+//        if (success)
+//            arr[0] = 1;
+//        return arr;
     }
 }
