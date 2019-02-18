@@ -38,6 +38,11 @@ public class Prover {
         ZetherWitness zetherWitness = new ZetherWitness(new BigInteger(1, x), r, bTransfer, new BigInteger(1, bDiff));
         ZetherProof<BN128Point> zetherProof = zetherProver.generateProof(zetherParams, zetherStatement, zetherWitness);
 
+        System.out.println("outL: " + outL);
+        System.out.println("inL: " + inL);
+        System.out.println("inOutR: " + inOutR);
+        System.out.println("CLn: " + balanceCommitNewL);
+        System.out.println("CRn: " + balanceCommitNewR);
         return zetherProof.serialize();
     }
 
@@ -52,6 +57,8 @@ public class Prover {
         BurnWitness burnWitness = new BurnWitness(new BigInteger(1, x), new BigInteger(1, bDiff));
         BurnProof<BN128Point> burnProof = burnProver.generateProof(burnParams, burnStatement, burnWitness);
 
+        System.out.println("CLn: " + balanceCommitNewL);
+        System.out.println("CLR: " + balanceCommitNewR);
         return burnProof.serialize();
     }
 }

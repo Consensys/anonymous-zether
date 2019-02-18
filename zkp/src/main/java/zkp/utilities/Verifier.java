@@ -29,6 +29,7 @@ public class Verifier {
         try {
             zetherVerifier.verify(zetherParams, zetherStatement, zetherProof);
         } catch (VerificationFailedException e) {
+//            e.printStackTrace();
             success = false;
         }
         return success;
@@ -45,6 +46,7 @@ public class Verifier {
         try {
             burnVerifier.verify(burnParams, burnStatement, burnProof);
         } catch (VerificationFailedException e) {
+//            e.printStackTrace();
             success = false;
         }
         return success;

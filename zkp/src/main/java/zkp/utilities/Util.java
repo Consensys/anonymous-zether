@@ -5,7 +5,7 @@ public class Util {
     private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
 
     public static byte[] hexStringToByteArray(String s) {
-        s = s.substring(2);
+        s = s.substring(2).toUpperCase();
         int len = s.length();
         if (len % 2 == 1){
             len++;
