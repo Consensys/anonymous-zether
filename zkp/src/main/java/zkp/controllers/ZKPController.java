@@ -57,23 +57,23 @@ public class ZKPController {
         System.out.println("verify transfer");
         String CLn = "0x" + input.substring(2, 130);
         String CRn = "0x" + input.substring(130, 258);
-        String inL = "0x" + input.substring(258, 386);
-        String outL = "0x" + input.substring(386, 514);
+        String outL = "0x" + input.substring(258, 386);
+        String inL = "0x" + input.substring(386, 514);
         String inOutR = "0x" + input.substring(514, 642);
         String y = "0x" + input.substring(642, 770);
         String yBar = "0x" + input.substring(770,898);
         String proof = "0x" + input.substring(898);
         System.out.println("CLn: " + CLn);
         System.out.println("CRn: " + CRn);
-        System.out.println("inL: " + inL);
         System.out.println("outL: " + outL);
+        System.out.println("inL: " + inL);
         System.out.println("inOutR: " + inOutR);
         System.out.println("y: " + y);
         System.out.println("yBar: " + yBar);
         System.out.println("proof: " + proof);
         boolean isValid = verifier.verifyTransfer(
                 Util.hexStringToByteArray(CLn), Util.hexStringToByteArray(CRn),
-                Util.hexStringToByteArray(inL), Util.hexStringToByteArray(outL),
+                Util.hexStringToByteArray(outL), Util.hexStringToByteArray(inL),
                 Util.hexStringToByteArray(inOutR), Util.hexStringToByteArray(y),
                 Util.hexStringToByteArray(yBar), Util.hexStringToByteArray(proof)
         );
