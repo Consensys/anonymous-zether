@@ -14,7 +14,7 @@ public class TestController {
         System.out.println("b: " + b);
         byte[] r = Util.hexStringToByteArray(a);
         System.out.println("length: " + r.length);
-        r[r.length-1] = (byte)255;
+        r[r.length - 1] = (byte)255;
         System.out.println("return: " + Util.bytesToHex(r));
         return Util.bytesToHex(r);
     }

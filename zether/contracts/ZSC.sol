@@ -10,12 +10,11 @@ contract ERC20Interface {
 
 contract ZSC {
     ERC20Interface coin;
-    uint256 E;
     bytes32 public domainHash;
     ZKP zkp = new ZKP();
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even static) calls cost gas during EVM execution
-    uint256 constant MAX = 4294967296; // 2^32
+    // uint256 constant MAX = 4294967296; // 2^32 // save an sload, use a literal...
     mapping(bytes32 => bytes32[2][2]) public acc; // main account mapping
     mapping(bytes32 => bytes32[2][2]) public pTransfers; // storage for pending transfers
     mapping(bytes32 => address) public ethAddrs; // used for signing. needs to be public...?
@@ -75,7 +74,7 @@ contract ZSC {
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
 
-        require(bTransfer + bTotal < MAX, "Fund pushes contract past maximum value.");
+        require(bTransfer + bTotal < 4294967296, "Fund pushes contract past maximum value.");
         if (ctr[yHash] == 0) { // use this as a proxy for initialized
             ethAddrs[yHash] = msg.sender; // warning: this eth address will be _permanently_ bound to y
             ctr[yHash] = 1;
@@ -169,7 +168,7 @@ contract ZSC {
         }
 
         require(zkp.verifyTransfer(scratch[0], scratch[1], outL, inL, inOutR, y, yBar, proof), "invalid transfer proof");
-        /* verifyTransferSignature(yHash, yBar, outL, inL, inOutR, signature); */
+        verifyTransferSignature(yHash, yBar, outL, inL, inOutR, signature);
 
         acc[yHash] = scratch; // debit y's balance. make sure this (deep) copies the array
         scratch = pTransfers[yBarHash];
@@ -217,7 +216,7 @@ contract ZSC {
     function burn(bytes32[2] calldata y, uint256 bTransfer, bytes calldata proof, bytes32[3] calldata signature) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
 
-        require(0 <= bTransfer && bTransfer < MAX, "Transfer amount out of range");
+        require(0 <= bTransfer && bTransfer < 4294967296, "Transfer amount out of range");
         bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
         assembly {
             let result := 1
@@ -235,7 +234,7 @@ contract ZSC {
             }
         }
 
-        /* require(zkp.verifyBurn(scratch[0], scratch[1], y, bTransfer, proof), "invalid burn proof"); */
+        require(zkp.verifyBurn(scratch[0], scratch[1], y, bTransfer, proof), "invalid burn proof");
         verifyBurnSignature(yHash, bTransfer, signature);
         require(coin.transfer(ethAddrs[yHash], bTransfer), "This shouldn't fail... Something went severely wrong");
         // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".

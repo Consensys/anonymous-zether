@@ -14,7 +14,7 @@ public class ZKPController {
     private Verifier verifier = new Verifier();
 
     @RequestMapping("/prove-transfer")
-    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("yBar") String yBar, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff){
+    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("yBar") String yBar, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff) {
         System.out.println("prove transfer");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
@@ -35,7 +35,7 @@ public class ZKPController {
     }
 
     @RequestMapping("/prove-burn")
-    String proveBurn(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("bTransfer") String bTransfer, @RequestParam("x") String x, @RequestParam("bDiff") String bDiff){
+    String proveBurn(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("bTransfer") String bTransfer, @RequestParam("x") String x, @RequestParam("bDiff") String bDiff) {
         System.out.println("prove burn");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
@@ -53,16 +53,16 @@ public class ZKPController {
     }
 
     @RequestMapping("/verify-transfer")
-    boolean verifyProof(@RequestParam("input") String input){
+    boolean verifyProof(@RequestParam("input") String input) {
         System.out.println("verify transfer");
-        String CLn = "0x" + input.substring(2, 130);
-        String CRn = "0x" + input.substring(130, 258);
-        String outL = "0x" + input.substring(258, 386);
-        String inL = "0x" + input.substring(386, 514);
-        String inOutR = "0x" + input.substring(514, 642);
-        String y = "0x" + input.substring(642, 770);
-        String yBar = "0x" + input.substring(770,898);
-        String proof = "0x" + input.substring(898);
+        String CLn = "0x" + input.substring(10, 138);
+        String CRn = "0x" + input.substring(138, 266);
+        String outL = "0x" + input.substring(266, 394);
+        String inL = "0x" + input.substring(394, 522);
+        String inOutR = "0x" + input.substring(522, 650);
+        String y = "0x" + input.substring(650, 778);
+        String yBar = "0x" + input.substring(778, 906);
+        String proof = "0x" + input.substring(1034); // not checking length
         System.out.println("CLn: " + CLn);
         System.out.println("CRn: " + CRn);
         System.out.println("outL: " + outL);
@@ -82,13 +82,16 @@ public class ZKPController {
     }
 
     @RequestMapping("/verify-burn")
-    boolean verifyBurn(@RequestParam("input") String input){
+    boolean verifyBurn(@RequestParam("input") String input) {
+        input = input.substring(10); // skip 0x + keccak header
+
         System.out.println("verify burn");
-        String CLn = "0x" + input.substring(2, 130);
-        String CRn = "0x" + input.substring(130, 258);
-        String y = "0x" + input.substring(258, 386);
-        String bTransfer = "0x" + Integer.valueOf(input.substring(386, 450),16).toString();
-        String proof = "0x" + input.substring(450);
+        String CLn = "0x" + input.substring(10, 138);
+        String CRn = "0x" + input.substring(138, 266);
+        String y = "0x" + input.substring(266, 394);
+        String bTransfer = "0x" + input.substring(394, 458);
+        // why convert to Integer and back...? already encoded
+        String proof = "0x" + input.substring(586);
         System.out.println("CLn: " + CLn);
         System.out.println("CRn: " + CRn);
         System.out.println("y: " + y);
