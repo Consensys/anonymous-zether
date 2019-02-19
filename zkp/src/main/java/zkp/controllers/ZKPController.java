@@ -83,8 +83,6 @@ public class ZKPController {
 
     @RequestMapping("/verify-burn")
     boolean verifyBurn(@RequestParam("input") String input) {
-        input = input.substring(10); // skip 0x + keccak header
-
         System.out.println("verify burn");
         String CLn = "0x" + input.substring(10, 138);
         String CRn = "0x" + input.substring(138, 266);
