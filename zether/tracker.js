@@ -117,7 +117,7 @@ function tracker(zsc) {
             [this.zsc.pTransfers(yHash, 1, 0), this.zsc.pTransfers(yHash, 1, 1)]
         ];
         var result = [zether.add(acc[0], pTransfers[0]), zether.add(acc[1], pTransfers[1])];
-        return zether.readBalance(result[0], result[1], keypair['x'], 0, 100000) // hardcoded range...?
+        return zether.readBalance(result[0], result[1], keypair['x'], 0, 100000); // hardcoded range...?
     }
 
     this.deposit = function(value) {
@@ -134,15 +134,15 @@ function tracker(zsc) {
             }
         });
 
-        this.zsc.fund(keypair['y'], value, { from: eth.accounts[0], gas: 5470000 })
-        return "Initiating deposit."
+        this.zsc.fund(keypair['y'], value, { from: eth.accounts[0], gas: 5470000 });
+        return "Initiating deposit.";
     }
 
     this.transfer = function(yBar, value) {
         var peek = this.peek();
         if (value > this.balance) {
             if (value > peek) {
-                throw "Requested transfer amount of " + value + " exceeds available balance of " + peek + "."
+                throw "Requested transfer amount of " + value + " exceeds available balance of " + peek + ".";
             } else {
                 var events = this.zsc.RollOverOccurred();
                 events.watch(function(error, event) {
@@ -150,14 +150,14 @@ function tracker(zsc) {
                         console.log("Error: " + error);
                     } else {
                         if (that.mine(event.args['roller'])) {
-                            that.balance = peek;
+                            that.balance = peek; // warning: peek could become out-of-date for rapid calls?!?
                             events.stopWatching();
                             that.transfer(yBar, value);
                         }
                     }
                 });
                 this.zsc.rollOver(keypair['y'], { from: eth.accounts[0], gas: 5470000 });
-                return "Initiating transfer."
+                return "Initiating transfer.";
             }
         }
         var acc = [
@@ -165,7 +165,7 @@ function tracker(zsc) {
             [this.zsc.acc(yHash, 1, 0), this.zsc.acc(yHash, 1, 1)]
         ];
         var proof = zether.proveTransfer(acc[0], acc[1], keypair['y'], yBar, keypair['x'], value, this.balance - value);
-        var signature = signTransfer(yBar, proof['outL'], proof['inL'], proof['inOutR'])
+        var signature = signTransfer(yBar, proof['outL'], proof['inL'], proof['inOutR']);
         var events = this.zsc.TransferFrom();
         events.watch(function(error, event) {
             if (error) {
@@ -178,9 +178,8 @@ function tracker(zsc) {
                 }
             }
         });
-
-        this.zsc.transfer(proof['outL'], proof['inL'], proof['inOutR'], keypair['y'], yBar, proof['proof'], signature, { from: eth.accounts[0], gas: 5470000 })
-        return "Initiating transfer."
+        this.zsc.transfer(proof['outL'], proof['inL'], proof['inOutR'], keypair['y'], yBar, proof['proof'], signature, { from: eth.accounts[0], gas: 5470000 });
+        return "Initiating transfer.";
     }
 
     this.withdraw = function(value) {
@@ -202,7 +201,7 @@ function tracker(zsc) {
                     }
                 });
                 this.zsc.rollOver(keypair['y'], { from: eth.accounts[0], gas: 5470000 });
-                return "Initiating withdrawal."
+                return "Initiating withdrawal.";
             }
         }
         var acc = [
@@ -210,7 +209,7 @@ function tracker(zsc) {
             [this.zsc.acc(yHash, 1, 0), this.zsc.acc(yHash, 1, 1)]
         ];
         var proof = zether.proveBurn(acc[0], acc[1], keypair['y'], value, keypair['x'], this.balance - value);
-        var signature = signBurn(value)
+        var signature = signBurn(value);
         var events = this.zsc.BurnOccurred();
         events.watch(function(error, event) {
             if (error) {
@@ -223,10 +222,9 @@ function tracker(zsc) {
                 }
             }
         });
-
-        this.zsc.burn(keypair['y'], value, proof, signature, { from: eth.accounts[0], gas: 5470000 })
-        return "Initiating withdrawal."
+        this.zsc.burn(keypair['y'], value, proof, signature, { from: eth.accounts[0], gas: 5470000 });
+        return "Initiating withdrawal.";
     }
 
-    this.zsc.fund(keypair['y'], 0, { from: eth.accounts[0], gas: 5470000 }) // dummy "registration" deposit
+    this.zsc.fund(keypair['y'], 0, { from: eth.accounts[0], gas: 5470000 }); // dummy "registration" deposit
 }
