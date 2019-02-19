@@ -109,7 +109,7 @@ contract ZSC {
         emit FundOccurred(y);
     }
 
-    function verifyTransferSignature(bytes32 yHash, bytes32[2] memory yBar, bytes32[2] memory inL, bytes32[2] memory outL, bytes32[2] memory inOutR, bytes32[3] memory signature) view internal {
+    function verifyTransferSignature(bytes32 yHash, bytes32[2] memory yBar, bytes32[2] memory outL, bytes32[2] memory inL, bytes32[2] memory inOutR, bytes32[3] memory signature) view internal {
         // omitting the proof from the structhash. variable length would be a pain! revisit.
         bytes32 _domainHash = domainHash;
         bytes32 message;
