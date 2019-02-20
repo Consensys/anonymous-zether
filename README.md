@@ -1,16 +1,29 @@
-This repo contains utilities for a private funds transfer system (based on Benedikt Bünz's "Zether protocol") built on top of Quorum.
+# ButtletProofPOC
 
-This is a maven project, which uses [our fork of](https://github.com/QuorumEngineering/BulletProofLib) [Benedikt Bünz's Bulletproofs library](https://github.com/bbuenz/BulletProofLib) as an external dependency. It is designed to be used with a modified version of quorum, currently hosted in the [`quorum-mirror`](https://github.com/QuorumEngineering/quorum-mirror/tree/api-precompile-rpc).
+This repo contains java Buttletproofs service as well as a demo for a private funds transfer system (based on Benedikt Bünz's "Zether protocol") built on top of Quorum.
 
-To use this package, first build the above-linked `api-precompile-rpc` branch of Quorum. Then, inside the `/zkp` directory of _this_ repo, run `mvn package`. Finally, execute `zkp/src/main/java/zkp/App.java` in the background before we get started.
+### Folders in this Repo
 
-This all done, spin up your Quorum cluster, say as in the [7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes). In two separate windows, attach to two of the 7 nodes. Let's call them Alice and Bob. The first thing we're going to need is a running ERC20 contract, for which (at least) one of the two participating nodes, Alice let's say, has a balance. I won't go through the steps here; in short, you can compile [OpenZeppelin's ERC20Mintable](https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/token/ERC20/ERC20Mintable.sol) contract, deploy it, and then mint yourself some funds. I'll assume that this has already been done, and that the contract resides at the address `erc20mintableAddress = erc20mintable.address`.
+[zkp](zkp) is a maven project, which uses our [fork](https://github.com/QuorumEngineering/BulletProofLib) of [Benedikt Bünz's Bulletproofs library](https://github.com/bbuenz/BulletProofLib) as an external dependency. It is designed to be used with a modified version of quorum, currently hosted in the [quorum-mirror](https://github.com/QuorumEngineering/quorum-mirror/tree/api-precompile-rpc).
+
+[zether](zether) folder contains ZSC(Zether Smart Contract) as well as scripts to interact with it from geth console. It can be used to showcase an end-to-end demo.
+
+### User Instructions
+
+##### Prerequisites
+- Build the above-linked `api-precompile-rpc` branch of Quorum
+- Spin up a quorum cluster (may refer to [7nodes](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes))
+- Start the spring application inside the `/zkp` directory of _this_ repo. The easiest way is to import the maven project into an IDE and execute `zkp/src/main/java/zkp/App.java`.
+- [Optional] For packaging into jar file, one way is to config the efficientct jar dependency into the local `.m2` folder, import from there and run `mvn clean install`. After that run `java -jar [path to your jar file]`
+
+##### Demo
+In two separate windows, attach to two of the 7 nodes. Let's call them Alice and Bob. The first thing we're going to need is a running ERC20 contract, for which (at least) one of the two participating nodes, Alice let's say, has a balance. I won't go through the steps here; in short, you can compile [OpenZeppelin's ERC20Mintable](https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/token/ERC20/ERC20Mintable.sol) contract, deploy it, and then mint yourself some funds. I'll assume that this has already been done, and that the contract resides at the address `erc20mintableAddress = erc20mintable.address`.
 
 In both windows, execute
 ```javascript
-> loadScript('../../../BulletProofPOC/zether/tracker.js')
+> loadScript('[path to]/BulletProofPOC/zether/tracker.js')
 ```
-adjusting the path as required. In one of these windows (doesn't matter which), deploy the main Zether "ZSC" contract using
+In one of these windows (doesn't matter which), deploy the main Zether "ZSC" contract using
 ```javascript
 > var zsc = demo.deployZSC(erc20mintableAddress)
 ```
