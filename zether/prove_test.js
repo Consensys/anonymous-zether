@@ -5,10 +5,7 @@ var bDiff = 90
 var y = alice.me()
 var yHash = web3.sha3(y[0].slice(2) + y[1].slice(2), { encoding: 'hex' })
 var acc = [[alice.zsc.acc(yHash, 0, 0), alice.zsc.acc(yHash, 0, 1)],[alice.zsc.acc(yHash, 1, 0), alice.zsc.acc(yHash, 1, 1)]]
-var pTransfers = [
-    [alice.zsc.pTransfers(yHash, 0, 0), alice.zsc.pTransfers(yHash, 0, 1)],
-    [alice.zsc.pTransfers(yHash, 1, 0), alice.zsc.pTransfers(yHash, 1, 1)]
-];
+var pTransfers = [[alice.zsc.pTransfers(yHash, 0, 0), alice.zsc.pTransfers(yHash, 0, 1)],[alice.zsc.pTransfers(yHash, 1, 0), alice.zsc.pTransfers(yHash, 1, 1)]];
 
 var result = zether.proveTransfer(acc[0], acc[1], y, yBar, alice.keypair['x'], 10, 90)
 
