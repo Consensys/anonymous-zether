@@ -105,7 +105,11 @@ function tracker(zsc) {
         return keypair.y
     }
 
-    this.mine = function(address) {
+    this.secret = function() {
+        return keypair.x;
+    }
+
+    this.mine = function(address) { // only used by callbacks...
         return address[0] == keypair['y'][0] && address[1] == keypair['y'][1];
     }
 
@@ -119,7 +123,10 @@ function tracker(zsc) {
             [this.zsc.pTransfers(yHash, 1, 0), this.zsc.pTransfers(yHash, 1, 1)]
         ];
         var result = [zether.add(acc[0], pTransfers[0]), zether.add(acc[1], pTransfers[1])];
-        return zether.readBalance(result[0], result[1], keypair['x'], 0, 1000000); // hardcoded range...?
+        return zether.readBalance(result[0], result[1], keypair['x'], this.balance, this.balance + 1000000); // hardcoded range...?
+        // ^^^ i start scanning at balance instead of at 0 to get a faster return. this needs to be brute-forced, and yet...
+        // we know in advance that this.balance must be an under-estimate of full balance (including pendings)
+        // so it's faster to start here. this will mattter in practice if balances are very high, e.g. already 100000 or so
     }
 
     this.reset = function() { // reset this.balance to current account
@@ -127,8 +134,8 @@ function tracker(zsc) {
             [this.zsc.acc(yHash, 0, 0), this.zsc.acc(yHash, 0, 1)],
             [this.zsc.acc(yHash, 1, 0), this.zsc.acc(yHash, 1, 1)]
         ];
-        this.balance = zether.readBalance(acc[0], acc[1], keypair['x'], 0, 1000000);
-        return this.balance;
+        this.balance = zether.readBalance(acc[0], acc[1], keypair['x'], this.balance, this.balance + 1000000);
+        // return this.balance; // return value never used?
     }
 
     this.deposit = function(value) {
@@ -195,7 +202,7 @@ function tracker(zsc) {
     }
 
     this.withdraw = function(value) {
-        var peek = this.peek(); // for a recursive double-call, this will be wasteful technically...
+        var peek = this.peek();
         if (value > this.balance) {
             if (value > peek) {
                 throw "Requested transfer amount of " + value + " exceeds available balance of " + peek + "."
