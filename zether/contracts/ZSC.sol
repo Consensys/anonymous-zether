@@ -25,7 +25,7 @@ contract ZSC {
     event FundOccurred(bytes32[2] funder);
     event BurnOccurred(bytes32[2] burner);
     event TransferFrom(bytes32[2] sender);
-    event TransferTo(bytes32[2] recipient);
+    event TransferTo(bytes32[2] sender, bytes32[2] recipient);
 
 
     constructor(address _coin, uint256 _chainId) public {
@@ -190,7 +190,7 @@ contract ZSC {
         pTransfers[yBarHash] = scratch; // credit yBar's balance
         ctr[yHash]++;
         emit TransferFrom(y);
-        emit TransferTo(yBar);
+        emit TransferTo(y, yBar);
     }
 
     function verifyBurnSignature(bytes32 yHash, uint256 bTransfer, bytes32[3] memory signature) view internal {

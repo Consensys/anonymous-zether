@@ -47,31 +47,34 @@ The API from here on out is extremely simple. The two methods `deposit` and `wit
 ```javascript
 > alice.deposit(100)
 "Initiating deposit."
-Deposit of 100 was successful. Balance is now 100.
+> Deposit of 100 was successful. Balance is now 100.
 ```
 or
 ```javascript
 > alice.withdraw(10)
 "Initiating withdrawal."
-Withdrawal of 10 was successful. Balance is now 90.
+> Withdrawal of 10 was successful. Balance is now 90.
 ```
 To transfer between participants, in Bob's window use
 ```javascript
 > bob.me()
 ["0x2e9a19152b4c625d05cd36a6dd43f03e54ff0e76cdc01a4aaa1099174c2f327c", "0x27f3c0d1a6eac40021b128f37c4dd943a8e9d48b6f8070a1c72439d2ce8baf9f"]
 ```
-to retrieve his public key, and assign it to a local variable in Alice's window, i.e.
+to retrieve his public key and add Bob as a "friend" of Alice, i.e.
 ```javascript
-> var bob = ["0x2e9a19152b4c625d05cd36a6dd43f03e54ff0e76cdc01a4aaa1099174c2f327c", "0x27f3c0d1a6eac40021b128f37c4dd943a8e9d48b6f8070a1c72439d2ce8baf9f"]
+> alice.friend("Bob", ["0x2e9a19152b4c625d05cd36a6dd43f03e54ff0e76cdc01a4aaa1099174c2f327c", "0x27f3c0d1a6eac40021b128f37c4dd943a8e9d48b6f8070a1c72439d2ce8baf9f"]);
+"Friend added."
 ```
-Then, you can use
+Similarly, copy `alice.me()` and add Alice as a "friend" of Bob. Then, you can use
 ```javascript
-> alice.transfer(bob, 5)
+> alice.transfer("Bob", 20)
 "Initiating transfer."
-Transfer of 5 was successful. Balance now 85.
+> Transfer of 20 was successful. Balance now 70.
 ```
 In Bob's window, you should see:
 ```javascript
-Transfer received! New balance is 5.
+> Transfer received from Alice! New balance is 20.
 ```
+Bob can now transfer his newly received funds to someone else, or withdraw them.
+
 This is all there is to it. Note that all balances and transfer amounts are encrypted, and are not publicly visible. Note also however that at least must transfer must be sent or received in order for the balance to be unknown!
