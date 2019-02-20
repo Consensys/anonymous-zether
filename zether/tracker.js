@@ -55,7 +55,7 @@ function tracker(zsc) {
     this.zsc = zsc;
     this.available = 0; // reflects WOULD-BE value in acc (i.e., if rollOver were called). do not touch this manually
     // had to make it public only so that it could be modified by callbacks. don't change it yourself!
-    this.pending = 0; // represents an estimate of acc + pTransfers. this is used to speed up peeking when transfers are received
+    this.pending = 0; // represents an estimate of pTransfers alone. this is used to speed up peeking when transfers are received
 
     var that = this;
     var keypair = zether.createAccount(); // private
@@ -75,19 +75,14 @@ function tracker(zsc) {
                     }
                 }
                 // var difference = peek - that.available;
-                that.reset(); // change pending internally
-                console.log("Transfer received from " + sender + "! New balance is " + that.pending + ".");
+                that.check(); // change pending internally
+                console.log("Transfer received from " + sender + "! New balance is " + (that.available + that.pending) + ".");
                 // hard actually to report the net new value.
                 // agree... and the balance mismatch with current account is causing proof to fail
                 // i add a current account balance read everytime before transfer/withdraw to fix it
             }
         }
     });
-
-    var rollOver = function() {
-        that.available = that.pending;
-        that.zsc.rollOver(that.me(), { from: eth.accounts[0], gas: 5470000 });
-    }
 
     // these sign functions are specialized and ad-hoc. todo: implement general EIP-712.
     var signTransfer = function(yBar, outL, inL, inOutR) {
@@ -132,17 +127,12 @@ function tracker(zsc) {
         return "Friend added.";
     }
 
-    this.reset = function() { // read-only, incorporates not-yet-rolled-over receipts.
-        var acc = [
-            [this.zsc.acc(yHash, 0, 0), this.zsc.acc(yHash, 0, 1)],
-            [this.zsc.acc(yHash, 1, 0), this.zsc.acc(yHash, 1, 1)]
-        ];
+    this.check = function() {
         var pTransfers = [
             [this.zsc.pTransfers(yHash, 0, 0), this.zsc.pTransfers(yHash, 0, 1)],
             [this.zsc.pTransfers(yHash, 1, 0), this.zsc.pTransfers(yHash, 1, 1)]
         ];
-        var result = [zether.add(acc[0], pTransfers[0]), zether.add(acc[1], pTransfers[1])];
-        this.pending = zether.readBalance(result[0], result[1], keypair['x'], this.pending, this.pending + 1000000); // hardcoded range...?
+        this.pending = zether.readBalance(pTransfers[0], pTransfers[1], keypair['x'], this.pending, this.pending + 1000000); // hardcoded range...?
     }
 
     this.deposit = function(value) {
@@ -153,12 +143,11 @@ function tracker(zsc) {
             } else {
                 if (that.mine(event.args['funder'])) {
                     that.available += value;
-                    that.pending += value;
                     // ^^^ this makes sense now that deposits are immediately folded into acc, as opposed to pending
                     // the benefit is that large deposits can be made without later inducing delays (i.e., when the next transfer/withdrawal is made)
                     // the cost is that an attempt to simultaneously deposit and transfer will cause problems
                     // this is a design choice; i am happy to revisit...
-                    console.log("Deposit of " + value + " was successful. Balance is now " + that.pending + ".");
+                    console.log("Deposit of " + value + " was successful. Balance is now " + (that.available + that.pending) + ".");
                     events.stopWatching();
                 }
             }
@@ -170,8 +159,8 @@ function tracker(zsc) {
 
     this.transfer = function(name, value) {
         if (value > this.available) {
-            if (value > this.pending) {
-                throw "Requested transfer amount of " + value + " exceeds available balance of " + this.pending + ".";
+            if (value > this.available + this.pending) {
+                throw "Requested transfer amount of " + value + " exceeds available balance of " + (this.available + this.pending) + ".";
             } else {
                 var events = this.zsc.RollOverOccurred();
                 events.watch(function(error, event) {
@@ -180,12 +169,14 @@ function tracker(zsc) {
                     } else {
                         if (that.mine(event.args['roller'])) {
                             // that.available = peek; // warning: peek could become out-of-date for rapid calls?!?
+                            that.available = that.pending;
+                            that.pending = 0;
                             events.stopWatching();
                             that.transfer(name, value);
                         }
                     }
                 });
-                rollOver(); // internally credits available
+                this.zsc.rollOver(keypair['y'], { from: eth.accounts[0], gas: 5470000 });
                 return "Initiating transfer.";
             }
         }
@@ -202,8 +193,7 @@ function tracker(zsc) {
             } else {
                 if (that.mine(event.args['sender'])) {
                     that.available -= value;
-                    that.pending -= value;
-                    console.log("Transfer of " + value + " was successful. Balance now " + that.pending + ".");
+                    console.log("Transfer of " + value + " was successful. Balance now " + (that.available + that.pending) + ".");
                     events.stopWatching();
                 }
             }
@@ -214,8 +204,8 @@ function tracker(zsc) {
 
     this.withdraw = function(value) {
         if (value > this.available) {
-            if (value > this.pending) {
-                throw "Requested transfer amount of " + value + " exceeds available balance of " + this.pending + "."
+            if (value > this.available + this.pending) {
+                throw "Requested transfer amount of " + value + " exceeds available balance of " + (this.available + this.pending) + "."
             } else {
                 var events = this.zsc.RollOverOccurred();
                 events.watch(function(error, event) {
@@ -223,13 +213,15 @@ function tracker(zsc) {
                         console.log("Error: " + error);
                     } else {
                         if (that.mine(event.args['roller'])) {
-                            // that.available = peek;
+                            // that.available = peek; // warning: peek could become out-of-date for rapid calls?!?
+                            that.available = that.pending;
+                            that.pending = 0;
                             events.stopWatching();
-                            that.withdraw(value);
+                            that.transfer(name, value);
                         }
                     }
                 });
-                rollOver();
+                this.zsc.rollOver(keypair['y'], { from: eth.accounts[0], gas: 5470000 });
                 return "Initiating withdrawal.";
             }
         }
@@ -246,8 +238,7 @@ function tracker(zsc) {
             } else {
                 if (that.mine(event.args['burner'])) {
                     that.available -= value;
-                    that.pending -= value;
-                    console.log("Withdrawal of " + value + " was successful. Balance now " + that.pending + ".");
+                    console.log("Withdrawal of " + value + " was successful. Balance now " + (that.available + that.pending) + ".");
                     events.stopWatching();
                 }
             }
