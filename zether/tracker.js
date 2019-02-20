@@ -69,6 +69,8 @@ function tracker(zsc) {
                 // var difference = peek - that.balance;
                 console.log("Transfer received! New balance is " + peek + ".");
                 // hard actually to report the net new value.
+                // agree... and the balance mismatch with current account is causing proof to fail
+                // i add a current account balance read everytime before transfer/withdraw to fix it
             }
         }
     });
@@ -117,7 +119,16 @@ function tracker(zsc) {
             [this.zsc.pTransfers(yHash, 1, 0), this.zsc.pTransfers(yHash, 1, 1)]
         ];
         var result = [zether.add(acc[0], pTransfers[0]), zether.add(acc[1], pTransfers[1])];
-        return zether.readBalance(result[0], result[1], keypair['x'], 0, 100000); // hardcoded range...?
+        return zether.readBalance(result[0], result[1], keypair['x'], 0, 1000000); // hardcoded range...?
+    }
+
+    this.reset = function() { // reset this.balance to current account
+        var acc = [
+            [this.zsc.acc(yHash, 0, 0), this.zsc.acc(yHash, 0, 1)],
+            [this.zsc.acc(yHash, 1, 0), this.zsc.acc(yHash, 1, 1)]
+        ];
+        this.balance = zether.readBalance(acc[0], acc[1], keypair['x'], 0, 1000000);
+        return this.balance;
     }
 
     this.deposit = function(value) {
@@ -150,7 +161,8 @@ function tracker(zsc) {
                         console.log("Error: " + error);
                     } else {
                         if (that.mine(event.args['roller'])) {
-                            that.balance = peek; // warning: peek could become out-of-date for rapid calls?!?
+                            // that.balance = peek; // warning: peek could become out-of-date for rapid calls?!?
+                            that.reset();
                             events.stopWatching();
                             that.transfer(yBar, value);
                         }
@@ -194,7 +206,8 @@ function tracker(zsc) {
                         console.log("Error: " + error);
                     } else {
                         if (that.mine(event.args['roller'])) {
-                            that.balance = peek;
+                            // that.balance = peek;
+                            that.reset();
                             events.stopWatching();
                             that.withdraw(value);
                         }
