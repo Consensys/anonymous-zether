@@ -80,7 +80,7 @@ contract ZSC {
             ctr[yHash] = 1;
         }
         // if pTransfers[yHash] == [0, 0, 0, 0] then an add and a write will be equivalent...
-        bytes32[2][2] memory scratch = [[bytes32(0), bytes32(0)], [bytes32(0), bytes32(0)]]; // g = [1, 2], save an sload
+        bytes32[2][2] memory scratch = [[bytes32(0), bytes32(0)], [bytes32(0), bytes32(0)]];
         // won't let me assign this array using literals / casts
         assembly {
             let m := mload(0x40)
@@ -92,7 +92,7 @@ contract ZSC {
                 revert(0, 0)
             }
         }
-        scratch[1] = pTransfers[yHash][0]; // solidity puts this in a weird memory location...?
+        scratch[1] = acc[yHash][0]; // solidity puts this in a weird memory location...?
         assembly {
             let m := mload(0x40)
             mstore(m, mload(mload(scratch)))
@@ -103,7 +103,7 @@ contract ZSC {
                 revert(0, 0)
             }
         }
-        pTransfers[yHash][0] = scratch[0];
+        acc[yHash][0] = scratch[0];
         require(coin.transferFrom(ethAddrs[yHash], address(this), bTransfer), "Transfer from sender failed");
         bTotal += bTransfer;
         emit FundOccurred(y);
