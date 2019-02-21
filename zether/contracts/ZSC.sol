@@ -21,6 +21,7 @@ contract ZSC {
     // not implementing account locking for now...revisit
     mapping(bytes32 => uint256) public ctr;
 
+    event RegistrationOccurred(bytes32[2] registerer, address addr);
     event RollOverOccurred(bytes32[2] roller);
     event FundOccurred(bytes32[2] funder);
     event BurnOccurred(bytes32[2] burner);
@@ -70,15 +71,22 @@ contract ZSC {
         emit RollOverOccurred(y);
     }
 
+    function register(bytes32[2] calldata y) external{
+        bytes32 yHash = keccak256(abi.encodePacked(y));
+
+        require(ctr[yHash] == 0, "Account already registered.");
+        ethAddrs[yHash] = msg.sender; // eth address will be _permanently_ bound to y
+        // warning: front-running danger. client should verify that he was not front-run before depositing funds to y!
+        ctr[yHash] = 1;
+        emit RegistrationOccurred(y, msg.sender); // client must use this event callback to confirm.
+    }
+
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
 
+        // registration check here would be redundant, as any `transferFrom` the 0 address will necessarily fail. save an sload
         require(bTransfer < 4294967296, "Deposit amount out of range."); // uint, so other way not necessary?
         require(bTransfer + bTotal < 4294967296, "Fund pushes contract past maximum value.");
-        if (ctr[yHash] == 0) { // use this as a proxy for initialized
-            ethAddrs[yHash] = msg.sender; // warning: this eth address will be _permanently_ bound to y
-            ctr[yHash] = 1;
-        }
         // if pTransfers[yHash] == [0, 0, 0, 0] then an add and a write will be equivalent...
         bytes32[2][2] memory scratch = [[bytes32(0), bytes32(0)], [bytes32(0), bytes32(0)]];
         // won't let me assign this array using literals / casts
@@ -105,6 +113,8 @@ contract ZSC {
         }
         acc[yHash][0] = scratch[0];
         require(coin.transferFrom(ethAddrs[yHash], address(this), bTransfer), "Transfer from sender failed");
+        // front-running here would be disadvantageous, but still prevent it here by using ethAddrs[yHash] instead of msg.sender
+        // also adds flexibility: can later issue messages from arbitrary ethereum accounts.
         bTotal += bTransfer;
         emit FundOccurred(y);
     }
@@ -145,6 +155,11 @@ contract ZSC {
         // if public, then must copy to memory twice, instead of once...
         bytes32 yHash = keccak256(abi.encodePacked(y));
         bytes32 yBarHash = keccak256(abi.encodePacked(yBar));
+
+        require(ctr[yBarHash] != 0, "Unregistered recipient!"); // this presents an "opportunistic registration griefing attack"
+        // if funds are sent to an unregistered key yBar, a malicious griefer could then register his own ethereum address to yBar before the intended recipient does
+        // this would force all subsequent withdrawals from yBar to go to the adversary's address. (though could not be _initiated_ by adv., who doesn't own sk of yBar)
+        // owner of yBar could always transfer balance to a new public key yBar2 to which he actually is registered, but this would be a pain and would require him to be alert
 
         bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
         assembly {
@@ -215,6 +230,7 @@ contract ZSC {
     function burn(bytes32[2] calldata y, uint256 bTransfer, bytes calldata proof, bytes32[3] calldata signature) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
 
+        require(ctr[yHash] != 0, "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
         require(0 <= bTransfer && bTransfer < 4294967296, "Transfer amount out of range");
         bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
         assembly {
