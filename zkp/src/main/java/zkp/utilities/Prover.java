@@ -47,7 +47,7 @@ public class Prover {
     public byte[] proveBurn(byte[] CL, byte[] CR, byte[] yBytes, byte[] bTransferBytes, byte[] x, byte[] bDiff) {
         // again, the contract will immediately roll over, so must fold in STALE pendings
 
-        BN128Point g = Params.zetherGenerator();
+        BN128Point g = Params.burnGenerator();
         BigInteger bTransfer = new BigInteger(1, bTransferBytes);
         BN128Point y = BN128Point.unserialize(yBytes);
 
