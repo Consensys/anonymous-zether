@@ -155,7 +155,12 @@ function tracker(zsc) {
 
     this.deposit = function(value) {
         var events = this.zsc.FundOccurred();
+        var timer = setTimeout(function(){
+            events.stopWatching();
+            console.log("deposit event listener expired...")
+        }, 5000)
         events.watch(function(error, event) {
+            clearTimeout(timer);
             if (error) {
                 console.log("Error: " + error);
             } else {
@@ -181,7 +186,12 @@ function tracker(zsc) {
                 throw "Requested transfer amount of " + value + " exceeds available balance of " + (this.available + this.pending) + ".";
             } else {
                 var events = this.zsc.RollOverOccurred();
+                var timer = setTimeout(function(){
+                    events.stopWatching();
+                    console.log("rollover listener expired...")
+                }, 5000)
                 events.watch(function(error, event) {
+                    clearTimeout(timer);
                     if (error) {
                         console.log("Error: " + error);
                     } else {
@@ -206,7 +216,12 @@ function tracker(zsc) {
         var proof = zether.proveTransfer(acc[0], acc[1], keypair['y'], friends[name], keypair['x'], value, this.available - value);
         var signature = signTransfer(friends[name], proof['outL'], proof['inL'], proof['inOutR']);
         var events = this.zsc.TransferTo();
+        var timer = setTimeout(function(){
+            events.stopWatching();
+            console.log("transfer listener expired...")
+        }, 5000)
         events.watch(function(error, event) {
+            clearTimeout(timer);
             if (error) {
                 console.log("Error: " + error);
             } else {
@@ -227,7 +242,12 @@ function tracker(zsc) {
                 throw "Requested transfer amount of " + value + " exceeds available balance of " + (this.available + this.pending) + "."
             } else {
                 var events = this.zsc.RollOverOccurred();
+                var timer = setTimeout(function(){
+                    events.stopWatching();
+                    console.log("rollover event listener expired...")
+                }, 5000)
                 events.watch(function(error, event) {
+                    clearTimeout(timer);
                     if (error) {
                         console.log("Error: " + error);
                     } else {
@@ -252,7 +272,12 @@ function tracker(zsc) {
         var proof = zether.proveBurn(acc[0], acc[1], keypair['y'], value, keypair['x'], this.available - value);
         var signature = signBurn(value);
         var events = this.zsc.BurnOccurred();
+        var timer = setTimeout(function(){
+            events.stopWatching();
+            console.log("withdraw listener expired...")
+        }, 5000)
         events.watch(function(error, event) {
+            clearTimeout(timer);
             if (error) {
                 console.log("Error: " + error);
             } else {
