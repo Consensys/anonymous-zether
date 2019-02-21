@@ -24,7 +24,6 @@ contract ZSC {
     event RollOverOccurred(bytes32[2] roller);
     event FundOccurred(bytes32[2] funder);
     event BurnOccurred(bytes32[2] burner);
-    event TransferFrom(bytes32[2] sender);
     event TransferTo(bytes32[2] sender, bytes32[2] recipient);
 
 
@@ -189,7 +188,6 @@ contract ZSC {
         }
         pTransfers[yBarHash] = scratch; // credit yBar's balance
         ctr[yHash]++;
-        emit TransferFrom(y);
         emit TransferTo(y, yBar);
     }
 
