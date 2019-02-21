@@ -135,6 +135,24 @@ function tracker(zsc) {
         this.pending = zether.readBalance(pTransfers[0], pTransfers[1], keypair['x'], this.pending, this.pending + 1000000); // hardcoded range...?
     }
 
+    // still useful for debug
+    this.peek = function() {
+      var acc = [
+          [this.zsc.acc(yHash, 0, 0), this.zsc.acc(yHash, 0, 1)],
+          [this.zsc.acc(yHash, 1, 0), this.zsc.acc(yHash, 1, 1)]
+      ];
+      var available = zether.readBalance(acc[0], acc[1], keypair['x'], 0, 1000000); // hardcoded range...?
+      var pTransfers = [
+          [this.zsc.pTransfers(yHash, 0, 0), this.zsc.pTransfers(yHash, 0, 1)],
+          [this.zsc.pTransfers(yHash, 1, 0), this.zsc.pTransfers(yHash, 1, 1)]
+      ];
+      var pending = zether.readBalance(pTransfers[0], pTransfers[1], keypair['x'], 0, 1000000); // hardcoded range...?
+      return {
+        "available": available,
+        "pending": pending
+      }
+    }
+
     this.deposit = function(value) {
         var events = this.zsc.FundOccurred();
         events.watch(function(error, event) {
