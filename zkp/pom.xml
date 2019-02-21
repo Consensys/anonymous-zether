@@ -7,6 +7,7 @@
     <groupId>zkp</groupId>
     <artifactId>zkp</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -19,13 +20,27 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <!--<dependency>-->
+            <!--<groupId>local</groupId>-->
+            <!--<artifactId>efficientct</artifactId>-->
+            <!--<version>1.0.SNAPSHOT</version>-->
+        <!--</dependency>-->
         <dependency>
-            <groupId>edu.stanford.cs.crypto</groupId>
+            <groupId>>edu.stanford.cs.crypto</groupId>
             <artifactId>efficientct</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/resources/efficientct.jar</systemPath>
+            <systemPath>${project.basedir}/src/main/resources/efficientct.jar</systemPath>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
