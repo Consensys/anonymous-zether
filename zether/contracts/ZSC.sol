@@ -24,7 +24,7 @@ contract ZSC {
     event RollOverOccurred(bytes32[2] roller);
     event FundOccurred(bytes32[2] funder);
     event BurnOccurred(bytes32[2] burner);
-    event TransferTo(bytes32[2] sender, bytes32[2] recipient);
+    event TransferOccurred(bytes32[2] sender, bytes32[2] recipient);
 
 
     constructor(address _coin, uint256 _chainId) public {
@@ -73,6 +73,7 @@ contract ZSC {
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
 
+        require(bTransfer < 4294967296, "Deposit amount out of range."); // uint, so other way not necessary?
         require(bTransfer + bTotal < 4294967296, "Fund pushes contract past maximum value.");
         if (ctr[yHash] == 0) { // use this as a proxy for initialized
             ethAddrs[yHash] = msg.sender; // warning: this eth address will be _permanently_ bound to y
@@ -188,7 +189,7 @@ contract ZSC {
         }
         pTransfers[yBarHash] = scratch; // credit yBar's balance
         ctr[yHash]++;
-        emit TransferTo(y, yBar);
+        emit TransferOccurred(y, yBar);
     }
 
     function verifyBurnSignature(bytes32 yHash, uint256 bTransfer, bytes32[3] memory signature) view internal {
