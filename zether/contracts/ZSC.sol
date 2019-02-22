@@ -14,7 +14,7 @@ contract ZSC {
     ZKP zkp = new ZKP();
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even static) calls cost gas during EVM execution
-    // uint256 constant MAX = 4294967296; // 2^32 // save an sload, use a literal...
+    // uint256 constant MAX = 4294967295; // 2^32 - 1 // save an sload, use a literal...
     mapping(bytes32 => bytes32[2][2]) public acc; // main account mapping
     mapping(bytes32 => bytes32[2][2]) public pTransfers; // storage for pending transfers
     mapping(bytes32 => address) public ethAddrs; // used for signing. needs to be public...?
@@ -85,8 +85,8 @@ contract ZSC {
         bytes32 yHash = keccak256(abi.encodePacked(y));
 
         // registration check here would be redundant, as any `transferFrom` the 0 address will necessarily fail. save an sload
-        require(bTransfer < 4294967296, "Deposit amount out of range."); // uint, so other way not necessary?
-        require(bTransfer + bTotal < 4294967296, "Fund pushes contract past maximum value.");
+        require(bTransfer <= 4294967295, "Deposit amount out of range."); // uint, so other way not necessary?
+        require(bTransfer + bTotal <= 4294967295, "Fund pushes contract past maximum value.");
         // if pTransfers[yHash] == [0, 0, 0, 0] then an add and a write will be equivalent...
         bytes32[2][2] memory scratch = [[bytes32(0), bytes32(0)], [bytes32(0), bytes32(0)]];
         // won't let me assign this array using literals / casts
@@ -231,7 +231,7 @@ contract ZSC {
         bytes32 yHash = keccak256(abi.encodePacked(y));
 
         require(ctr[yHash] != 0, "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
-        require(0 <= bTransfer && bTransfer < 4294967296, "Transfer amount out of range");
+        require(0 <= bTransfer && bTransfer <= 4294967295, "Transfer amount out of range");
         bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
         assembly {
             let result := 1
