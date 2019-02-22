@@ -71,7 +71,7 @@ contract ZSC {
         emit RollOverOccurred(y);
     }
 
-    function register(bytes32[2] calldata y) external{
+    function register(bytes32[2] calldata y) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
 
         require(ctr[yHash] == 0, "Account already registered.");

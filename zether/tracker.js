@@ -156,23 +156,27 @@ function tracker(zsc) {
         var timer = setTimeout(function() {
             events.stopWatching();
             console.log("Deposit failed...")
-        }, 1000);
-        events.watch(function(error, event) {
-            clearTimeout(timer);
+        }, 5000);
+        this.zsc.fund(keypair['y'], value, { from: eth.accounts[0], gas: 5470000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
-            } else if (that.mine(event.args['funder'])) {
-                that.available += value;
-                // ^^^ this makes sense now that deposits are immediately folded into acc, as opposed to pending
-                // the benefit is that large deposits can be made without later inducing delays (i.e., when the next transfer/withdrawal is made)
-                // the cost is that an attempt to simultaneously deposit and transfer will cause problems
-                // this is a design choice; i am happy to revisit...
-                console.log("Deposit of " + value + " was successful. Balance is now " + (that.available + that.pending) + ".");
-                events.stopWatching();
+            } else {
+                events.watch(function(error, event) {
+                    if (error) {
+                        console.log("Error: " + error);
+                    } else if (txHash == event.transactionHash) {
+                        clearTimeout(timer);
+                        that.available += value;
+                        // ^^^ this makes sense now that deposits are immediately folded into acc, as opposed to pending
+                        // the benefit is that large deposits can be made without later inducing delays (i.e., when the next transfer/withdrawal is made)
+                        // the cost is that an attempt to simultaneously deposit and transfer will cause problems
+                        // this is a design choice; i am happy to revisit...
+                        console.log("Deposit of " + value + " was successful. Balance is now " + (that.available + that.pending) + ".");
+                        events.stopWatching();
+                    }
+                });
             }
         });
-
-        this.zsc.fund(keypair['y'], value, { from: eth.accounts[0], gas: 5470000 });
         return "Initiating deposit.";
     }
 
@@ -186,22 +190,27 @@ function tracker(zsc) {
                     events.stopWatching();
                     console.log("Roll over failed...")
                 }, 5000);
-                events.watch(function(error, event) {
-                    clearTimeout(timer);
+                this.zsc.rollOver(keypair['y'], { from: eth.accounts[0], gas: 5470000 }, function(error, txHash) {
                     if (error) {
                         console.log("Error: " + error);
                     } else {
-                        // console.log("===== roll over =====") // better to hide this from the user i think...?
-                        if (that.mine(event.args['roller'])) {
-                            // that.available = peek; // warning: peek could become out-of-date for rapid calls?!?
-                            that.available += that.pending;
-                            that.pending = 0;
-                            events.stopWatching();
-                            that.transfer(name, value);
-                        }
+                        events.watch(function(error, event) {
+                            if (error) {
+                                console.log("Error: " + error);
+                            } else {
+                                // console.log("===== roll over =====") // better to hide this from the user i think...?
+                                if (txHash == event.transactionHash) {
+                                    clearTimeout(timer);
+                                    // that.available = peek; // warning: peek could become out-of-date for rapid calls?!?
+                                    that.available += that.pending;
+                                    that.pending = 0;
+                                    events.stopWatching();
+                                    that.transfer(name, value);
+                                }
+                            }
+                        });
                     }
                 });
-                this.zsc.rollOver(keypair['y'], { from: eth.accounts[0], gas: 5470000 });
                 return "Initiating transfer.";
             }
         }
@@ -216,17 +225,23 @@ function tracker(zsc) {
             events.stopWatching();
             console.log("Transfer failed...")
         }, 5000);
-        events.watch(function(error, event) {
-            clearTimeout(timer);
+        this.zsc.transfer(proof['outL'], proof['inL'], proof['inOutR'], keypair['y'], friends[name], proof['proof'], signature, { from: eth.accounts[0], gas: 5470000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
-            } else if (that.mine(event.args['sender'])) {
-                that.available -= value;
-                console.log("Transfer of " + value + " was successful. Balance now " + (that.available + that.pending) + ".");
-                events.stopWatching();
+            } else {
+                events.watch(function(error, event) {
+                    // console.log("TransferOccurred event captured")
+                    if (error) {
+                        console.log("Error: " + error);
+                    } else if (txHash == event.transactionHash) {
+                        clearTimeout(timer);
+                        that.available -= value;
+                        console.log("Transfer of " + value + " was successful. Balance now " + (that.available + that.pending) + ".");
+                        events.stopWatching();
+                    }
+                });
             }
         });
-        this.zsc.transfer(proof['outL'], proof['inL'], proof['inOutR'], keypair['y'], friends[name], proof['proof'], signature, { from: eth.accounts[0], gas: 5470000 });
         return "Initiating transfer.";
     }
 
@@ -240,22 +255,27 @@ function tracker(zsc) {
                     events.stopWatching();
                     console.log("Roll over failed...")
                 }, 5000);
-                events.watch(function(error, event) {
-                    clearTimeout(timer);
+                this.zsc.rollOver(keypair['y'], { from: eth.accounts[0], gas: 5470000 }, function(error, txHash) {
                     if (error) {
                         console.log("Error: " + error);
                     } else {
-                        // console.log("===== roll over =====")
-                        if (that.mine(event.args['roller'])) {
-                            // that.available = peek; // warning: peek could become out-of-date for rapid calls?!?
-                            that.available += that.pending;
-                            that.pending = 0;
-                            events.stopWatching();
-                            that.withdraw(value);
-                        }
+                        events.watch(function(error, event) {
+                            if (error) {
+                                console.log("Error: " + error);
+                            } else {
+                                // console.log("===== roll over =====")
+                                if (txHash == event.transactionHash) {
+                                    clearTimeout(timer);
+                                    // that.available = peek; // warning: peek could become out-of-date for rapid calls?!?
+                                    that.available += that.pending;
+                                    that.pending = 0;
+                                    events.stopWatching();
+                                    that.withdraw(value);
+                                }
+                            }
+                        });
                     }
                 });
-                this.zsc.rollOver(keypair['y'], { from: eth.accounts[0], gas: 5470000 });
                 return "Initiating withdrawal.";
             }
         }
@@ -270,17 +290,22 @@ function tracker(zsc) {
             events.stopWatching();
             console.log("Withdrawal failed...")
         }, 5000);
-        events.watch(function(error, event) {
-            clearTimeout(timer);
+        this.zsc.burn(keypair['y'], value, proof, signature, { from: eth.accounts[0], gas: 5470000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
-            } else if (that.mine(event.args['burner'])) {
-                that.available -= value;
-                console.log("Withdrawal of " + value + " was successful. Balance now " + (that.available + that.pending) + ".");
-                events.stopWatching();
+            } else {
+                events.watch(function(error, event) {
+                    if (error) {
+                        console.log("Error: " + error);
+                    } else if (txHash == event.transactionHash) {
+                        clearTimeout(timer);
+                        that.available -= value;
+                        console.log("Withdrawal of " + value + " was successful. Balance now " + (that.available + that.pending) + ".");
+                        events.stopWatching();
+                    }
+                });
             }
         });
-        this.zsc.burn(keypair['y'], value, proof, signature, { from: eth.accounts[0], gas: 5470000 });
         return "Initiating withdrawal.";
     }
 
@@ -290,14 +315,15 @@ function tracker(zsc) {
         console.log("Initial registration failed...!")
     }, 5000);
     register.watch(function(error, event) {
-        clearTimeout(timer);
         if (error) {
             console.log("Error: " + error);
         } else if (that.mine(event.args['registerer'])) {
-            if (event.args['addr'] != eth.accounts[0])
+            clearTimeout(timer);
+            if (event.args['addr'] != eth.accounts[0]) {
                 console.log("Registration process compromised! Create a new tracker and do not use this one.");
-            // else
-            //     console.log("Initial registration successful.");
+            } else {
+                console.log("Initial registration successful.");
+            }
             register.stopWatching();
         }
     });
