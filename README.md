@@ -1,6 +1,6 @@
-# ButtletProofPOC
+# BulletProofPOC
 
-This repo contains a Java-based Bulletproofs service as well as a demo for a private funds transfer system (based on Benedikt Bünz's "Zether protocol"), built on top of Quorum.
+This repo contains a Java-based _Bulletproofs_ service, as well as a demo for a _private funds transfer_ system (based on Benedikt Bünz's "Zether protocol"), built on top of Quorum.
 
 ### Folders in this Repo
 

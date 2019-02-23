@@ -168,14 +168,12 @@ contract ZSC {
             mstore(m, mload(mload(scratch)))
             mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
             calldatacopy(add(m, 0x40), 0x04, 0x40) // copy outL to ongoing memory block
-            mstore(add(m, 0x80), 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000) // group order - 1
-            result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
+            mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(m, 0x60)))) // negate y in Fp
             result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * inL ^ -1
             mstore(m, mload(mload(add(scratch, 0x20))))
             mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
             calldatacopy(add(m, 0x40), 0x84, 0x40) // copy inOutR to memory block
-            mstore(add(m, 0x80), 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000) // muls are expensive, but...
-            result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
+            mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(m, 0x60))))
             result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(scratch, 0x20)), 0x40)) // scratch[1] = acc[yHash][1] * inOutR ^ -1
             if iszero(result) {
                 revert(0, 0)
