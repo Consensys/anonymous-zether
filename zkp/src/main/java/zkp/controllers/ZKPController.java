@@ -14,22 +14,27 @@ public class ZKPController {
     private Verifier verifier = new Verifier();
 
     @RequestMapping("/prove-transfer")
-    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("yBar") String yBar, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff) {
+    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("outIndex") String outIndex, @RequestParam("inIndex") String inIndex) {
         System.out.println("prove transfer");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
         System.out.println("y: " + y);
-        System.out.println("yBar: " + yBar);
         System.out.println("x: " + x);
         System.out.println("r: " + r);
         System.out.println("bTransfer: " + bTransfer);
         System.out.println("bDiff: " + bDiff);
+        System.out.println("outIndex: " + outIndex);
+        System.out.println("inIndex: " + inIndex);
         String proof = Util.bytesToHex(prover.proveTransfer(
-                Util.hexStringToByteArray(CL), Util.hexStringToByteArray(CR),
-                Util.hexStringToByteArray(y), Util.hexStringToByteArray(yBar),
-                Util.hexStringToByteArray(x), Util.hexStringToByteArray(r),
-                Util.hexStringToByteArray(bTransfer), Util.hexStringToByteArray(bDiff)
-        ));
+                Util.hexStringsToByteArray(CL),
+                Util.hexStringsToByteArray(CR),
+                Util.hexStringsToByteArray(y),
+                Util.hexStringToByteArray(x),
+                Util.hexStringToByteArray(r),
+                Util.hexStringToByteArray(bTransfer),
+                Util.hexStringToByteArray(bDiff),
+                Util.hexStringToByteArray(outIndex),
+                Util.hexStringToByteArray(inIndex)));
         System.out.println("proof: " + proof);
         return proof;
     }
@@ -44,9 +49,12 @@ public class ZKPController {
         System.out.println("bTransfer: " + bTransfer);
         System.out.println("bDiff: " + bDiff);
         String proof = Util.bytesToHex(prover.proveBurn(
-                Util.hexStringToByteArray(CL), Util.hexStringToByteArray(CR),
-                Util.hexStringToByteArray(y), Util.hexStringToByteArray(bTransfer),
-                Util.hexStringToByteArray(x), Util.hexStringToByteArray(bDiff)
+                Util.hexStringToByteArray(CL),
+                Util.hexStringToByteArray(CR),
+                Util.hexStringToByteArray(y),
+                Util.hexStringToByteArray(bTransfer),
+                Util.hexStringToByteArray(x),
+                Util.hexStringToByteArray(bDiff)
         ));
         System.out.println("proof: " + proof);
         return proof;
@@ -72,10 +80,14 @@ public class ZKPController {
         System.out.println("yBar: " + yBar);
         System.out.println("proof: " + proof);
         boolean isValid = verifier.verifyTransfer(
-                Util.hexStringToByteArray(CLn), Util.hexStringToByteArray(CRn),
-                Util.hexStringToByteArray(outL), Util.hexStringToByteArray(inL),
-                Util.hexStringToByteArray(inOutR), Util.hexStringToByteArray(y),
-                Util.hexStringToByteArray(yBar), Util.hexStringToByteArray(proof)
+                Util.hexStringToByteArray(CLn),
+                Util.hexStringToByteArray(CRn),
+                Util.hexStringToByteArray(outL),
+                Util.hexStringToByteArray(inL),
+                Util.hexStringToByteArray(inOutR),
+                Util.hexStringToByteArray(y),
+                Util.hexStringToByteArray(yBar),
+                Util.hexStringToByteArray(proof)
         );
         System.out.println(" >>>>> " + isValid);
         return isValid;
@@ -96,8 +108,10 @@ public class ZKPController {
         System.out.println("bTransfer: " + bTransfer);
         System.out.println("proof: " + proof);
         boolean isValid = verifier.verifyBurn(
-                Util.hexStringToByteArray(CLn), Util.hexStringToByteArray(CRn),
-                Util.hexStringToByteArray(y), Util.hexStringToByteArray(bTransfer),
+                Util.hexStringToByteArray(CLn),
+                Util.hexStringToByteArray(CRn),
+                Util.hexStringToByteArray(y),
+                Util.hexStringToByteArray(bTransfer),
                 Util.hexStringToByteArray(proof)
         );
         System.out.println(" >>>>> " + isValid);

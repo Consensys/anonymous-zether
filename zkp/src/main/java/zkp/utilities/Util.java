@@ -19,6 +19,17 @@ public class Util {
         return data;
     }
 
+
+    public static byte[][] hexStringsToByteArray(String s) { // assumes that s is 0x + a concatenation of 64-byte hex strings!
+        s = s.substring(2).toUpperCase();
+        int size = s.length() / 64;
+        byte[][] data = new byte[64][size];
+        for (int i = 0; i < size; i++) {
+            data[i] = hexStringToByteArray(s.substring(i * 64, (i + 1) * 64));
+        }
+        return data;
+    }
+
     public static String bytesToHex(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2 + 2];
         hexChars[0] = '0';
