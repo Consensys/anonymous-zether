@@ -14,7 +14,7 @@ public class ZKPController {
     private Verifier verifier = new Verifier();
 
     @RequestMapping("/prove-transfer")
-    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("outIndex") String outIndex, @RequestParam("inIndex") String inIndex) {
+    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("gEpoch") String gEpoch, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("index") String index) {
         System.out.println("prove transfer");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
@@ -23,24 +23,23 @@ public class ZKPController {
         System.out.println("r: " + r);
         System.out.println("bTransfer: " + bTransfer);
         System.out.println("bDiff: " + bDiff);
-        System.out.println("outIndex: " + outIndex);
-        System.out.println("inIndex: " + inIndex);
+        System.out.println("index: " + index);
         String proof = Util.bytesToHex(prover.proveTransfer(
                 Util.hexStringsToByteArray(CL),
                 Util.hexStringsToByteArray(CR),
                 Util.hexStringsToByteArray(y),
+                Util.hexStringToByteArray(gEpoch),
                 Util.hexStringToByteArray(x),
                 Util.hexStringToByteArray(r),
                 Util.hexStringToByteArray(bTransfer),
                 Util.hexStringToByteArray(bDiff),
-                Util.hexStringToByteArray(outIndex),
-                Util.hexStringToByteArray(inIndex)));
+                Util.hexStringToByteArray(index)));
         System.out.println("proof: " + proof);
         return proof;
     }
 
     @RequestMapping("/prove-burn")
-    String proveBurn(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("bTransfer") String bTransfer, @RequestParam("x") String x, @RequestParam("bDiff") String bDiff) {
+    String proveBurn(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("bTransfer") String bTransfer, @RequestParam("gEpoch") String gEpoch, @RequestParam("x") String x, @RequestParam("bDiff") String bDiff) {
         System.out.println("prove burn");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
@@ -53,6 +52,7 @@ public class ZKPController {
                 Util.hexStringToByteArray(CR),
                 Util.hexStringToByteArray(y),
                 Util.hexStringToByteArray(bTransfer),
+                Util.hexStringToByteArray(gEpoch),
                 Util.hexStringToByteArray(x),
                 Util.hexStringToByteArray(bDiff)
         ));
