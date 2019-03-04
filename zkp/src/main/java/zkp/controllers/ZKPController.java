@@ -25,9 +25,9 @@ public class ZKPController {
         System.out.println("bDiff: " + bDiff);
         System.out.println("index: " + index);
         String proof = Util.bytesToHex(prover.proveTransfer(
-                Util.hexStringsToByteArray(CL),
-                Util.hexStringsToByteArray(CR),
-                Util.hexStringsToByteArray(y),
+                Util.hexStringsToByteArrays(CL),
+                Util.hexStringsToByteArrays(CR),
+                Util.hexStringsToByteArrays(y),
                 Util.hexStringToByteArray(epoch), // let's pass this as a padded, 32-byte (hex) integer.
                 Util.hexStringToByteArray(x),
                 Util.hexStringToByteArray(r),
@@ -61,32 +61,31 @@ public class ZKPController {
     }
 
     @RequestMapping("/verify-transfer")
-    boolean verifyProof(@RequestParam("input") String input) {
+    boolean verifyTransfer(@RequestParam("input") String input) {
         System.out.println("verify transfer");
-        String CLn = "0x" + input.substring(10, 138);
-        String CRn = "0x" + input.substring(138, 266);
-        String outL = "0x" + input.substring(266, 394);
-        String inL = "0x" + input.substring(394, 522);
-        String inOutR = "0x" + input.substring(522, 650);
-        String y = "0x" + input.substring(650, 778);
-        String yBar = "0x" + input.substring(778, 906);
-        String proof = "0x" + input.substring(1034); // not checking length
-        System.out.println("CLn: " + CLn);
-        System.out.println("CRn: " + CRn);
-        System.out.println("outL: " + outL);
-        System.out.println("inL: " + inL);
-        System.out.println("inOutR: " + inOutR);
+        int size = Integer.parseInt(input.substring(648, 712), 16); // CL's length is between bytes 0x144 and 0x164.
+        String CL = "0x" + input.substring(712, 712 + size * 128); // bytes 0x164 to 0x162 + 0x40 * size
+        String CR = "0x" + input.substring(776 + size * 128, 776 + 2 * size * 128); // 0x164 + 0x40 * size + 0x20 length header
+        String L = "0x" + input.substring(840 + 2 * size * 128, 840 + 3 * size * 128); // etc.
+        String R = "0x" + input.substring(200, 328);
+        String y = "0x" + input.substring(904 + 3 * size * 128, 904 + 4 * size * 128);
+        String epoch = "0x" + input.substring(392, 456);
+        String u = "0x" + input.substring(456, 584);
+        String proof = "0x" + input.substring(968 + 4 * size * 128); // not checking length
+        System.out.println("CLn: " + CL);
+        System.out.println("CRn: " + CR);
+        System.out.println("outL: " + L);
+        System.out.println("inL: " + R);
         System.out.println("y: " + y);
-        System.out.println("yBar: " + yBar);
         System.out.println("proof: " + proof);
         boolean isValid = verifier.verifyTransfer(
-                Util.hexStringToByteArray(CLn),
-                Util.hexStringToByteArray(CRn),
-                Util.hexStringToByteArray(outL),
-                Util.hexStringToByteArray(inL),
-                Util.hexStringToByteArray(inOutR),
-                Util.hexStringToByteArray(y),
-                Util.hexStringToByteArray(yBar),
+                Util.hexStringsToByteArrays(CL),
+                Util.hexStringsToByteArrays(CR),
+                Util.hexStringsToByteArrays(L),
+                Util.hexStringToByteArray(R),
+                Util.hexStringsToByteArrays(y),
+                Util.hexStringToByteArray(epoch),
+                Util.hexStringToByteArray(u),
                 Util.hexStringToByteArray(proof)
         );
         System.out.println(" >>>>> " + isValid);
@@ -100,8 +99,10 @@ public class ZKPController {
         String CRn = "0x" + input.substring(138, 266);
         String y = "0x" + input.substring(266, 394);
         String bTransfer = "0x" + input.substring(394, 458);
-        // why convert to Integer and back...? already encoded
-        String proof = "0x" + input.substring(586);
+        String epoch = "0x" + input.substring(458, 522);
+        String u = "0x" + input.substring(522, 650);
+        // need to skip both the pointer to the beginning of proof (32 bytes) and its length (32 bytes)
+        String proof = "0x" + input.substring(778);
         System.out.println("CLn: " + CLn);
         System.out.println("CRn: " + CRn);
         System.out.println("y: " + y);
@@ -112,6 +113,8 @@ public class ZKPController {
                 Util.hexStringToByteArray(CRn),
                 Util.hexStringToByteArray(y),
                 Util.hexStringToByteArray(bTransfer),
+                Util.hexStringToByteArray(epoch),
+                Util.hexStringToByteArray(u),
                 Util.hexStringToByteArray(proof)
         );
         System.out.println(" >>>>> " + isValid);
