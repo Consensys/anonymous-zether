@@ -14,7 +14,7 @@ public class ZKPController {
     private Verifier verifier = new Verifier();
 
     @RequestMapping("/prove-transfer")
-    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("gEpoch") String gEpoch, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("index") String index) {
+    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("gEpoch") String epoch, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("index") String index) {
         System.out.println("prove transfer");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
@@ -28,7 +28,7 @@ public class ZKPController {
                 Util.hexStringsToByteArray(CL),
                 Util.hexStringsToByteArray(CR),
                 Util.hexStringsToByteArray(y),
-                Util.hexStringToByteArray(gEpoch),
+                Util.hexStringToByteArray(epoch), // let's pass this as a padded, 32-byte (hex) integer.
                 Util.hexStringToByteArray(x),
                 Util.hexStringToByteArray(r),
                 Util.hexStringToByteArray(bTransfer),
@@ -39,7 +39,7 @@ public class ZKPController {
     }
 
     @RequestMapping("/prove-burn")
-    String proveBurn(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("bTransfer") String bTransfer, @RequestParam("gEpoch") String gEpoch, @RequestParam("x") String x, @RequestParam("bDiff") String bDiff) {
+    String proveBurn(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("bTransfer") String bTransfer, @RequestParam("gEpoch") String epoch, @RequestParam("x") String x, @RequestParam("bDiff") String bDiff) {
         System.out.println("prove burn");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
@@ -52,7 +52,7 @@ public class ZKPController {
                 Util.hexStringToByteArray(CR),
                 Util.hexStringToByteArray(y),
                 Util.hexStringToByteArray(bTransfer),
-                Util.hexStringToByteArray(gEpoch),
+                Util.hexStringToByteArray(epoch), // let's pass this as a padded, 32-byte (hex) integer.
                 Util.hexStringToByteArray(x),
                 Util.hexStringToByteArray(bDiff)
         ));

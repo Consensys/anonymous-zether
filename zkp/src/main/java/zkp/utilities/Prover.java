@@ -17,7 +17,7 @@ public class Prover {
     private ZetherProver<BN128Point> zetherProver = new ZetherProver<>();
     private BurnProver<BN128Point> burnProver = new BurnProver<>();
 
-    public byte[] proveTransfer(byte[][] CL, byte[][] CR, byte[][] yBytes, byte[] gEpochBytes, byte[] xBytes, byte[] rBytes, byte[] bTransferBytes, byte[] bDiffBytes, byte[] indexBytes) {
+    public byte[] proveTransfer(byte[][] CL, byte[][] CR, byte[][] yBytes, byte[] epochBytes, byte[] xBytes, byte[] rBytes, byte[] bTransferBytes, byte[] bDiffBytes, byte[] indexBytes) {
         // indexBytes is a concatenation of the 32 bytes respectively of outIndex and inIndex.
         int size = yBytes.length;
         BN128Group group = Params.getGroup();
@@ -37,9 +37,10 @@ public class Prover {
 //        System.out.println("CL: " + BN128Point.unserialize(CL));
 //        System.out.println("CR: " + BN128Point.unserialize(CR));
         BigInteger x = new BigInteger(1, xBytes);
-        BN128Point gEpoch = BN128Point.unserialize(gEpochBytes);
+        String epoch = new BigInteger(1, epochBytes).toString(10); // radix 10 i guess.
+        BN128Point gEpoch = group.mapInto(ProofUtils.hash("Zether " + epoch));
         BN128Point u = gEpoch.multiply(x);
-        ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(balanceCommitNewL, balanceCommitNewR, L, R, y, gEpoch, u);
+        ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(balanceCommitNewL, balanceCommitNewR, L, R, y, epoch, u);
         ZetherWitness zetherWitness = new ZetherWitness(x, r, b, new BigInteger(1, bDiffBytes), index);
         ZetherProof<BN128Point> zetherProof = zetherProver.generateProof(Params.getZetherParams(), zetherStatement, zetherWitness);
 
@@ -52,10 +53,11 @@ public class Prover {
 
     }
 
-    public byte[] proveBurn(byte[] CL, byte[] CR, byte[] yBytes, byte[] bTransferBytes, byte[] gEpochBytes, byte[] xBytes, byte[] bDiff) {
+    public byte[] proveBurn(byte[] CL, byte[] CR, byte[] yBytes, byte[] bTransferBytes, byte[] epochBytes, byte[] xBytes, byte[] bDiff) {
         // again, the contract will immediately roll over, so must fold in STALE pendings
 
         BN128Point g = Params.burnGenerator();
+        BN128Group group = Params.getGroup();
         BigInteger bTransfer = new BigInteger(1, bTransferBytes);
         BN128Point y = BN128Point.unserialize(yBytes);
 
@@ -63,10 +65,11 @@ public class Prover {
         BN128Point balanceCommitNewR = BN128Point.unserialize(CR);
 
         BigInteger x = new BigInteger(1, xBytes);
-        BN128Point gEpoch = BN128Point.unserialize(gEpochBytes);
+        String epoch = new BigInteger(1, epochBytes).toString(10); // radix 10 i guess.
+        BN128Point gEpoch = group.mapInto(ProofUtils.hash("Zether " + epoch));
         BN128Point u = gEpoch.multiply(x);
 
-        BurnStatement<BN128Point> burnStatement = new BurnStatement<>(balanceCommitNewL, balanceCommitNewR, y, bTransfer, gEpoch, u);
+        BurnStatement<BN128Point> burnStatement = new BurnStatement<>(balanceCommitNewL, balanceCommitNewR, y, bTransfer, epoch, u);
         BurnWitness burnWitness = new BurnWitness(x, new BigInteger(1, bDiff));
         BurnProof<BN128Point> burnProof = burnProver.generateProof(Params.getBurnParams(), burnStatement, burnWitness);
 
