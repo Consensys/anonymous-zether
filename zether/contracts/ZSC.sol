@@ -20,14 +20,15 @@ contract ZSC {
     mapping(bytes32 => address) public ethAddrs; // i guess the only point of this now is to lock addresses so as to prevent front-running during burns.
     mapping(bytes32 => uint256) public lastRollOver; // had this but killed it, reviving
     bytes32[] nonceSet; // would be more natural to use a mapping, but they can't be deleted / reset!
-    uint256 lastGlobalUpdate = 0;
+    uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated
     // not implementing account locking for now...revisit
 
     event RegistrationOccurred(bytes32[2] registerer, address addr);
-    event FundOccurred(bytes32[2] funder);
-    event BurnOccurred(bytes32[2] burner);
+    event FundOccurred();
+    event BurnOccurred();
     event TransferOccurred(bytes32[2][] parties); // i guess all parties will be notified, and the client can sort out whether it was real or not.
-    // no more RollOverOccurred.
+    // no more RollOverOccurred. also, actually the argument was never used for fund and burn? killed now.
+    // i guess it's still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
 
     constructor(address _coin, uint256 _epochLength) public {
         coin = ERC20Interface(_coin);
@@ -36,7 +37,7 @@ contract ZSC {
 
     function rollOver(bytes32 yHash) internal {
         uint256 e = block.number / epochLength;
-        if (lastRollOver[yHash] < e) {
+        if (lastRollOver[yHash] < e) { // consider replacing with a "time-based" approach
             // changed the logic here, must check / test this
             bytes32[2][2][2] memory scratch = [acc[yHash], pTransfers[yHash]];
             assembly {
@@ -109,7 +110,7 @@ contract ZSC {
         // front-running here would be disadvantageous, but still prevent it here by using ethAddrs[yHash] instead of msg.sender
         // also adds flexibility: can later issue messages from arbitrary ethereum accounts.
         bTotal += bTransfer;
-        emit FundOccurred(y);
+        emit FundOccurred();
     }
 
     function transfer(bytes32[2][] calldata L, bytes32[2] calldata R, bytes32[2][] calldata y, bytes32[2] calldata u, bytes calldata proof) external {
@@ -204,6 +205,6 @@ contract ZSC {
         acc[yHash] = scratch; // debit y's balance
         bTotal -= bTransfer;
         nonceSet.push(uHash);
-        emit BurnOccurred(y);
+        emit BurnOccurred();
     }
 }
