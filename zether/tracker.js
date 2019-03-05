@@ -181,8 +181,16 @@ function tracker(zsc) {
         if (value > state.available) {
             if (value > state.available + state.pending)
                 throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-            else
-                throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + (Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber) + " blocks away), at which point you'll have " + (state.available + state.pending) + " available.";
+            else {
+                var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
+                var plural = away == 1 ? "" : "s";
+                throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + away + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
+            }
+        }
+        if (state.nonceUsed) {
+            var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
+            var plural = away == 1 ? "" : "s";
+            throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
         }
 
         var CL = [];
@@ -247,11 +255,17 @@ function tracker(zsc) {
         if (value > state.available) {
             if (value > state.available + state.pending)
                 throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-            else
-                throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + (Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber) + " blocks away), at which point you'll have " + (state.available + state.pending) + " available.";
+            else {
+                var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
+                var plural = away == 1 ? "" : "s";
+                throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + away + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
+            }
         }
-        if (state.nonceUsed)
-            throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + (Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber) + " blocks away.";
+        if (state.nonceUsed) {
+            var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
+            var plural = away == 1 ? "" : "s";
+            throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
+        }
         var proof = zether.proveBurn(state.acc[0], state.acc[1], keypair['y'], value, currentEpoch(), keypair['x'], state.available - value);
         var events = zsc.BurnOccurred();
         var timer = setTimeout(function() {

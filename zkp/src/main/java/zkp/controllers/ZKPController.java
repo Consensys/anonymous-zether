@@ -109,6 +109,8 @@ public class ZKPController {
         System.out.println("CRn: " + CRn);
         System.out.println("y: " + y);
         System.out.println("bTransfer: " + bTransfer);
+        System.out.println("epoch: " + epoch);
+        System.out.println("u: " + u);
         System.out.println("proof: " + proof);
         boolean isValid = verifier.verifyBurn(
                 Util.hexStringToByteArray(CLn),
