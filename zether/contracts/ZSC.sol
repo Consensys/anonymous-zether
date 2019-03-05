@@ -1,4 +1,4 @@
-pragma solidity ^0.5.4;
+pragma solidity ^0.5.5;
 
 import './ZKP.sol';
 
@@ -11,7 +11,7 @@ contract ERC20Interface {
 contract ZSC {
     ERC20Interface coin;
     ZKP zkp = new ZKP();
-    uint256 epochLength;
+    uint256 public epochLength;
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
     // uint256 constant MAX = 4294967295; // 2^32 - 1 // save an sload, use a literal...
@@ -75,10 +75,11 @@ contract ZSC {
         // warning: front-running danger. client should verify that he was not front-run before depositing funds to y!
         assembly {
             calldatacopy(mload(scratch), 0x04, 0x40) // copy contents of y to first inner array of scratch
-            mstore(mload(add(scratch, 0x20)), 0x77da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
-            mstore(add(mload(add(scratch, 0x20)), 0x20), 0x1485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
+            mstore(mload(add(scratch, 0x20)), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
+            mstore(add(mload(add(scratch, 0x20)), 0x20), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
             // account of y is now [y, g] = ElG_y(e, 1). sentinel for having registered
         }
+        acc[yHash] = scratch;
         emit RegistrationOccurred(y, msg.sender); // client must use this event callback to confirm.
     }
 
@@ -96,8 +97,8 @@ contract ZSC {
             let result := 1
             mstore(m, mload(scratch))
             mstore(add(m, 0x20), mload(add(scratch, 0x20)))
-            mstore(add(m, 0x40), 0x77da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
-            mstore(add(m, 0x60), 0x1485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
+            mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
+            mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
             mstore(add(m, 0x80), bTransfer) // b will hopefully be a primitive / literal and not a pointer / address?
             result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
             result := and(result, call(gas, 0x06, 0, m, 0x80, scratch, 0x40))
@@ -113,7 +114,7 @@ contract ZSC {
         emit FundOccurred();
     }
 
-    function transfer(bytes32[2][] calldata L, bytes32[2] calldata R, bytes32[2][] calldata y, bytes32[2] calldata u, bytes calldata proof) external {
+    function transfer(bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, bytes32[2] memory u, bytes memory proof) public {
         uint256 size = y.length;
         bytes32[2][] memory CL = new bytes32[2][](size);
         bytes32[2][] memory CR = new bytes32[2][](size);
@@ -181,8 +182,8 @@ contract ZSC {
             mstore(m, mload(mload(scratch)))
             mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
             // load bulletproof generator here
-            mstore(add(m, 0x40), 0x77da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4) // g_x
-            mstore(add(m, 0x60), 0x1485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875) // g_y
+            mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4) // g_x
+            mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875) // g_y
             mstore(add(m, 0x80), sub(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001, bTransfer))
             result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
             result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * g ^ -b, scratch[1] doesn't change
