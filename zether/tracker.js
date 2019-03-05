@@ -64,18 +64,19 @@ function tracker(zsc) {
 
     var simulateRollOver = function(address) { // "baby" version of the below which will be used for _foreign_ accounts.
         var yHash = web3.sha3(address[0].slice(2) + address[1].slice(2), { encoding: 'hex' });
-        var state = new state();
-        state.acc = [
+        var updated = new state();
+        updated.acc = [
             [zsc.acc(yHash, 0, 0), zsc.acc(yHash, 0, 1)],
             [zsc.acc(yHash, 1, 0), zsc.acc(yHash, 1, 1)]
         ];
         if (zsc.lastRollOver(yHash) < currentEpoch()) {
             var pTransfers = [
-                [zsc.pending(yHash, 0, 0), zsc.pending(yHash, 0, 1)],
-                [zsc.pending(yHash, 1, 0), zsc.pending(yHash, 1, 1)]
+                [zsc.pTransfers(yHash, 0, 0), zsc.pTransfers(yHash, 0, 1)],
+                [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
             ];
-            state.acc = zether.add(acc, pTransfers);
+            updated.acc = zether.add(updated.acc, pTransfers);
         }
+        return updated;
     }
 
     this.simulateRollOver = function() {
@@ -141,8 +142,8 @@ function tracker(zsc) {
     this.check = function() { // returns: did my balance rise?
         var pTransfers = this.pending;
         var pTransfers = [
-            [zsc.pending(yHash, 0, 0), zsc.pending(yHash, 0, 1)],
-            [zsc.pending(yHash, 1, 0), zsc.pending(yHash, 1, 1)]
+            [zsc.pTransfers(yHash, 0, 0), zsc.pTransfers(yHash, 0, 1)],
+            [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
         ];
         this.pending = zether.readBalance(pTransfers, keypair['x'], this.pending, 4294967295);
         return this.pending > pTransfers; // just a shortcut
@@ -192,10 +193,10 @@ function tracker(zsc) {
             var plural = away == 1 ? "" : "s";
             throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
         }
+        if (decoys.length % 2 == 1)
+            throw "Please choose a decoys set of even length (add one or remove one)."
 
-        var CL = [];
-        var CR = [];
-        var y = decoys.concat(this.me()).concat(friends[name]); // not yet shuffled
+        var y = [this.me()].concat([friends[name]]).concat(decoys); // not yet shuffled
 
         var index = [];
         var m = y.length;
@@ -216,13 +217,15 @@ function tracker(zsc) {
             index[1] = index[1] + (index[1] % 2 == 0 ? 1 : -1);
         } // make sure you and your friend have opposite parity
 
-        for (var address in y) { // could use an array.map if i had a better javascript shell.
-            var state = simulateRollOver(address);
-            CL.push(state.acc[0]);
-            CR.push(state.acc[1]);
+        var CL = [];
+        var CR = [];
+        for (var i = 0; i < y.length; i++) { // (var address in y) { // could use an array.map if i had a better javascript shell.
+            var updated = simulateRollOver(y[i]);
+            CL.push(updated.acc[0]);
+            CR.push(updated.acc[1]);
         }
 
-        var proof = zether.proveTransfer(CL, CR, y, currentEpoch(), keypair['x'], value, state.available - value);
+        var proof = zether.proveTransfer(CL, CR, y, currentEpoch(), keypair['x'], value, state.available - value, index);
         var events = zsc.TransferOccurred();
         var timer = setTimeout(function() {
             events.stopWatching();
