@@ -1,4 +1,4 @@
-pragma solidity ^0.5.5;
+pragma solidity ^0.5.4; // unexplainable problems when switch to 0.5.5
 
 import './ZKP.sol';
 
@@ -86,6 +86,7 @@ contract ZSC {
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
         rollOver(yHash);
+
         // registration check here would be redundant, as any `transferFrom` the 0 address will necessarily fail. save an sload
         require(bTransfer <= 4294967295, "Deposit amount out of range."); // uint, so other way not necessary?
         require(bTransfer + bTotal <= 4294967295, "Fund pushes contract past maximum value.");

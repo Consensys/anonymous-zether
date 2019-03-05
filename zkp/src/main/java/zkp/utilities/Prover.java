@@ -75,6 +75,7 @@ public class Prover {
 
         System.out.println("CLn: " + balanceCommitNewL);
         System.out.println("CLR: " + balanceCommitNewR);
+        System.out.println("u: " + u);
         System.out.println("proof length(byte): " + burnProof.serialize().length);
         return burnProof.serialize();
 

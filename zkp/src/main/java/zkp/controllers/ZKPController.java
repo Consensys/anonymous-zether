@@ -14,11 +14,12 @@ public class ZKPController {
     private Verifier verifier = new Verifier();
 
     @RequestMapping("/prove-transfer")
-    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("gEpoch") String epoch, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("index") String index) {
+    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("epoch") String epoch, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("index") String index) {
         System.out.println("prove transfer");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
         System.out.println("y: " + y);
+        System.out.println("epoch: " + epoch);
         System.out.println("x: " + x);
         System.out.println("r: " + r);
         System.out.println("bTransfer: " + bTransfer);
@@ -39,11 +40,12 @@ public class ZKPController {
     }
 
     @RequestMapping("/prove-burn")
-    String proveBurn(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("bTransfer") String bTransfer, @RequestParam("gEpoch") String epoch, @RequestParam("x") String x, @RequestParam("bDiff") String bDiff) {
+    String proveBurn(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("bTransfer") String bTransfer, @RequestParam("epoch") String epoch, @RequestParam("x") String x, @RequestParam("bDiff") String bDiff) {
         System.out.println("prove burn");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
         System.out.println("y: " + y);
+        System.out.println("epoch: " + epoch);
         System.out.println("x: " + x);
         System.out.println("bTransfer: " + bTransfer);
         System.out.println("bDiff: " + bDiff);
