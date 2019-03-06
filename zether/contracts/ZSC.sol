@@ -52,7 +52,7 @@ contract ZSC {
                 mstore(add(m, 0x20), mload(add(mload(add(mload(scratch), 0x20)), 0x20)))
                 mstore(add(m, 0x40), mload(mload(add(mload(add(scratch, 0x20)), 0x20))))
                 mstore(add(m, 0x60), mload(add(mload(add(mload(add(scratch, 0x20)), 0x20)), 0x20)))
-                result := and(result, call(gas, 0x60, 0, m, 0x80, mload(add(mload(scratch), 0x20)), 0x40))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(mload(scratch), 0x20)), 0x40))
                 if iszero(result) {
                     revert(0, 0)
                 }

@@ -46,6 +46,8 @@ public class Prover {
 
         System.out.println("bTransfer: " + bTransfer);
         System.out.println("bDiff: " + new BigInteger(1, bDiffBytes));
+        System.out.println("L: " + L);
+        System.out.println("R: " + R);
         System.out.println("CLn: " + balanceCommitNewL);
         System.out.println("CRn: " + balanceCommitNewR);
         System.out.println("proof length(byte): " + zetherProof.serialize().length);

@@ -68,23 +68,23 @@ public class ZKPController {
     boolean verifyTransfer(@RequestParam("input") String input) {
         System.out.println("verify transfer");
         int size = new BigInteger(input.substring(650, 714), 16).intValue(); // CL's length is between bytes 0x144 and 0x164.
-        String CL = "0x" + input.substring(714, 714 + size * 128); // bytes 0x164 to 0x162 + 0x40 * size
-        String CR = "0x" + input.substring(778 + size * 128, 778 + 2 * size * 128); // 0x164 + 0x40 * size + 0x20 length header
+        String CLn = "0x" + input.substring(714, 714 + size * 128); // bytes 0x164 to 0x162 + 0x40 * size
+        String CRn = "0x" + input.substring(778 + size * 128, 778 + 2 * size * 128); // 0x164 + 0x40 * size + 0x20 length header
         String L = "0x" + input.substring(842 + 2 * size * 128, 842 + 3 * size * 128); // etc.
         String R = "0x" + input.substring(202, 330);
         String y = "0x" + input.substring(906 + 3 * size * 128, 906 + 4 * size * 128);
         String epoch = "0x" + input.substring(394, 458);
         String u = "0x" + input.substring(458, 586);
         String proof = "0x" + input.substring(970 + 4 * size * 128); // not checking length
-        System.out.println("CLn: " + CL);
-        System.out.println("CRn: " + CR);
-        System.out.println("outL: " + L);
-        System.out.println("inL: " + R);
+        System.out.println("CL: " + CLn);
+        System.out.println("CR: " + CRn);
+        System.out.println("L: " + L);
+        System.out.println("R: " + R);
         System.out.println("y: " + y);
         System.out.println("proof: " + proof);
         boolean isValid = verifier.verifyTransfer(
-                Util.hexStringsToByteArrays(CL),
-                Util.hexStringsToByteArrays(CR),
+                Util.hexStringsToByteArrays(CLn),
+                Util.hexStringsToByteArrays(CRn),
                 Util.hexStringsToByteArrays(L),
                 Util.hexStringToByteArray(R),
                 Util.hexStringsToByteArrays(y),

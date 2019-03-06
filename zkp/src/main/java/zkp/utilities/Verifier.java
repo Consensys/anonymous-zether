@@ -28,6 +28,8 @@ public class Verifier {
         ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(CLn, CRn, L, R, y, new BigInteger(1, epoch).toString(10), BN128Point.unserialize(u));
         ZetherProof<BN128Point> zetherProof = ZetherProof.unserialize(proof);
         boolean success = true;
+        System.out.println("CLn: " + CLn);
+        System.out.println("CRn: " + CRn);
         try {
             zetherVerifier.verify(Params.getZetherParams(), zetherStatement, zetherProof);
         } catch (VerificationFailedException e) {
