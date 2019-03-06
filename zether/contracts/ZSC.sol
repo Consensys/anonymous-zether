@@ -129,11 +129,17 @@ contract ZSC {
                 let m := mload(0x40)
                 mstore(m, mload(mload(scratch)))
                 mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
-                calldatacopy(add(m, 0x40), add(0x104, mul(i, 0x40)), 0x40) // copy L[i] onto running block
+                // calldatacopy(add(m, 0x40), add(0x104, mul(i, 0x40)), 0x40) // copy L[i] onto running block
+                // having to change external --> public to avoid stacktoodeep
+                // as a result, have to use the below two lines instead of the above single line.
+                mstore(add(m, 0x40), mload(mload(add(add(L, 0x20), mul(i, 0x20)))))
+                mstore(add(m, 0x60), mload(add(mload(add(add(L, 0x20), mul(i, 0x20))), 0x20)))
                 result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40))
                 mstore(m, mload(mload(add(scratch, 0x20))))
                 mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
-                calldatacopy(add(m, 0x40), 0x24, 0x40) // copy R onto running block
+                // calldatacopy(add(m, 0x40), 0x24, 0x40) // copy R onto running block
+                mstore(add(m, 0x40), mload(R))
+                mstore(add(m, 0x60), mload(add(R, 0x20)))
                 result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(scratch, 0x20)), 0x40))
             }
             pTransfers[yHash] = scratch; // credit / debit / neither y's account.

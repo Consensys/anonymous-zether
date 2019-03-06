@@ -21,10 +21,10 @@ public class Util {
 
     public static byte[][] hexStringsToByteArrays(String s) { // assumes that s is 0x + a concatenation of 64-byte hex strings!
         s = s.substring(2).toUpperCase();
-        int size = s.length() / 64;
-        byte[][] data = new byte[64][size];
+        int size = s.length() / 128;
+        byte[][] data = new byte[size][128];
         for (int i = 0; i < size; i++) {
-            data[i] = hexStringToByteArray(s.substring(i * 64, (i + 1) * 64));
+            data[i] = hexStringToByteArray("0x" + s.substring(i * 128, (i + 1) * 128));
         }
         return data;
     }

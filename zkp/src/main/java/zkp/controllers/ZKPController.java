@@ -7,6 +7,8 @@ import zkp.utilities.Prover;
 import zkp.utilities.Util;
 import zkp.utilities.Verifier;
 
+import java.math.BigInteger;
+
 @RestController
 public class ZKPController {
 
@@ -14,7 +16,7 @@ public class ZKPController {
     private Verifier verifier = new Verifier();
 
     @RequestMapping("/prove-transfer")
-    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("epoch") String epoch, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("index") String index) {
+    String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("epoch") String epoch, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("outIndex") String outIndex, @RequestParam("inIndex") String inIndex) {
         System.out.println("prove transfer");
         System.out.println("CL: " + CL);
         System.out.println("CR: " + CR);
@@ -24,7 +26,7 @@ public class ZKPController {
         System.out.println("r: " + r);
         System.out.println("bTransfer: " + bTransfer);
         System.out.println("bDiff: " + bDiff);
-        System.out.println("index: " + index);
+        System.out.println("indexes: " + outIndex + ", " + inIndex);
         String proof = Util.bytesToHex(prover.proveTransfer(
                 Util.hexStringsToByteArrays(CL),
                 Util.hexStringsToByteArrays(CR),
@@ -34,7 +36,7 @@ public class ZKPController {
                 Util.hexStringToByteArray(r),
                 Util.hexStringToByteArray(bTransfer),
                 Util.hexStringToByteArray(bDiff),
-                Util.hexStringToByteArray(index)));
+                new byte[][]{Util.hexStringToByteArray(outIndex), Util.hexStringToByteArray(inIndex)}));
         System.out.println("proof: " + proof);
         return proof;
     }
@@ -65,15 +67,15 @@ public class ZKPController {
     @RequestMapping("/verify-transfer")
     boolean verifyTransfer(@RequestParam("input") String input) {
         System.out.println("verify transfer");
-        int size = Integer.parseInt(input.substring(648, 712), 16); // CL's length is between bytes 0x144 and 0x164.
-        String CL = "0x" + input.substring(712, 712 + size * 128); // bytes 0x164 to 0x162 + 0x40 * size
-        String CR = "0x" + input.substring(776 + size * 128, 776 + 2 * size * 128); // 0x164 + 0x40 * size + 0x20 length header
-        String L = "0x" + input.substring(840 + 2 * size * 128, 840 + 3 * size * 128); // etc.
-        String R = "0x" + input.substring(200, 328);
-        String y = "0x" + input.substring(904 + 3 * size * 128, 904 + 4 * size * 128);
-        String epoch = "0x" + input.substring(392, 456);
-        String u = "0x" + input.substring(456, 584);
-        String proof = "0x" + input.substring(968 + 4 * size * 128); // not checking length
+        int size = new BigInteger(input.substring(650, 714), 16).intValue(); // CL's length is between bytes 0x144 and 0x164.
+        String CL = "0x" + input.substring(714, 714 + size * 128); // bytes 0x164 to 0x162 + 0x40 * size
+        String CR = "0x" + input.substring(778 + size * 128, 778 + 2 * size * 128); // 0x164 + 0x40 * size + 0x20 length header
+        String L = "0x" + input.substring(842 + 2 * size * 128, 842 + 3 * size * 128); // etc.
+        String R = "0x" + input.substring(202, 330);
+        String y = "0x" + input.substring(906 + 3 * size * 128, 906 + 4 * size * 128);
+        String epoch = "0x" + input.substring(394, 458);
+        String u = "0x" + input.substring(458, 586);
+        String proof = "0x" + input.substring(970 + 4 * size * 128); // not checking length
         System.out.println("CLn: " + CL);
         System.out.println("CRn: " + CR);
         System.out.println("outL: " + L);

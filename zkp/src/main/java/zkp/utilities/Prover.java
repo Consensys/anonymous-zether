@@ -17,7 +17,7 @@ public class Prover {
     private ZetherProver<BN128Point> zetherProver = new ZetherProver<>();
     private BurnProver<BN128Point> burnProver = new BurnProver<>();
 
-    public byte[] proveTransfer(byte[][] CL, byte[][] CR, byte[][] yBytes, byte[] epochBytes, byte[] xBytes, byte[] rBytes, byte[] bTransferBytes, byte[] bDiffBytes, byte[] indexBytes) {
+    public byte[] proveTransfer(byte[][] CL, byte[][] CR, byte[][] yBytes, byte[] epochBytes, byte[] xBytes, byte[] rBytes, byte[] bTransferBytes, byte[] bDiffBytes, byte[][] indexBytes) {
         // indexBytes is a concatenation of the 32 bytes respectively of outIndex and inIndex.
         int size = yBytes.length;
         BN128Group group = Params.getGroup();
@@ -27,7 +27,7 @@ public class Prover {
         BigInteger b = new BigInteger(1, bTransferBytes);
         BigInteger r = new BigInteger(1, rBytes);
         GeneratorVector<BN128Point> y = GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(yBytes[i])), group);
-        int[] index = new int[]{new BigInteger(1, Arrays.copyOfRange(indexBytes, 0, 32)).intValue(), new BigInteger(1, Arrays.copyOfRange(indexBytes, 32, 64)).intValue()};
+        int[] index = new int[]{new BigInteger(1, indexBytes[0]).intValue(), new BigInteger(1, indexBytes[1]).intValue()};
         FieldVector bTransfer = FieldVector.from(VectorX.range(0, size).map(i -> i == index[0] ? b.negate() : i == index[1] ? b : BigInteger.ZERO), q);
         GeneratorVector<BN128Point> L = y.times(r).add(bTransfer.getVector().map(g::multiply)); // this function is new, test it
         BN128Point R = g.multiply(r);
