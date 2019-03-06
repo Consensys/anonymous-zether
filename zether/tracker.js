@@ -43,6 +43,7 @@ function tracker(zsc) {
     var keypair = zether.createAccount(); // private
     var yHash = web3.sha3(keypair['y'][0].slice(2) + keypair['y'][1].slice(2), { encoding: 'hex' });
     var friends = {};
+    var table = {}; // key: txHash of a transfer that _I_ originated, value: callback.
     var epochLength = zsc.epochLength(); // could retain this locally
     var lastRollOver = 0; // would it make sense to just pull this directly every time...?!
 
@@ -79,7 +80,7 @@ function tracker(zsc) {
         return updated;
     }
 
-    this.simulateRollOver = function() {
+    this.simulateRollOver = function(received) {
         var updated = new state();
         updated.acc = this.state.acc.slice(); // copy
         updated.available = this.state.available;
@@ -87,11 +88,16 @@ function tracker(zsc) {
         updated.nonceUsed = this.state.nonceUsed;
 
         if (lastRollOver < currentEpoch()) {
-            var pTransfers = [
-                [zsc.pTransfers(yHash, 0, 0), zsc.pTransfers(yHash, 0, 1)],
-                [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
-            ];
-            updated.acc = zether.add(updated.acc, pTransfers);
+            if (!received) {
+                // if you're _receiving_ a transfer _and_ your account _was stale_, then whoever just sent you something
+                // necessarily rolled you over _BEFORE_ depositing an extra amount into your pTransfers.
+                // therefore folding this stuff in would lead to an innacurate representation of your account state.
+                var pTransfers = [
+                    [zsc.pTransfers(yHash, 0, 0), zsc.pTransfers(yHash, 0, 1)],
+                    [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
+                ];
+                updated.acc = zether.add(updated.acc, pTransfers);
+            }
             updated.available += updated.pending;
             updated.pending = 0;
             updated.nonceUsed = false;
@@ -106,10 +112,12 @@ function tracker(zsc) {
     zsc.TransferOccurred(function(error, event) { // automatically watch for incoming transfers
         if (error) {
             console.log("Error: " + error);
+        } else if (event.transactionHash in table) {
+            table[event.transactionHash]();
         } else {
             for (var i = 0; i < event.args['parties'].length; i++) { // (var party in event.args['parties']) { // var in doesn't work for nested arrays?
-                if (that.mine(event.args['parties'][i])) {
-                    that.confirmRollOver(that.simulateRollOver());
+                if (that.mine(event.args['parties'][i])) { // weird: this will trigger even when you were the sender.
+                    that.confirmRollOver(that.simulateRollOver(true)); // warning: what if transaction was the last in the epoch.
                     if (that.check()) // if rollOver happens remotely, will mimic it locally, and start from 0
                         console.log("Transfer received! New balance is " + (that.state.available + that.state.pending) + ".");
                     // interesting: impossible even to know who sent you funds.
@@ -233,28 +241,25 @@ function tracker(zsc) {
         }
 
         var proof = zether.proveTransfer(CL, CR, y, currentEpoch(), keypair['x'], value, state.available - value, index);
-        var events = zsc.TransferOccurred();
         var timer = setTimeout(function() {
-            events.stopWatching();
-            console.log("Transfer failed...")
+            console.log("Transfer failed...");
+            // can't, but don't actually need to, delete txHash from the table.
         }, 5000);
         zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: eth.accounts[0], gas: 5470000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
             } else {
-                events.watch(function(error, event) {
-                    // console.log("TransferOccurred event captured")
+                table[txHash] = function(error, event) { // event arg not used?
                     if (error) {
                         console.log("Error: " + error);
-                    } else if (txHash == event.transactionHash) {
+                    } else {
                         clearTimeout(timer);
                         state.nonceUsed = true;
-                        state.pending -= value; // urgent: pending could become NEGATIVE??? might need to adjust readBalance to allow for negative start of range
+                        state.pending -= value;
                         that.confirmRollOver(state);
                         console.log("Transfer of " + value + " was successful. Balance now " + (state.available + state.pending) + ".");
-                        events.stopWatching();
                     }
-                });
+                };
             }
         });
         return "Initiating transfer.";
