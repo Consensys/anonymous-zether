@@ -45,18 +45,15 @@ function tracker(zsc) {
     var friends = {};
     var table = {}; // key: txHash of a transfer that _I_ originated, value: callback.
     var epochLength = zsc.epochLength(); // could retain this locally
-    var lastRollOver = 0; // would it make sense to just pull this directly every time...?!
 
     var state = function() {
         this.available = 0; // reflects WOULD-BE value in acc (i.e., if rollOver were called). do not touch this manually
         this.pending = 0; // represents an estimate of pTransfers alone. this is used to speed up peeking when transfers are received
         this.nonceUsed = false;
+        this.lastRollOver = 0; // would it make sense to just pull this directly every time...?!
     }
     this.state = new state();
-    this.state.acc = [
-        keypair['y'],
-        ['0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4', '0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875']
-    ];
+
     var currentEpoch = function() { return Math.floor(eth.blockNumber / epochLength); }
 
     var match = function(address, candidate) {
@@ -80,33 +77,22 @@ function tracker(zsc) {
         return updated;
     }
 
-    this.simulateRollOver = function(received) {
+    this.simulateRollOver = function(epoch) {
         var updated = new state();
-        updated.acc = this.state.acc.slice(); // copy
         updated.available = this.state.available;
         updated.pending = this.state.pending;
         updated.nonceUsed = this.state.nonceUsed;
+        updated.lastRollOver = epoch === undefined ? currentEpoch() : epoch;
 
-        if (lastRollOver < currentEpoch()) {
-            if (!received) {
-                // if you're _receiving_ a transfer _and_ your account _was stale_, then whoever just sent you something
-                // necessarily rolled you over _BEFORE_ depositing an extra amount into your pTransfers.
-                // therefore folding this stuff in would lead to an innacurate representation of your account state.
-                var pTransfers = [
-                    [zsc.pTransfers(yHash, 0, 0), zsc.pTransfers(yHash, 0, 1)],
-                    [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
-                ];
-                updated.acc = zether.add(updated.acc, pTransfers);
-            }
+        if (this.state.lastRollOver < updated.lastRollOver) {
+            // if you're _receiving_ a transfer _and_ your account _was stale_, then whoever just sent you something
+            // necessarily rolled you over _BEFORE_ depositing an extra amount into your pTransfers.
+            // therefore folding this stuff in would lead to an innacurate representation of your account state.
             updated.available += updated.pending;
             updated.pending = 0;
             updated.nonceUsed = false;
         }
         return updated;
-    }
-    this.confirmRollOver = function(state) { // not sure this will be ultimately necessary
-        this.state = state;
-        lastRollOver = currentEpoch();
     }
 
     zsc.TransferOccurred(function(error, event) { // automatically watch for incoming transfers
@@ -117,7 +103,7 @@ function tracker(zsc) {
         } else {
             for (var i = 0; i < event.args['parties'].length; i++) { // (var party in event.args['parties']) { // var in doesn't work for nested arrays?
                 if (that.mine(event.args['parties'][i])) { // weird: this will trigger even when you were the sender.
-                    that.confirmRollOver(that.simulateRollOver(true)); // warning: what if transaction was the last in the epoch.
+                    that.state = that.simulateRollOver(Math.floor(event.blockNumber / 5));
                     if (that.check()) // if rollOver happens remotely, will mimic it locally, and start from 0
                         console.log("Transfer received! New balance is " + (that.state.available + that.state.pending) + ".");
                     // interesting: impossible even to know who sent you funds.
@@ -173,9 +159,8 @@ function tracker(zsc) {
                         console.log("Error: " + error);
                     } else if (txHash == event.transactionHash) {
                         clearTimeout(timer);
-                        state.acc = zether.adjust(value, state.acc)
                         state.available += value;
-                        that.confirmRollOver(state);
+                        that.state = state;
                         console.log("Deposit of " + value + " was successful. Balance is now " + (state.available + state.pending) + ".");
                         events.stopWatching();
                     }
@@ -187,16 +172,13 @@ function tracker(zsc) {
 
     this.transfer = function(name, decoys, value) { // assuming the names of the other people in the anonymity set are being provided?
         var state = this.simulateRollOver();
-        if (value > state.available) {
-            if (value > state.available + state.pending)
-                throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-            else {
-                var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
-                var plural = away == 1 ? "" : "s";
-                throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + away + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
-            }
-        }
-        if (state.nonceUsed) {
+        if (value > state.available + state.pending)
+            throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
+        else if (value > state.available) {
+            var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
+            var plural = away == 1 ? "" : "s";
+            throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + away + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
+        } else if (state.nonceUsed) {
             var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
             var plural = away == 1 ? "" : "s";
             throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
@@ -207,10 +189,10 @@ function tracker(zsc) {
         if (!(name in friends))
             throw "Name \"" + name + "\" hasn't been friended yet!";
         var y = [this.me()].concat([friends[name]]); // not yet shuffled
-        for (var name in decoys) {
-            if (!(decoy in friends))
-                throw "Decoy \"" + name + "\" is unknown in friends directory!";
-            y.push(friends[decoy])
+        for (var i = 0; i < decoys.length; i++) {
+            if (!(decoys[i] in friends))
+                throw "Decoy \"" + decoys[i] + "\" is unknown in friends directory!";
+            y.push(friends[decoys[i]])
         }
 
         var index = [];
@@ -256,7 +238,7 @@ function tracker(zsc) {
                         clearTimeout(timer);
                         state.nonceUsed = true;
                         state.pending -= value;
-                        that.confirmRollOver(state);
+                        that.state = state;
                         console.log("Transfer of " + value + " was successful. Balance now " + (state.available + state.pending) + ".");
                     }
                 };
@@ -267,21 +249,19 @@ function tracker(zsc) {
 
     this.withdraw = function(value) {
         var state = this.simulateRollOver();
-        if (value > state.available) {
-            if (value > state.available + state.pending)
-                throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-            else {
-                var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
-                var plural = away == 1 ? "" : "s";
-                throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + away + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
-            }
-        }
-        if (state.nonceUsed) {
+        if (value > state.available + state.pending)
+            throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
+        else if (value > state.available) {
+            var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
+            var plural = away == 1 ? "" : "s";
+            throw "Requested withdrawal amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + away + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
+        } else if (state.nonceUsed) {
             var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
             var plural = away == 1 ? "" : "s";
             throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
         }
-        var proof = zether.proveBurn(state.acc[0], state.acc[1], keypair['y'], value, currentEpoch(), keypair['x'], state.available - value);
+        var updated = simulateRollOver(keypair['y']);
+        var proof = zether.proveBurn(updated.acc[0], updated.acc[1], keypair['y'], value, currentEpoch(), keypair['x'], state.available - value);
         var events = zsc.BurnOccurred();
         var timer = setTimeout(function() {
             events.stopWatching();
@@ -296,10 +276,9 @@ function tracker(zsc) {
                         console.log("Error: " + error);
                     } else if (txHash == event.transactionHash) {
                         clearTimeout(timer);
-                        state.acc = zether.adjust(-value, state.acc)
                         state.available -= value;
                         state.nonceUsed = true; // or: after confirming, that.state.nonceUsed = true.
-                        that.confirmRollOver(state);
+                        that.state = state;
                         console.log("Withdrawal of " + value + " was successful. Balance now " + (state.available + state.pending) + ".");
                         events.stopWatching();
                     }

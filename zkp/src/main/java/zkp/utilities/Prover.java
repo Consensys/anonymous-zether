@@ -50,6 +50,8 @@ public class Prover {
         System.out.println("R: " + R);
         System.out.println("CLn: " + balanceCommitNewL);
         System.out.println("CRn: " + balanceCommitNewR);
+        System.out.println("gEpoch: " + gEpoch);
+        System.out.println("u: " + u);
         System.out.println("proof length(byte): " + zetherProof.serialize().length);
         return zetherProof.serialize();
 

@@ -81,6 +81,8 @@ public class ZKPController {
         System.out.println("L: " + L);
         System.out.println("R: " + R);
         System.out.println("y: " + y);
+        System.out.println("epoch: " + epoch);
+        System.out.println("u: " + u);
         System.out.println("proof: " + proof);
         boolean isValid = verifier.verifyTransfer(
                 Util.hexStringsToByteArrays(CLn),

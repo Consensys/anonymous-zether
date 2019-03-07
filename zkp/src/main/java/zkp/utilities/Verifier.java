@@ -50,7 +50,7 @@ public class Verifier {
         try {
             burnVerifier.verify(Params.getBurnParams(), burnStatement, burnProof);
         } catch (VerificationFailedException e) {
-//            e.printStackTrace();
+            e.printStackTrace();
             success = false;
         }
         return success;
