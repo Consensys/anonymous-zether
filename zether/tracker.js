@@ -118,22 +118,20 @@ function tracker(zsc) {
 
     // todo: add a way to generate throwaway addresses (for receiving), as well as to consolidate throwaways.
 
-    this.me = function() {
-        return keypair.y
-    }
+    this.me = function() { return keypair.y }
 
-    this.secret = function() {
-        return keypair.x;
-    }
+    this.secret = function() { return keypair.x; }
 
-    this.mine = function(address) { // only used by callbacks...
-        return match(address, keypair['y']);
-    }
+    this.mine = function(address) { return match(address, keypair['y']); }
 
     this.friend = function(name, address) {
         friends[name] = address;
         return "Friend added.";
     }
+
+    this.balance = function() { return this.state.available + this.state.pending; }
+
+    this.friends = function() { return friends; }
 
     this.check = function() { // would save a few dereferences to pass in the state, but...
         var pending = this.state.pending;
@@ -229,7 +227,9 @@ function tracker(zsc) {
             console.log("Transfer failed...");
             // can't, but don't actually need to, delete txHash from the table.
         }, 5000);
-        zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: eth.accounts[0], gas: 5470000 }, function(error, txHash) {
+        account = web3.personal.newAccount(""); // this takes a while... :(
+        web3.personal.unlockAccount(account, "", 0); // this takes a while... :(
+        zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: account, gas: 5470000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
             } else {
