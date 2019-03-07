@@ -54,20 +54,22 @@ function tracker(zsc) {
     }
     this.state = new state();
 
-    var currentEpoch = function() { return Math.floor(eth.blockNumber / epochLength); }
+    var getEpoch = function(blockNumber) {
+        return Math.floor((blockNumber === undefined ? eth.blockNumber + 1 : blockNumber) / epochLength);
+    }
 
     var match = function(address, candidate) {
         return address[0] == candidate[0] && address[1] == candidate[1];
     } // consider refactoring / eliminating this, e.g. using JSON.stringify
 
-    var simulateRollOver = function(address) { // "baby" version of the below which will be used for _foreign_ accounts.
+    var simulateAccount = function(address) { // "baby" version of the below which will be used for _foreign_ accounts.
         var yHash = web3.sha3(address[0].slice(2) + address[1].slice(2), { encoding: 'hex' });
         var updated = new state();
         updated.acc = [
             [zsc.acc(yHash, 0, 0), zsc.acc(yHash, 0, 1)],
             [zsc.acc(yHash, 1, 0), zsc.acc(yHash, 1, 1)]
         ];
-        if (zsc.lastRollOver(yHash) < currentEpoch()) {
+        if (zsc.lastRollOver(yHash) < getEpoch()) {
             var pTransfers = [
                 [zsc.pTransfers(yHash, 0, 0), zsc.pTransfers(yHash, 0, 1)],
                 [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
@@ -77,12 +79,12 @@ function tracker(zsc) {
         return updated;
     }
 
-    this.simulateRollOver = function(epoch) {
+    this.simulateBalances = function(blockNumber) {
         var updated = new state();
         updated.available = this.state.available;
         updated.pending = this.state.pending;
         updated.nonceUsed = this.state.nonceUsed;
-        updated.lastRollOver = epoch === undefined ? currentEpoch() : epoch;
+        updated.lastRollOver = getEpoch(blockNumber)
 
         if (this.state.lastRollOver < updated.lastRollOver) {
             // if you're _receiving_ a transfer _and_ your account _was stale_, then whoever just sent you something
@@ -103,7 +105,7 @@ function tracker(zsc) {
         } else {
             for (var i = 0; i < event.args['parties'].length; i++) { // (var party in event.args['parties']) { // var in doesn't work for nested arrays?
                 if (that.mine(event.args['parties'][i])) { // weird: this will trigger even when you were the sender.
-                    that.state = that.simulateRollOver(Math.floor(event.blockNumber / 5));
+                    that.state = that.simulateBalances(event.BlockNumber);
                     if (that.check()) // if rollOver happens remotely, will mimic it locally, and start from 0
                         console.log("Transfer received! New balance is " + (that.state.available + that.state.pending) + ".");
                     // interesting: impossible even to know who sent you funds.
@@ -144,7 +146,7 @@ function tracker(zsc) {
     }
 
     this.deposit = function(value) {
-        var state = this.simulateRollOver();
+        var state = this.simulateBalances();
         var events = zsc.FundOccurred();
         var timer = setTimeout(function() {
             events.stopWatching();
@@ -171,7 +173,7 @@ function tracker(zsc) {
     }
 
     this.transfer = function(name, decoys, value) { // assuming the names of the other people in the anonymity set are being provided?
-        var state = this.simulateRollOver();
+        var state = this.simulateBalances();
         if (value > state.available + state.pending)
             throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
         else if (value > state.available) {
@@ -217,12 +219,12 @@ function tracker(zsc) {
         var CL = [];
         var CR = [];
         for (var i = 0; i < y.length; i++) { // (var address in y) { // could use an array.map if i had a better javascript shell.
-            var updated = simulateRollOver(y[i]);
+            var updated = simulateAccount(y[i]);
             CL.push(updated.acc[0]);
             CR.push(updated.acc[1]);
         }
 
-        var proof = zether.proveTransfer(CL, CR, y, currentEpoch(), keypair['x'], value, state.available - value, index);
+        var proof = zether.proveTransfer(CL, CR, y, state.lastRollOver, keypair['x'], value, state.available - value, index);
         var timer = setTimeout(function() {
             console.log("Transfer failed...");
             // can't, but don't actually need to, delete txHash from the table.
@@ -248,7 +250,7 @@ function tracker(zsc) {
     }
 
     this.withdraw = function(value) {
-        var state = this.simulateRollOver();
+        var state = this.simulateBalances();
         if (value > state.available + state.pending)
             throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
         else if (value > state.available) {
@@ -260,8 +262,8 @@ function tracker(zsc) {
             var plural = away == 1 ? "" : "s";
             throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
         }
-        var updated = simulateRollOver(keypair['y']);
-        var proof = zether.proveBurn(updated.acc[0], updated.acc[1], keypair['y'], value, currentEpoch(), keypair['x'], state.available - value);
+        var updated = simulateAccount(keypair['y']);
+        var proof = zether.proveBurn(updated.acc[0], updated.acc[1], keypair['y'], value, state.lastRollOver, keypair['x'], state.available - value);
         var events = zsc.BurnOccurred();
         var timer = setTimeout(function() {
             events.stopWatching();
