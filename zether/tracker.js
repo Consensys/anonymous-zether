@@ -105,7 +105,7 @@ function tracker(zsc) {
         } else {
             for (var i = 0; i < event.args['parties'].length; i++) { // (var party in event.args['parties']) { // var in doesn't work for nested arrays?
                 if (that.mine(event.args['parties'][i])) { // weird: this will trigger even when you were the sender.
-                    that.state = that.simulateBalances(event.BlockNumber);
+                    that.state = that.simulateBalances(event.blockNumber);
                     if (that.check()) // if rollOver happens remotely, will mimic it locally, and start from 0
                         console.log("Transfer received! New balance is " + (that.state.available + that.state.pending) + ".");
                     // interesting: impossible even to know who sent you funds.
@@ -172,7 +172,7 @@ function tracker(zsc) {
         return "Initiating deposit.";
     }
 
-    this.transfer = function(name, decoys, value) { // assuming the names of the other people in the anonymity set are being provided?
+    this.transfer = function(name, value, decoys) { // assuming the names of the other people in the anonymity set are being provided?
         var state = this.simulateBalances();
         if (value > state.available + state.pending)
             throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
@@ -185,13 +185,13 @@ function tracker(zsc) {
             var plural = away == 1 ? "" : "s";
             throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
         }
-        if (decoys.length % 2 == 1)
+        if (decoys && decoys.length % 2 == 1)
             throw "Please choose a decoys set of even length (add one or remove one)."
 
         if (!(name in friends))
             throw "Name \"" + name + "\" hasn't been friended yet!";
         var y = [this.me()].concat([friends[name]]); // not yet shuffled
-        for (var i = 0; i < decoys.length; i++) {
+        for (var i = 0; i < (decoys ? decoys.length : 0); i++) {
             if (!(decoys[i] in friends))
                 throw "Decoy \"" + decoys[i] + "\" is unknown in friends directory!";
             y.push(friends[decoys[i]])
