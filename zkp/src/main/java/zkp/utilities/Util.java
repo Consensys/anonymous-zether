@@ -13,8 +13,18 @@ public class Util {
         }
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
+    }
+
+
+    public static byte[][] hexStringsToByteArrays(String s) { // assumes that s is 0x + a concatenation of 64-byte hex strings!
+        s = s.substring(2).toUpperCase();
+        int size = s.length() / 128;
+        byte[][] data = new byte[size][128];
+        for (int i = 0; i < size; i++) {
+            data[i] = hexStringToByteArray("0x" + s.substring(i * 128, (i + 1) * 128));
         }
         return data;
     }

@@ -11,6 +11,8 @@ public class Params {
     private static GeneratorParams<BN128Point> zetherParams = GeneratorParams.generateParams(64, group);
     private static GeneratorParams<BN128Point> burnParams = GeneratorParams.generateParams(32, group);
 
+    public static BN128Group getGroup() { return group; }
+
     public static BN128Point zetherGenerator() {
         return zetherParams.getBase().g;
     }

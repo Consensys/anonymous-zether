@@ -1,4 +1,4 @@
-pragma solidity ^0.5.3;
+pragma solidity ^0.5.4; // unexplainable problems when switch to 0.5.5
 
 import './ZKP.sol';
 
@@ -10,225 +10,177 @@ contract ERC20Interface {
 
 contract ZSC {
     ERC20Interface coin;
-    bytes32 public domainHash;
     ZKP zkp = new ZKP();
+    uint256 public epochLength;
 
-    uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even static) calls cost gas during EVM execution
+    uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
     // uint256 constant MAX = 4294967295; // 2^32 - 1 // save an sload, use a literal...
     mapping(bytes32 => bytes32[2][2]) public acc; // main account mapping
     mapping(bytes32 => bytes32[2][2]) public pTransfers; // storage for pending transfers
-    mapping(bytes32 => address) public ethAddrs; // used for signing. needs to be public...?
+    mapping(bytes32 => address) public ethAddrs; // i guess the only point of this now is to lock addresses so as to prevent front-running during burns.
+    mapping(bytes32 => uint256) public lastRollOver; // had this but killed it, reviving
+    bytes32[] nonceSet; // would be more natural to use a mapping, but they can't be deleted / reset!
+    uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated
     // not implementing account locking for now...revisit
-    mapping(bytes32 => uint256) public ctr;
 
     event RegistrationOccurred(bytes32[2] registerer, address addr);
-    event RollOverOccurred(bytes32[2] roller);
-    event FundOccurred(bytes32[2] funder);
-    event BurnOccurred(bytes32[2] burner);
-    event TransferOccurred(bytes32[2] sender, bytes32[2] recipient);
+    event FundOccurred();
+    event BurnOccurred();
+    event TransferOccurred(bytes32[2][] parties); // i guess all parties will be notified, and the client can sort out whether it was real or not.
+    // no more RollOverOccurred. also, actually the argument was never used for fund and burn? killed now.
+    // i guess it's still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
 
-
-    constructor(address _coin, uint256 _chainId) public {
+    constructor(address _coin, uint256 _epochLength) public {
         coin = ERC20Interface(_coin);
-
-        bytes32 _domainHash;
-        assembly {
-            let m := mload(0x40)
-            mstore(m, 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f) // "EIP712Domain(string name, string version, uint256 chainId, address verifyingContract)"
-            mstore(add(m, 0x20), 0xc9d54de6bfed12ed581fc7d2c1ae5f8778aaf7c177d117fdbb15c71c94be6f88) // name = "ZETHER_QUORUM"
-            mstore(add(m, 0x40), 0xae209a0b48f21c054280f2455d32cf309387644879d9acbd8ffc199163811885) // version = "0.0.1"
-            mstore(add(m, 0x60), _chainId) // chain id
-            mstore(add(m, 0x80), address) // verifying contract
-            _domainHash := keccak256(m, 0xa0)
-        }
-        domainHash = _domainHash;
+        epochLength = _epochLength;
     }
 
-    function rollOver(bytes32[2] calldata y) external {
-        bytes32 yHash = keccak256(abi.encodePacked(y));
-        require(msg.sender == ethAddrs[yHash], "No permission to roll over this account.");
-
-        bytes32[2][4] memory scratch = [acc[yHash][0], pTransfers[yHash][0], acc[yHash][1], pTransfers[yHash][1]];
-        assembly {
-            let result := 1
-            let m := mload(0x40)
-            mstore(m, mload(mload(scratch)))
-            mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
-            mstore(add(m, 0x40), mload(mload(add(scratch, 0x20))))
-            mstore(add(m, 0x60), mload(add(mload(add(scratch, 0x20)), 0x20)))
-            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40))
-            mstore(m, mload(mload(add(scratch, 0x40))))
-            mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x40)), 0x20)))
-            mstore(add(m, 0x40), mload(mload(add(scratch, 0x60))))
-            mstore(add(m, 0x60), mload(add(mload(add(scratch, 0x60)), 0x20)))
-            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(scratch, 0x40)), 0x40))
-            if iszero(result) {
-                revert(0, 0)
+    function rollOver(bytes32 yHash) internal {
+        uint256 e = block.number / epochLength;
+        if (lastRollOver[yHash] < e) { // consider replacing with a "time-based" approach
+            // changed the logic here, must check / test this
+            bytes32[2][2][2] memory scratch = [acc[yHash], pTransfers[yHash]];
+            assembly {
+                let result := 1
+                let m := mload(0x40)
+                mstore(m, mload(mload(mload(scratch))))
+                mstore(add(m, 0x20), mload(add(mload(mload(scratch)), 0x20)))
+                mstore(add(m, 0x40), mload(mload(mload(add(scratch, 0x20)))))
+                mstore(add(m, 0x60), mload(add(mload(mload(add(scratch, 0x20))), 0x20)))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(mload(scratch)), 0x40))
+                mstore(m, mload(mload(add(mload(scratch), 0x20))))
+                mstore(add(m, 0x20), mload(add(mload(add(mload(scratch), 0x20)), 0x20)))
+                mstore(add(m, 0x40), mload(mload(add(mload(add(scratch, 0x20)), 0x20))))
+                mstore(add(m, 0x60), mload(add(mload(add(mload(add(scratch, 0x20)), 0x20)), 0x20)))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(mload(scratch), 0x20)), 0x40))
+                if iszero(result) {
+                    revert(0, 0)
+                }
             }
+            acc[yHash] = scratch[0];
+            pTransfers[yHash] = [[bytes32(0), bytes32(0)], [bytes32(0), bytes32(0)]];
+            lastRollOver[yHash] = e;
         }
-        acc[yHash] = [scratch[0], scratch[2]];
-        pTransfers[yHash] = [[bytes32(0), bytes32(0)], [bytes32(0), bytes32(0)]];
-        emit RollOverOccurred(y);
+        if (lastGlobalUpdate < e) {
+            lastGlobalUpdate = e;
+            delete nonceSet;
+        }
     }
 
-    function register(bytes32[2] calldata y) external {
+    function register(bytes32[2] calldata y) external { // keeping this as is
         bytes32 yHash = keccak256(abi.encodePacked(y));
-
-        require(ctr[yHash] == 0, "Account already registered.");
+        bytes32[2][2] memory scratch = acc[yHash];
+        require((scratch[0][0] | scratch[0][1] | scratch[1][0] | scratch[1][1]) == 0x00, "Account already registered.");
         ethAddrs[yHash] = msg.sender; // eth address will be _permanently_ bound to y
         // warning: front-running danger. client should verify that he was not front-run before depositing funds to y!
-        ctr[yHash] = 1;
+        assembly {
+            calldatacopy(mload(scratch), 0x04, 0x40) // copy contents of y to first inner array of scratch
+            mstore(mload(add(scratch, 0x20)), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
+            mstore(add(mload(add(scratch, 0x20)), 0x20), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
+            // account of y is now [y, g] = ElG_y(e, 1). sentinel for having registered
+        }
+        acc[yHash] = scratch;
         emit RegistrationOccurred(y, msg.sender); // client must use this event callback to confirm.
     }
 
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
+        rollOver(yHash);
 
         // registration check here would be redundant, as any `transferFrom` the 0 address will necessarily fail. save an sload
         require(bTransfer <= 4294967295, "Deposit amount out of range."); // uint, so other way not necessary?
         require(bTransfer + bTotal <= 4294967295, "Fund pushes contract past maximum value.");
         // if pTransfers[yHash] == [0, 0, 0, 0] then an add and a write will be equivalent...
-        bytes32[2][2] memory scratch = [[bytes32(0), bytes32(0)], [bytes32(0), bytes32(0)]];
+        bytes32[2] memory scratch = acc[yHash][0];
         // won't let me assign this array using literals / casts
         assembly {
             let m := mload(0x40)
-            // load bulletproof generator here
-            mstore(m, 0x77da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
-            mstore(add(m, 0x20), 0x1485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
-            mstore(add(m, 0x40), bTransfer) // b will hopefully be a primitive / literal and not a pointer / address?
-            if iszero(call(gas, 0x07, 0, m, 0x60, mload(scratch), 0x40)) {
+            let result := 1
+            mstore(m, mload(scratch))
+            mstore(add(m, 0x20), mload(add(scratch, 0x20)))
+            mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
+            mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
+            mstore(add(m, 0x80), bTransfer) // b will hopefully be a primitive / literal and not a pointer / address?
+            result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
+            result := and(result, call(gas, 0x06, 0, m, 0x80, scratch, 0x40))
+            if iszero(result) {
                 revert(0, 0)
             }
         }
-        scratch[1] = acc[yHash][0]; // solidity puts this in a weird memory location...?
-        assembly {
-            let m := mload(0x40)
-            mstore(m, mload(mload(scratch)))
-            mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
-            mstore(add(m, 0x40), mload(mload(add(scratch, 0x20))))
-            mstore(add(m, 0x60), mload(add(mload(add(scratch, 0x20)), 0x20)))
-            if iszero(call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) {
-                revert(0, 0)
-            }
-        }
-        acc[yHash][0] = scratch[0];
+        acc[yHash][0] = scratch;
         require(coin.transferFrom(ethAddrs[yHash], address(this), bTransfer), "Transfer from sender failed");
         // front-running here would be disadvantageous, but still prevent it here by using ethAddrs[yHash] instead of msg.sender
         // also adds flexibility: can later issue messages from arbitrary ethereum accounts.
         bTotal += bTransfer;
-        emit FundOccurred(y);
+        emit FundOccurred();
     }
 
-    function verifyTransferSignature(bytes32 yHash, bytes32[2] memory yBar, bytes32[2] memory outL, bytes32[2] memory inL, bytes32[2] memory inOutR, bytes32[3] memory signature) view internal {
-        // omitting the proof from the structhash. variable length would be a pain! revisit.
-        bytes32 _domainHash = domainHash;
-        bytes32 message;
-        uint256 count = ctr[yHash];
-        bytes memory geth = "\x19Ethereum Signed Message:\n32"; // pain that this is necessary!
-        assembly {
-            let m := mload(0x40)
-            mstore(m, 0x1901)
-            mstore(add(m, 0x20), _domainHash)
-            mstore(add(m, 0x40), 0xa749c2b2aa979f63aed9ba228701786d8f263ff542fe87003a0ec711252431fe) // keccak256 hash of "ZETHER_TRANSFER_SIGNATURE(bytes32[2] yBar,bytes32[2] inL,bytes32[2] outL, bytes32[2] inOutR,uint256 count)"
-            mstore(add(m, 0x60), mload(yBar))
-            mstore(add(m, 0x80), mload(add(yBar, 0x20)))
-            mstore(add(m, 0x60), keccak256(add(m, 0x60), 0x40))
-            mstore(add(m, 0x80), mload(outL))
-            mstore(add(m, 0xa0), mload(add(outL, 0x20)))
-            mstore(add(m, 0x80), keccak256(add(m, 0x80), 0x40))
-            mstore(add(m, 0xa0), mload(inL))
-            mstore(add(m, 0xc0), mload(add(inL, 0x20)))
-            mstore(add(m, 0xa0), keccak256(add(m, 0xa0), 0x40))
-            mstore(add(m, 0xc0), mload(inOutR))
-            mstore(add(m, 0xe0), mload(add(inOutR, 0x20)))
-            mstore(add(m, 0xc0), keccak256(add(m, 0xc0), 0x40))
-            mstore(add(m, 0xe0), count)
-            mstore(add(m, 0x40), keccak256(add(m, 0x40), 0xc0))
-            message := keccak256(add(m, 0x1e), 0x42)
+    function transfer(bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, bytes32[2] memory u, bytes memory proof) public {
+        uint256 size = y.length;
+        bytes32[2][] memory CL = new bytes32[2][](size);
+        bytes32[2][] memory CR = new bytes32[2][](size);
+        require(L.length == size, "Input array length mismatch!");
+        uint256 result = 1;
+        for (uint256 i = 0; i < y.length; i++) {
+            bytes32 yHash = keccak256(abi.encodePacked(y[i]));
+            rollOver(yHash);
+            bytes32[2][2] memory scratch = pTransfers[yHash];
+            assembly {
+                let m := mload(0x40)
+                mstore(m, mload(mload(scratch)))
+                mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
+                // calldatacopy(add(m, 0x40), add(0x104, mul(i, 0x40)), 0x40) // copy L[i] onto running block
+                // having to change external --> public to avoid stacktoodeep
+                // as a result, have to use the below two lines instead of the above single line.
+                mstore(add(m, 0x40), mload(mload(add(add(L, 0x20), mul(i, 0x20)))))
+                mstore(add(m, 0x60), mload(add(mload(add(add(L, 0x20), mul(i, 0x20))), 0x20)))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40))
+                mstore(m, mload(mload(add(scratch, 0x20))))
+                mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
+                // calldatacopy(add(m, 0x40), 0x24, 0x40) // copy R onto running block
+                mstore(add(m, 0x40), mload(R))
+                mstore(add(m, 0x60), mload(add(R, 0x20)))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(scratch, 0x20)), 0x40))
+            }
+            pTransfers[yHash] = scratch; // credit / debit / neither y's account.
+            scratch = acc[yHash];
+            CL[i] = scratch[0];
+            CR[i] = scratch[1];
         }
-        address owner = ecrecover(keccak256(abi.encodePacked(geth, message)), uint8(uint256(signature[0])), signature[1], signature[2]);
-        require(owner == ethAddrs[yHash], "Signature invalid or for wrong address.");
-    }
+        require(result == 1, "Elliptic curve operations failure. Bad points?");
 
-    function transfer(bytes32[2] calldata outL, bytes32[2] calldata inL, bytes32[2] calldata inOutR, bytes32[2] calldata y, bytes32[2] calldata yBar, bytes calldata proof, bytes32[3] calldata signature) external {
-        // wanted to use a struct for these arguments, but more trouble than it's worth. "not yet supported"
-        // if public, then must copy to memory twice, instead of once...
-        bytes32 yHash = keccak256(abi.encodePacked(y));
-        bytes32 yBarHash = keccak256(abi.encodePacked(yBar));
+        // warning: no check that recipients are registered accounts, i.e., that _every_ y has been registered to.
+        // make sure that you register your eth account to your pubkey before receiving funds (unless you're using a throwaway, see below).
+        // if you don't, your registration could be pre-empted by an adversary, necessitating that you further transfer before withdrawing
+        // if this pre-empt goes unnoticed, and the further transfer is _not_ taken prior to withdrawal, then you'll lose funds
+        // this is a design decision: could require everyone to be registered...? but this would dampen anonymity a bit. i.e., throwaways
+        // it would be more convenient to not have to register a (new, random) eth account to each throwaway you make.
+        // sure, an adversary could latch on to your throwaway, but you were going to transfer it back to your main account anyway, so who cares?
+        // thus the burden is thus now on you, the _recipient_, to make sure you (successfully) register before receiving funds,
+        // and if you don't and re pre-empted / front-run, to _notice_ and to transfer to a new account before withdrawing
+        // this won't be an issue in practice, as the client software will _force_ you to register right away when your public key is generated,
+        // and will notify you if the process is compromised.
 
-        require(ctr[yBarHash] != 0, "Unregistered recipient!"); // this presents an "opportunistic registration griefing attack"
-        // if funds are sent to an unregistered key yBar, a malicious griefer could then register his own ethereum address to yBar before the intended recipient does
-        // this would force all subsequent withdrawals from yBar to go to the adversary's address. (though could not be _initiated_ by adv., who doesn't own sk of yBar)
-        // owner of yBar could always transfer balance to a new public key yBar2 to which he actually is registered, but this would be a pain and would require him to be alert
-
-        bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
-        assembly {
-            let result := 1
-            let m := mload(0x40)
-            mstore(m, mload(mload(scratch)))
-            mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
-            calldatacopy(add(m, 0x40), 0x04, 0x40) // copy outL to ongoing memory block
-            mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(m, 0x60)))) // negate y in Fp
-            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * inL ^ -1
-            mstore(m, mload(mload(add(scratch, 0x20))))
-            mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
-            calldatacopy(add(m, 0x40), 0x84, 0x40) // copy inOutR to memory block
-            mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(m, 0x60))))
-            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(scratch, 0x20)), 0x40)) // scratch[1] = acc[yHash][1] * inOutR ^ -1
-            if iszero(result) {
-                revert(0, 0)
+        bool seen = false;
+        bytes32 uHash = keccak256(abi.encodePacked(u));
+        for (uint256 i = 0; i < nonceSet.length; i++) {
+            if (nonceSet[i] == uHash) {
+                seen = true;
+                break;
             }
         }
+        require(!seen, "Nonce already seen!");
+        require(zkp.verifyTransfer(CL, CR, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
-        require(zkp.verifyTransfer(scratch[0], scratch[1], outL, inL, inOutR, y, yBar, proof), "invalid transfer proof");
-        verifyTransferSignature(yHash, yBar, outL, inL, inOutR, signature);
-
-        acc[yHash] = scratch; // debit y's balance. make sure this (deep) copies the array
-        scratch = pTransfers[yBarHash];
-        assembly {
-            let result := 1
-            let m := mload(0x40)
-            mstore(m, mload(mload(scratch)))
-            mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
-            calldatacopy(add(m, 0x40), 0x44, 0x40) // adjoin inL onto running memory block
-            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) // write scratch[0] = acc[yBar][0] * outL
-            mstore(m, mload(mload(add(scratch, 0x20))))
-            mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
-            calldatacopy(add(m, 0x40), 0x84, 0x40) // adjoin inOutR onto running memory block
-            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(scratch, 0x20)), 0x40)) // write scratch[1] = acc[yBar][1] * inOutR
-            if iszero(result) {
-                revert(0, 0)
-            }
-        }
-        pTransfers[yBarHash] = scratch; // credit yBar's balance
-        ctr[yHash]++;
-        emit TransferOccurred(y, yBar);
+        nonceSet.push(uHash);
+        emit TransferOccurred(y);
     }
 
-    function verifyBurnSignature(bytes32 yHash, uint256 bTransfer, bytes32[3] memory signature) view internal {
-        // omitting the proof from the structhash. variable length would be a pain! revisit.
-        bytes32 _domainHash = domainHash;
-        bytes32 message;
-        uint256 count = ctr[yHash];
-        bytes memory geth = "\x19Ethereum Signed Message:\n32"; // pain that this is necessary!
-        assembly {
-            let m := mload(0x40)
-            mstore(m, 0x1901)
-            mstore(add(m, 0x20), _domainHash)
-            mstore(add(m, 0x40), 0x9d72b69945fb58354dfc76c7c1408fc89879b343a0105554190526fc4171d455) // keccak256 hash of "ZETHER_BURN_SIGNATURE(uint256 bTransfer,uint256 count)"
-            mstore(add(m, 0x60), bTransfer)
-            mstore(add(m, 0x80), count)
-            mstore(add(m, 0x40), keccak256(add(m, 0x40), 0x60))
-            message := keccak256(add(m, 0x1e), 0x42)
-        }
-        address owner = ecrecover(keccak256(abi.encodePacked(geth, message)), uint8(uint256(signature[0])), signature[1], signature[2]);
-        require(owner == ethAddrs[yHash], "Signature invalid or for wrong address.");
-    }
-
-    function burn(bytes32[2] calldata y, uint256 bTransfer, bytes calldata proof, bytes32[3] calldata signature) external {
+    function burn(bytes32[2] calldata y, uint256 bTransfer, bytes32[2] calldata u, bytes calldata proof) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
+        rollOver(yHash);
 
-        require(ctr[yHash] != 0, "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
+        require(ethAddrs[yHash] != address(0), "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
         require(0 <= bTransfer && bTransfer <= 4294967295, "Transfer amount out of range");
         bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
         assembly {
@@ -237,8 +189,8 @@ contract ZSC {
             mstore(m, mload(mload(scratch)))
             mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
             // load bulletproof generator here
-            mstore(add(m, 0x40), 0x77da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4) // g_x
-            mstore(add(m, 0x60), 0x1485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875) // g_y
+            mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4) // g_x
+            mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875) // g_y
             mstore(add(m, 0x80), sub(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001, bTransfer))
             result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
             result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * g ^ -b, scratch[1] doesn't change
@@ -246,14 +198,21 @@ contract ZSC {
                 revert(0, 0)
             }
         }
-
-        require(zkp.verifyBurn(scratch[0], scratch[1], y, bTransfer, proof), "invalid burn proof");
-        verifyBurnSignature(yHash, bTransfer, signature);
+        bool seen = false;
+        bytes32 uHash = keccak256(abi.encodePacked(u));
+        for (uint256 i = 0; i < nonceSet.length; i++) {
+            if (nonceSet[i] == uHash) { // does this have to repeat the sload for each iteration?!? revisit
+                seen = true;
+                break;
+            }
+        }
+        require(!seen, "Nonce already seen!");
+        require(zkp.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, proof), "Burn proof verification failed!");
         require(coin.transfer(ethAddrs[yHash], bTransfer), "This shouldn't fail... Something went severely wrong");
         // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".
         acc[yHash] = scratch; // debit y's balance
-        ctr[yHash]++;
         bTotal -= bTransfer;
-        emit BurnOccurred(y);
+        nonceSet.push(uHash);
+        emit BurnOccurred();
     }
 }
