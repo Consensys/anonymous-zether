@@ -62,6 +62,8 @@ function tracker(zsc) {
         return address[0] == candidate[0] && address[1] == candidate[1];
     } // consider refactoring / eliminating this, e.g. using JSON.stringify
 
+    var away = function() { return Math.ceil((eth.blockNumber + 1) / epochLength) * epochLength - (eth.blockNumber + 1); }
+
     var simulateAccount = function(address) { // "baby" version of the below which will be used for _foreign_ accounts.
         var yHash = web3.sha3(address[0].slice(2) + address[1].slice(2), { encoding: 'hex' });
         var updated = new state();
@@ -174,14 +176,13 @@ function tracker(zsc) {
         var state = this.simulateBalances();
         if (value > state.available + state.pending)
             throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-        else if (value > state.available) {
-            var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
-            var plural = away == 1 ? "" : "s";
-            throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + away + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
-        } else if (state.nonceUsed) {
-            var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
-            var plural = away == 1 ? "" : "s";
-            throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
+        else {
+            var wait = away();
+            var plural = wait == 1 ? "" : "s";
+            if (value > state.available)
+                throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + wait + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
+            else if (state.nonceUsed)
+                throw "You've already made a transfer/withdrawal during this epoch! Please wait till the next one, " + wait + " block" + plural + " away.";
         }
         if (decoys && decoys.length % 2 == 1)
             throw "Please choose a decoys set of even length (add one or remove one)."
@@ -253,14 +254,13 @@ function tracker(zsc) {
         var state = this.simulateBalances();
         if (value > state.available + state.pending)
             throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-        else if (value > state.available) {
-            var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
-            var plural = away == 1 ? "" : "s";
-            throw "Requested withdrawal amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + away + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
-        } else if (state.nonceUsed) {
-            var away = Math.ceil(eth.blockNumber / epochLength) * epochLength - eth.blockNumber;
-            var plural = away == 1 ? "" : "s";
-            throw "You've already made a withdrawal/transfer during this epoch! Please wait till the next one, " + away + " block" + plural + " away.";
+        else {
+            var wait = away();
+            var plural = wait == 1 ? "" : "s";
+            if (value > state.available)
+                throw "Requested withdrawal amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + wait + " block" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
+            else if (state.nonceUsed)
+                throw "You've already made a transfer/withdrawal during this epoch! Please wait till the next one, " + wait + " block" + plural + " away.";
         }
         var updated = simulateAccount(keypair['y']);
         var proof = zether.proveBurn(updated.acc[0], updated.acc[1], keypair['y'], value, state.lastRollOver, keypair['x'], state.available - value);
