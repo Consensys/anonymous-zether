@@ -14,8 +14,8 @@ contract BurnVerifier {
 
     alt_bn128.G1Point[m] public gs;
     alt_bn128.G1Point[m] public hs;
-    alt_bn128.G1Point public peddersenBaseG;
-    alt_bn128.G1Point public peddersenBaseH;
+    alt_bn128.G1Point public pedersenBaseG;
+    alt_bn128.G1Point public pedersenBaseH;
 
     uint256[m] internal twos = powers(2);
 
@@ -23,8 +23,8 @@ contract BurnVerifier {
     BurnIPVerifier ipVerifier = new BurnIPVerifier();
 
     constructor() public {
-        peddersenBaseG = alt_bn128.mapInto("G");
-        peddersenBaseH = alt_bn128.mapInto("H");
+        pedersenBaseG = alt_bn128.mapInto("G");
+        pedersenBaseH = alt_bn128.mapInto("H");
         for (uint8 i = 0; i < m; i++) {
             gs[i] = alt_bn128.mapInto("G", i);
             hs[i] = alt_bn128.mapInto("H", i);
@@ -88,11 +88,11 @@ contract BurnVerifier {
         b.zCubed = b.zSquared.mul(b.z);
         b.twoTimesZSquared = times(twos, b.zSquared);
         b.x = uint256(keccak256(abi.encode(proof.commits[0].X, proof.commits[0].Y, proof.commits[1].X, proof.commits[1].Y))).mod();
-        b.lhs = peddersenBaseG.mul(proof.t).add(peddersenBaseH.mul(proof.tauX));
+        b.lhs = pedersenBaseG.mul(proof.t).add(pedersenBaseH.mul(proof.tauX));
         b.k = sumScalars(b.ys).mul(b.z.sub(b.zSquared)).sub(b.zCubed.mul(2 ** m).sub(b.zCubed));
         b.rhs = proof.commits[0].mul(b.x).add(proof.commits[1].mul(b.x.mul(b.x)));
         b.rhs = b.rhs.add(input.mul(b.zSquared));
-        b.rhs = b.rhs.add(peddersenBaseG.mul(b.k));
+        b.rhs = b.rhs.add(pedersenBaseG.mul(b.k));
         if (!b.rhs.eq(b.lhs)) {
             return false;
         }
@@ -100,13 +100,13 @@ contract BurnVerifier {
         // ^^^ why isn't the challenge x passed in?!? should include it in future hashes (fiat shamir).
         // when i'm done, actually it won't be x, but rather the challenge from the sigma protocol.
         // x will go into the anon proof.
-        b.u = peddersenBaseG.mul(b.uChallenge);
+        b.u = pedersenBaseG.mul(b.uChallenge);
         alt_bn128.G1Point[m] memory hPrimes = hadamard_inv(hs, b.ys);
         uint256[m] memory hExp = addVectors(times(b.ys, b.z), b.twoTimesZSquared);
         b.P = proof.A.add(proof.S.mul(b.x));
         b.P = b.P.add(sumPoints(gs).mul(b.z.neg()));
         b.P = b.P.add(commit(hPrimes, hExp));
-        b.P = b.P.add(peddersenBaseH.mul(proof.mu).neg());
+        b.P = b.P.add(pedersenBaseH.mul(proof.mu).neg());
         b.P = b.P.add(b.u.mul(proof.t));
         return ipVerifier.verifyWithCustomParams(b.P, toXs(proof.ipProof.ls), toYs(proof.ipProof.ls), toXs(proof.ipProof.rs), toYs(proof.ipProof.rs), proof.ipProof.a, proof.ipProof.b, hPrimes, b.u);
     }
