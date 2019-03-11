@@ -176,7 +176,7 @@ contract ZSC {
         emit TransferOccurred(y);
     }
 
-    function burn(bytes32[2] calldata y, uint256 bTransfer, bytes32[2] calldata u, bytes calldata proof) external {
+    function burn(bytes32[2] memory y, uint256 bTransfer, bytes32[2] memory u, bytes memory proof) public {
         bytes32 yHash = keccak256(abi.encodePacked(y));
         rollOver(yHash);
 
