@@ -4,14 +4,14 @@ This repo contains a Java-based _Bulletproofs_ service, as well as a demo for a 
 
 ### Folders in this Repo
 
-[zkp](zkp) is a maven project, which uses our [fork](https://github.com/QuorumEngineering/BulletProofLib) of [Benedikt Bünz's Bulletproofs library](https://github.com/bbuenz/BulletProofLib) as an external dependency. It is designed to be used with a modified version of quorum, currently hosted in the [quorum-mirror](https://github.com/QuorumEngineering/quorum-mirror/tree/api-precompile-rpc).
+[zkp](zkp) is a maven project, which uses our [fork](https://github.com/QuorumEngineering/BulletProofLib) of [Benedikt Bünz's Bulletproofs library](https://github.com/bbuenz/BulletProofLib) as an external dependency. It is designed to be used with a modified version of quorum, currently hosted in the [quorum-mirror](https://github.com/QuorumEngineering/quorum-mirror/tree/anonymous).
 
 The [zether](zether) folder contains the ZSC (Zether Smart Contract), as well as scripts to interact with it from the geth console. It can be used to showcase an end-to-end demo.
 
 ### User Instructions
 
 #### Prerequisites
-- Build the above-linked `api-precompile-rpc` branch of Quorum
+- Build the above-linked `anonymous` branch of Quorum
 - Spin up a Quorum cluster (you may refer to the [7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes))
 - Start the Spring application inside the `/zkp` directory of _this_ repo. The easiest way is to import the maven project into an IDE and execute `zkp/src/main/java/zkp/App.java`.
 - [Optional] To package everything into a jar file, you could config the `efficientct` jar dependency into the local `.m2` folder, import from there and run `mvn clean install`. After that run `java -jar [path to your jar file]`
