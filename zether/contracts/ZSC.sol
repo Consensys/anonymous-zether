@@ -1,6 +1,7 @@
 pragma solidity ^0.5.4; // unexplainable problems when switch to 0.5.5
 
-import './ZKP.sol';
+import './ZetherVerifier/ZetherVerifier.sol';
+import './BurnVerifier/BurnVerifier.sol';
 
 contract ERC20Interface {
   function transfer(address to, uint256 value) external returns (bool);
@@ -10,7 +11,8 @@ contract ERC20Interface {
 
 contract ZSC {
     ERC20Interface coin;
-    ZKP zkp = new ZKP();
+    ZetherVerifier zetherVerifier = new ZetherVerifier();
+    BurnVerifier burnVerifier = new BurnVerifier();
     uint256 public epochLength;
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
@@ -170,7 +172,7 @@ contract ZSC {
             }
         }
         require(!seen, "Nonce already seen!");
-        require(zkp.verifyTransfer(CL, CR, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
+        require(zetherVerifier.verify(CL, CR, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
         nonceSet.push(uHash);
         emit TransferOccurred(y);
@@ -207,7 +209,7 @@ contract ZSC {
             }
         }
         require(!seen, "Nonce already seen!");
-        require(zkp.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, proof), "Burn proof verification failed!");
+        require(burnVerifier.verify(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, proof), "Burn proof verification failed!");
         require(coin.transfer(ethAddrs[yHash], bTransfer), "This shouldn't fail... Something went severely wrong");
         // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".
         acc[yHash] = scratch; // debit y's balance
