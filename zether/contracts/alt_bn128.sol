@@ -102,10 +102,8 @@ library alt_bn128 {
         return mapInto(mod(uint256(keccak256(abi.encodePacked(input)))));
     }
 
-    function mapInto(string calldata input, uint8 i) external view returns (G1Point memory) { // warning: function totally untested!
-        return mapInto(mod(uint256(keccak256(abi.encodePacked(input, uint256(i))))));
+    function mapInto(string calldata input, uint256 i) external view returns (G1Point memory) { // warning: function totally untested!
+        return mapInto(mod(uint256(keccak256(abi.encodePacked(input, i)))));
         // ^^^ important: i haven't tested this, i.e. whether it agrees with ProofUtils.paddedHash(input, i) (cf. also the go version)
     }
-
-
 }

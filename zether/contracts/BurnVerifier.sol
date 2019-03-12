@@ -7,15 +7,24 @@ contract BurnVerifier {
     using alt_bn128 for uint256;
     using alt_bn128 for alt_bn128.G1Point;
 
-    uint256 public constant m = 32; // no longer constant
-    uint256 public constant n = 5; // will be used by library?
+    uint256 public constant m = 32;
+    uint256 public constant n = 5;
 
     alt_bn128.G1Point[m] public gs;
     alt_bn128.G1Point[m] public hs;
-    alt_bn128.G1Point public pedersenBaseG;
-    alt_bn128.G1Point public pedersenBaseH;
+    alt_bn128.G1Point public g;
+    alt_bn128.G1Point public h;
 
-    uint256[m] internal twos = powers(2);
+    uint256[m] internal twos = powers(2); // how much is this actually used?
+
+    struct BurnStatement {
+        alt_bn128.G1Point balanceCommitNewL;
+        alt_bn128.G1Point balanceCommitNewR;
+        alt_bn128.G1Point y;
+        uint256 bTransfer;
+        uint256 epoch; // or uint8?
+        alt_bn128.G1Point u;
+    }
 
     struct BurnProof {
         alt_bn128.G1Point A;
@@ -41,124 +50,113 @@ contract BurnVerifier {
     }
 
     constructor() public {
-        pedersenBaseG = alt_bn128.mapInto("G");
-        pedersenBaseH = alt_bn128.mapInto("H");
+        g = alt_bn128.mapInto("G");
+        h = alt_bn128.mapInto("H");
         for (uint8 i = 0; i < m; i++) {
             gs[i] = alt_bn128.mapInto("G", i);
             hs[i] = alt_bn128.mapInto("H", i);
         }
+    } // will it be more expensive later on to sload these than to recompute them?
+
+    function verify(bytes32[2] calldata CLn, bytes32[2] calldata CRn, bytes32[2] calldata y, uint256 bTransfer, uint256 epoch, bytes32[2] calldata u, bytes calldata proof) view external returns (bool) {
+        BurnStatement memory statement;
+        statement.balanceCommitNewL = alt_bn128.G1Point(uint256(CLn[0]), uint256(CLn[1]));
+        statement.balanceCommitNewR = alt_bn128.G1Point(uint256(CRn[0]), uint256(CRn[1]));
+        statement.y = alt_bn128.G1Point(uint256(y[0]), uint256(y[1]));
+        statement.bTransfer = bTransfer;
+        statement.epoch = epoch;
+        statement.u = alt_bn128.G1Point(uint256(u[0]), uint256(u[1]));
+        BurnProof memory burnProof = unserialize(proof);
+        return verifyBurn(statement, burnProof);
     }
 
-    struct Board {
+    struct BurnAuxiliaries {
         uint256 y;
         uint256[m] ys;
         uint256 z;
         uint256 zSquared;
         uint256 zCubed;
         uint256[m] twoTimesZSquared;
-        uint256 x;
-        alt_bn128.G1Point lhs;
         uint256 k;
-        alt_bn128.G1Point rhs;
-        uint256 uChallenge;
-        alt_bn128.G1Point u;
-        alt_bn128.G1Point P;
-    }
-
-    function verify(bytes32[2] calldata CLn, bytes32[2] calldata CRn, bytes32[2] calldata y, uint256 bTransfer, uint256 epoch, bytes32[2] calldata u, bytes calldata proof) pure external returns (bool) {
-    // will need to slice everything internally.
-    //     // alternatively: could return _individual_ components of the proof from go, and then pass them individually using web3 / solidity typing.
-    //     uint256[10] calldata coords, // [input_x, input_y, A_x, A_y, S_x, S_y, commits[0]_x, commits[0]_y, commits[1]_x, commits[1]_y]
-    //     uint256[5] calldata scalars, // [tauX, mu, t, a, b]
-    //     uint256[] calldata ls_coords, // 2 * n
-    //     uint256[] calldata rs_coords  // 2 * n
-    // ) external view returns (bool) {
-        BurnProof memory burnProof = unserialize(proof); // will include the ipproof internally
-
-        Board memory b;
-        b.y = uint256(keccak256(abi.encode(input.X, input.Y, proof.A.X, proof.A.Y, proof.S.X, proof.S.Y))).mod();
-        b.ys = powers(b.y);
-        b.z = uint256(keccak256(abi.encode(b.y))).mod();
-        b.zSquared = b.z.mul(b.z);
-        b.zCubed = b.zSquared.mul(b.z);
-        b.twoTimesZSquared = times(twos, b.zSquared);
-        b.x = uint256(keccak256(abi.encode(proof.commits[0].X, proof.commits[0].Y, proof.commits[1].X, proof.commits[1].Y))).mod();
-        b.lhs = pedersenBaseG.mul(proof.t).add(pedersenBaseH.mul(proof.tauX));
-        b.k = sumScalars(b.ys).mul(b.z.sub(b.zSquared)).sub(b.zCubed.mul(2 ** m).sub(b.zCubed));
-        b.rhs = proof.commits[0].mul(b.x).add(proof.commits[1].mul(b.x.mul(b.x)));
-        b.rhs = b.rhs.add(input.mul(b.zSquared));
-        b.rhs = b.rhs.add(pedersenBaseG.mul(b.k));
-        if (!b.rhs.eq(b.lhs)) {
-            return false;
-        }
-        b.uChallenge = uint256(keccak256(abi.encode(proof.tauX, proof.mu, proof.t))).mod();
-        // ^^^ why isn't the challenge x passed in?!? should include it in future hashes (fiat shamir).
-        // when i'm done, actually it won't be x, but rather the challenge from the sigma protocol.
-        // x will go into the anon proof.
-        b.u = pedersenBaseG.mul(b.uChallenge);
-        alt_bn128.G1Point[m] memory hPrimes = hadamard_inv(hs, b.ys);
-        uint256[m] memory hExp = addVectors(times(b.ys, b.z), b.twoTimesZSquared);
-        b.P = proof.A.add(proof.S.mul(b.x));
-        b.P = b.P.add(sumPoints(gs).mul(b.z.neg()));
-        b.P = b.P.add(commit(hPrimes, hExp));
-        b.P = b.P.add(pedersenBaseH.mul(proof.mu).neg());
-        b.P = b.P.add(b.u.mul(proof.t));
-        return ipVerifier.verifyWithCustomParams(b.P, toXs(proof.ipProof.ls), toYs(proof.ipProof.ls), toXs(proof.ipProof.rs), toYs(proof.ipProof.rs), proof.ipProof.a, proof.ipProof.b, hPrimes, b.u);
-    }
-    
-    struct IPBoard { // ?
-        alt_bn128.G1Point c;
-        alt_bn128.G1Point l;
-        alt_bn128.G1Point r;
+        alt_bn128.G1Point tEval;
+        uint256 t;
         uint256 x;
-        uint256 xInv;
-        uint256[n] challenges;
-        uint256[m] otherExponents;
-        alt_bn128.G1Point g;
-        alt_bn128.G1Point h;
-        uint256 prod;
-        alt_bn128.G1Point cProof;
-        bool[m] bitSet;
-        uint256 z;
     }
 
-    function verifyIP(uint256 salt, InnerProductProof calldata proof) external view returns (bool) {
-        Board memory b;
-        b.c = c;
+    struct SigmaAuxiliaries {
+        alt_bn128.G1Point Ay;
+        alt_bn128.G1Point gEpoch;
+        alt_bn128.G1Point Au;
+        alt_bn128.G1Point cCommit;
+        alt_bn128.G1Point At;
+    }
+
+    function verifyBurn(BurnStatement memory statement, BurnProof memory proof) view internal returns (bool) {
+        BurnAuxiliaries memory burnAuxiliaries;
+        burnAuxiliaries.y = uint256(keccak256(abi.encode(keccak256(abi.encode(statement.bTransfer, statement.y)), proof.A, proof.S))).mod();
+        burnAuxiliaries.ys = powers(burnAuxiliaries.y);
+        burnAuxiliaries.z = uint256(keccak256(abi.encode(burnAuxiliaries.y))).mod();
+        burnAuxiliaries.zSquared = burnAuxiliaries.z.mul(burnAuxiliaries.z);
+        burnAuxiliaries.zCubed = burnAuxiliaries.zSquared.mul(burnAuxiliaries.z);
+        burnAuxiliaries.twoTimesZSquared = times(twos, burnAuxiliaries.zSquared);
+        burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.commits[0], proof.commits[1]))).mod();
+
+        // begin verification of sigma proof. is it worth passing to a different method?
+        burnAuxiliaries.k = sumScalars(burnAuxiliaries.ys).mul(burnAuxiliaries.z.sub(burnAuxiliaries.zSquared)).sub(burnAuxiliaries.zCubed.mul(2 ** m).sub(burnAuxiliaries.zCubed)); // really care about t - k
+        burnAuxiliaries.tEval = proof.commits[0].mul(burnAuxiliaries.x).add(proof.commits[1].mul(burnAuxiliaries.x.mul(burnAuxiliaries.x))); // replace with "commit"?
+        burnAuxiliaries.t = proof.t.sub(burnAuxiliaries.k);
+
+        SigmaAuxiliaries memory sigmaAuxiliaries;
+        sigmaAuxiliaries.Ay = g.mul(proof.sigmaProof.sX).add(statement.y.mul(proof.sigmaProof.c.neg()));
+        sigmaAuxiliaries.gEpoch = alt_bn128.mapInto("Zether", statement.epoch);
+        sigmaAuxiliaries.Au = sigmaAuxiliaries.gEpoch.mul(proof.sigmaProof.sX).add(statement.u.mul(proof.sigmaProof.c.neg()));
+        sigmaAuxiliaries.cCommit = statement.balanceCommitNewL.mul(proof.sigmaProof.c.mul(burnAuxiliaries.zSquared)).add(statement.balanceCommitNewR.mul(proof.sigmaProof.sX.mul(burnAuxiliaries.zSquared))).neg();
+        sigmaAuxiliaries.At = g.mul(burnAuxiliaries.t.mul(proof.sigmaProof.c)).add(h.mul(proof.tauX.mul(proof.sigmaProof.c))).add(sigmaAuxiliaries.cCommit.add(burnAuxiliaries.tEval.mul(proof.sigmaProof.c)).neg());
+
+        uint256 challenge = uint256(keccak256(abi.encode(burnAuxiliaries.x, sigmaAuxiliaries.Ay, sigmaAuxiliaries.Au, sigmaAuxiliaries.At))).mod();
+        require(challenge == proof.sigmaProof.c, "Sigma protocol challenge equality failure.");
+
+        uint256 uChallenge = uint256(keccak256(abi.encode(proof.sigmaProof.c, proof.t, proof.tauX, proof.mu))).mod();
+        alt_bn128.G1Point memory u = g.mul(uChallenge);
+        alt_bn128.G1Point[m] memory hPrimes = hadamard_inv(hs, burnAuxiliaries.ys);
+        uint256[m] memory hExp = addVectors(times(burnAuxiliaries.ys, burnAuxiliaries.z), burnAuxiliaries.twoTimesZSquared);
+        alt_bn128.G1Point memory P = proof.A.add(proof.S.mul(burnAuxiliaries.x));
+        P = P.add(sumPoints(gs).mul(burnAuxiliaries.z.neg()));
+        P = P.add(commit(hPrimes, hExp)).add(h.mul(proof.mu).neg()).add(u.mul(proof.t));
+
+        // begin inner product verification
+        InnerProductProof memory ipProof = proof.ipProof;
+        uint256[n] memory challenges;
         for (uint8 i = 0; i < n; i++) {
-            b.l = alt_bn128.G1Point(ls_x[i], ls_y[i]);
-            b.r = alt_bn128.G1Point(rs_x[i], rs_y[i]);
-            b.x = uint256(keccak256(abi.encode(b.l.X, b.l.Y, b.c.X, b.c.Y, b.r.X, b.r.Y))).mod();
-            b.xInv = b.x.inv();
-            b.c = b.l.mul(b.x.exp(2))
-                .add(b.r.mul(b.xInv.exp(2)))
-                .add(b.c);
-            b.challenges[i] = b.x;
+            uChallenge = uint256(keccak256(abi.encode(uChallenge, ipProof.ls[i], ipProof.rs[i]))).mod();
+            challenges[i] = uChallenge;
+            uint256 xInv = uChallenge.inv();
+            P = ipProof.ls[i].mul(uChallenge.exp(2)).add(ipProof.rs[i].mul(xInv.exp(2))).add(P);
         }
 
-        b.otherExponents[0] = b.challenges[0];
+        uint256[m] memory otherExponents;
+        otherExponents[0] = challenges[0];
         for (uint8 i = 1; i < n; i++) {
-            b.otherExponents[0] = b.otherExponents[0].mul(b.challenges[i]);
+            otherExponents[0] = otherExponents[0].mul(challenges[i]);
         }
-        b.otherExponents[0] = b.otherExponents[0].inv();
+        bool[m] memory bitSet;
+        otherExponents[0] = otherExponents[0].inv();
         for (uint8 i = 0; i < m/2; ++i) {
             for (uint8 j = 0; (1 << j) + i < m; ++j) {
                 uint8 i1 = i + (1 << j);
-                if (!b.bitSet[i1]) {
-                    b.z = b.challenges[n-1-j].mul(b.challenges[n-1-j]);
-                    b.otherExponents[i1] = b.otherExponents[i].mul(b.z);
-                    b.bitSet[i1] = true;
+                if (!bitSet[i1]) {
+                    uint256 temp = challenges[n-1-j].mul(challenges[n-1-j]);
+                    otherExponents[i1] = otherExponents[i].mul(temp);
+                    bitSet[i1] = true;
                 }
             }
         }
 
-        b.g = multiExpGs(b.otherExponents);
-        b.h = multiExpHsInversed(b.otherExponents, hs);
-        b.prod = A.mul(B);
-        b.cProof = b.g.mul(A)
-            .add(b.h.mul(B))
-            .add(H.mul(b.prod));
-        return b.cProof.X == b.c.X && b.cProof.Y == b.c.Y;
+        alt_bn128.G1Point memory gTemp = multiExpGs(otherExponents);
+        alt_bn128.G1Point memory hTemp = multiExpHsInversed(otherExponents, hs);
+        alt_bn128.G1Point memory cProof = gTemp.mul(ipProof.a).add(hTemp.mul(ipProof.b)).add(h.mul(ipProof.a.mul(ipProof.b)));
+        require(P.eq(cProof), "Inner product equality check failure.");
+        return true;
     }
 
     function multiExpGs(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory g) {

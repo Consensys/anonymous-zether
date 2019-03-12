@@ -1,7 +1,7 @@
 pragma solidity ^0.5.4; // unexplainable problems when switch to 0.5.5
 
-import './ZetherVerifier/ZetherVerifier.sol';
-import './BurnVerifier/BurnVerifier.sol';
+import './ZetherVerifier.sol';
+import './BurnVerifier.sol';
 
 contract ERC20Interface {
   function transfer(address to, uint256 value) external returns (bool);
@@ -16,7 +16,7 @@ contract ZSC {
     uint256 public epochLength;
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
-    // uint256 constant MAX = 4294967295; // 2^32 - 1 // save an sload, use a literal...
+    uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
     mapping(bytes32 => bytes32[2][2]) public acc; // main account mapping
     mapping(bytes32 => bytes32[2][2]) public pTransfers; // storage for pending transfers
     mapping(bytes32 => address) public ethAddrs; // i guess the only point of this now is to lock addresses so as to prevent front-running during burns.
@@ -90,8 +90,8 @@ contract ZSC {
         rollOver(yHash);
 
         // registration check here would be redundant, as any `transferFrom` the 0 address will necessarily fail. save an sload
-        require(bTransfer <= 4294967295, "Deposit amount out of range."); // uint, so other way not necessary?
-        require(bTransfer + bTotal <= 4294967295, "Fund pushes contract past maximum value.");
+        require(bTransfer <= MAX, "Deposit amount out of range."); // uint, so other way not necessary?
+        require(bTransfer + bTotal <= MAX, "Fund pushes contract past maximum value.");
         // if pTransfers[yHash] == [0, 0, 0, 0] then an add and a write will be equivalent...
         bytes32[2] memory scratch = acc[yHash][0];
         // won't let me assign this array using literals / casts
@@ -183,7 +183,7 @@ contract ZSC {
         rollOver(yHash);
 
         require(ethAddrs[yHash] != address(0), "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
-        require(0 <= bTransfer && bTransfer <= 4294967295, "Transfer amount out of range");
+        require(0 <= bTransfer && bTransfer <= MAX, "Transfer amount out of range");
         bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
         assembly {
             let result := 1
