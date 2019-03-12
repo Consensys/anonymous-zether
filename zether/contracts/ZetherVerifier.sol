@@ -12,12 +12,23 @@ contract ZetherVerifier {
 
     alt_bn128.G1Point[m] public gs;
     alt_bn128.G1Point[m] public hs;
-    alt_bn128.G1Point public pedersenBaseG;
-    alt_bn128.G1Point public pedersenBaseH;
+    alt_bn128.G1Point public g;
+    alt_bn128.G1Point public h;
 
     uint256[m] internal twos = powers(2);
 
+    struct ZetherStatement {
+        alt_bn128.G1Point[] balanceCommitNewL;
+        alt_bn128.G1Point[] balanceCommitNewR;
+        alt_bn128.G1Point[] L;
+        alt_bn128.G1Point R;
+        alt_bn128.G1Point[] y;
+        uint256 epoch; // or uint8?
+        alt_bn128.G1Point u;
+    }
+
     struct ZetherProof {
+        uint256 size; // not strictly necessary, but...?
         alt_bn128.G1Point A;
         alt_bn128.G1Point S;
         alt_bn128.G1Point[2] commits;
@@ -34,14 +45,14 @@ contract ZetherVerifier {
         alt_bn128.G1Point B;
         alt_bn128.G1Point C;
         alt_bn128.G1Point D;
-        alt_bn128.G1Point[][2] LG; // not storing size as a member.
+        alt_bn128.G1Point[2][] LG; // flipping the indexing order on this, 'cause...
         alt_bn128.G1Point RG;
         alt_bn128.G1Point balanceCommitNewLG;
         alt_bn128.G1Point balanceCommitNewRG;
-        alt_bn128.G1Point[][2] yG; // assuming this one has the same size..., N / 2 by 2,
+        alt_bn128.G1Point[2][] yG; // assuming this one has the same size..., N / 2 by 2,
         alt_bn128.G1Point parityG0;
         alt_bn128.G1Point parityG1;
-        uint256[][2] f; // and that this has size N - 1 by 2.
+        uint256[2][] f; // and that this has size N - 1 by 2.
         uint256 zA;
         uint256 zC;
     }
@@ -60,131 +71,219 @@ contract ZetherVerifier {
     }
 
     constructor() public {
-        pedersenBaseG = alt_bn128.mapInto("G");
-        pedersenBaseH = alt_bn128.mapInto("H");
+        g = alt_bn128.mapInto("G");
+        h = alt_bn128.mapInto("H");
         for (uint8 i = 0; i < m; i++) {
             gs[i] = alt_bn128.mapInto("G", i);
             hs[i] = alt_bn128.mapInto("H", i);
         }
     }
 
-    struct Board {
+    function verify(bytes32[2][] memory CL, bytes32[2][] memory CR, bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
+        ZetherStatement memory statement;
+        uint256 size = y.length;
+        statement.balanceCommitNewL = new alt_bn128.G1Point[](size);
+        statement.balanceCommitNewR = new alt_bn128.G1Point[](size);
+        statement.L = new alt_bn128.G1Point[](size);
+        statement.y = new alt_bn128.G1Point[](size);
+        for (uint8 i = 0; i < size; i++) {
+            statement.balanceCommitNewL[i] = alt_bn128.G1Point(uint256(CL[i][0]), uint256(CL[i][1]));
+            statement.balanceCommitNewR[i] = alt_bn128.G1Point(uint256(CR[i][0]), uint256(CR[i][1]));
+            statement.L[i] = alt_bn128.G1Point(uint256(L[i][0]), uint256(L[i][1]));
+            statement.y[i] = alt_bn128.G1Point(uint256(y[i][0]), uint256(y[i][1]));
+        }
+        statement.R = alt_bn128.G1Point(uint256(R[0]), uint256(R[1]));
+        statement.epoch = epoch;
+        statement.u = alt_bn128.G1Point(uint256(u[0]), uint256(u[1]));
+        ZetherProof memory zetherProof = unserialize(proof);
+        return verifyTransfer(statement, zetherProof);
+    }
+
+    struct ZetherAuxiliaries {
         uint256 y;
         uint256[m] ys;
         uint256 z;
         uint256 zSquared;
         uint256 zCubed;
         uint256[m] twoTimesZSquared;
-        uint256 x;
-        alt_bn128.G1Point lhs;
         uint256 k;
-        alt_bn128.G1Point rhs;
-        uint256 uChallenge;
-        alt_bn128.G1Point u;
-        alt_bn128.G1Point P;
+        alt_bn128.G1Point tEval;
+        uint256 t;
+        uint256 x;
     }
 
-    function verify(bytes32[2][] calldata CL, bytes32[2][] calldata CR, bytes32[2][] calldata L, bytes32[2] calldata R, bytes32[2][] calldata y, uint256 epoch, bytes32[2] calldata u, bytes calldata proof) pure external returns (bool) {
-        ZetherProof memory zetherProof = unserialize(proof); // will include the ipproof internally
-        Board memory b;
-        b.y = uint256(keccak256(abi.encode(input.X, input.Y, proof.A.X, proof.A.Y, proof.S.X, proof.S.Y))).mod();
-        // ^^^ not sure what "input" meant in the original parameter list.
-        // either way, this will need to be made to incorporate the full parameters of the statement, a la lines 48 to 52 of ZetherVerifier.
-        b.ys = powers(b.y);
-        b.z = uint256(keccak256(abi.encode(b.y))).mod();
-        b.zSquared = b.z.mul(b.z);
-        b.zCubed = b.zSquared.mul(b.z);
-        b.twoTimesZSquared = times(twos, b.zSquared);
-        b.x = uint256(keccak256(abi.encode(proof.commits[0].X, proof.commits[0].Y, proof.commits[1].X, proof.commits[1].Y))).mod();
-        b.lhs = pedersenBaseG.mul(proof.t).add(pedersenBaseH.mul(proof.tauX));
-        uint256 zSum = b.zSquared.add(b.zCubed).multiply(b.z);
-        b.k = sumScalars(b.ys).mul(b.z.sub(b.zSquared)).sub(zSum.mul(2 ** m).sub(zSum));
-        b.rhs = proof.commits[0].mul(b.x).add(proof.commits[1].mul(b.x.mul(b.x)));
-        b.rhs = b.rhs.add(input.mul(b.zSquared));
-        b.rhs = b.rhs.add(pedersenBaseG.mul(b.k));
-        if (!b.rhs.eq(b.lhs)) {
-            return false;
-        }
-        b.uChallenge = uint256(keccak256(abi.encode(proof.tauX, proof.mu, proof.t))).mod();
-        // why isn't the challenge x passed in?!? should include it in future hashes (fiat shamir).
-        // when i'm done, actually it won't be x, but rather the challenge from the sigma protocol.
-        // x will go into the anon proof.
-        b.u = pedersenBaseG.mul(b.uChallenge);
-        alt_bn128.G1Point[m] memory hPrimes = hadamard_inv(hs, b.ys);
-        uint256[m] memory hExp = addVectors(times(b.ys, b.z), b.twoTimesZSquared);
-        b.P = proof.A.add(proof.S.mul(b.x));
-        b.P = b.P.add(sumPoints(gs).mul(b.z.neg()));
-        b.P = b.P.add(commit(hPrimes, hExp));
-        b.P = b.P.add(pedersenBaseH.mul(proof.mu).neg());
-        b.P = b.P.add(b.u.mul(proof.t));
-        return ipVerifier.verifyWithCustomParams(b.P, toXs(proof.ipProof.ls), toYs(proof.ipProof.ls), toXs(proof.ipProof.rs), toYs(proof.ipProof.rs), proof.ipProof.a, proof.ipProof.b, hPrimes, b.u);
+    struct SigmaAuxiliaries {
+        uint256 minusC;
+        alt_bn128.G1Point[2][] AL;
+        alt_bn128.G1Point Ay;
+        alt_bn128.G1Point AD;
+        alt_bn128.G1Point gEpoch;
+        alt_bn128.G1Point Au;
+        alt_bn128.G1Point ADiff;
+        alt_bn128.G1Point cCommit;
+        alt_bn128.G1Point At;
     }
-    
-        struct Board {
-        alt_bn128.G1Point c;
-        alt_bn128.G1Point l;
-        alt_bn128.G1Point r;
+
+    struct AnonAuxiliaries {
         uint256 x;
+        uint256[2][] f;
         uint256 xInv;
+        alt_bn128.G1Point inOutR2;
+        alt_bn128.G1Point balanceCommitNewL2;
+        alt_bn128.G1Point balanceCommitNewR2;
+        uint256[2][] cycler;
+        alt_bn128.G1Point[2][] L2;
+        alt_bn128.G1Point[2][] y2;
+        alt_bn128.G1Point parity;
+        alt_bn128.G1Point gPrime;
+    }
+
+    struct IPAuxiliaries {
+        alt_bn128.G1Point u;
+        alt_bn128.G1Point[m] hPrimes;
+        uint256[m] hExp;
+        alt_bn128.G1Point P;
+        uint256 uChallenge;
         uint256[n] challenges;
         uint256[m] otherExponents;
-        alt_bn128.G1Point g;
-        alt_bn128.G1Point h;
-        uint256 prod;
-        alt_bn128.G1Point cProof;
-        bool[m] bitSet;
-        uint256 z;
     }
 
-    function verifyIP(uint256 salt, InnerProductProof calldata proof) external view returns (bool) {
-        Board memory b;
-        b.c = c;
-        for (uint8 i = 0; i < n; i++) {
-            b.l = alt_bn128.G1Point(ls_x[i], ls_y[i]);
-            b.r = alt_bn128.G1Point(rs_x[i], rs_y[i]);
-            b.x = uint256(keccak256(abi.encode(b.l.X, b.l.Y, b.c.X, b.c.Y, b.r.X, b.r.Y))).mod();
-            b.xInv = b.x.inv();
-            b.c = b.l.mul(b.x.exp(2))
-                .add(b.r.mul(b.xInv.exp(2)))
-                .add(b.c);
-            b.challenges[i] = b.x;
+    function verifyTransfer(ZetherStatement memory statement, ZetherProof memory proof) view internal returns (bool) {
+        require(proof.size % 2 == 0, "Anonymity set size must be even!"); // could also do this during deserialization?
+
+        ZetherAuxiliaries memory zetherAuxiliaries;
+        zetherAuxiliaries.y = uint256(keccak256(abi.encode(keccak256(abi.encode(statement.R, statement.balanceCommitNewL, statement.balanceCommitNewR, statement.L, statement.y)), proof.A, proof.S))).mod();
+        // warning: not correct as written. the encoding will include length headers, whereas the java version does not!
+        zetherAuxiliaries.ys = powers(zetherAuxiliaries.y);
+        zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
+        zetherAuxiliaries.zSquared = zetherAuxiliaries.z.mul(zetherAuxiliaries.z);
+        zetherAuxiliaries.zCubed = zetherAuxiliaries.zSquared.mul(zetherAuxiliaries.z);
+        zetherAuxiliaries.twoTimesZSquared = times(twos, zetherAuxiliaries.zSquared);
+        zetherAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.z, proof.commits[0], proof.commits[1]))).mod();
+
+        uint256 zSum = zetherAuxiliaries.zSquared.add(zetherAuxiliaries.zCubed).mul(zetherAuxiliaries.z);
+        zetherAuxiliaries.k = sumScalars(zetherAuxiliaries.ys).mul(zetherAuxiliaries.z.sub(zetherAuxiliaries.zSquared)).sub(zSum.mul(2 ** m).sub(zSum));
+        zetherAuxiliaries.tEval = proof.commits[0].mul(zetherAuxiliaries.x).add(proof.commits[1].mul(zetherAuxiliaries.x.mul(zetherAuxiliaries.x))); // replace with "commit"?
+        zetherAuxiliaries.t = proof.t.sub(zetherAuxiliaries.k);
+
+        // begin anon proof.
+        // length equality checks for anonProof members? or during deserialization?
+        AnonProof memory anonProof = proof.anonProof;
+        AnonAuxiliaries memory anonAuxiliaries;
+        anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.RG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, anonProof.parityG0, anonProof.parityG1))).mod();
+        // warning: will encode length headers, while java will not
+        anonAuxiliaries.f = new uint256[2][](proof.size);
+        anonAuxiliaries.f[0][0] = anonAuxiliaries.x;
+        anonAuxiliaries.f[0][1] = anonAuxiliaries.x;
+        for (uint i = 1; i < proof.size; i++) {
+            anonAuxiliaries.f[i][0] = anonProof.f[i][0];
+            anonAuxiliaries.f[i][1] = anonProof.f[i][1];
+            anonAuxiliaries.f[0][0] = anonAuxiliaries.f[0][0].sub(anonAuxiliaries.f[i][0]);
+            anonAuxiliaries.f[0][1] = anonAuxiliaries.f[0][1].sub(anonAuxiliaries.f[i][1]);
+        }
+        alt_bn128.G1Point memory temp = double(gs, hs, anonAuxiliaries.f);
+        require(anonProof.B.mul(anonAuxiliaries.x).add(anonProof.A).eq(temp.mul(anonProof.zA)), "Recovery failure for B^x * A.");
+        for (uint i = 0; i < proof.size; i++) {
+            anonAuxiliaries.f[i][0] = anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]);
+            anonAuxiliaries.f[i][1] = anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]);
+        }
+        require(anonProof.C.mul(anonAuxiliaries.x).add(anonProof.D).eq(temp.mul(anonProof.zC)), "Recovery failure for B^x * A.");
+        anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
+        anonAuxiliaries.inOutR2 = statement.R.add(anonProof.RG.mul(anonAuxiliaries.x.neg()));
+        anonAuxiliaries.cycler = new uint256[2][](proof.size);
+        anonAuxiliaries.L2 = new alt_bn128.G1Point[2][](proof.size);
+        anonAuxiliaries.y2 = new alt_bn128.G1Point[2][](proof.size);
+        for (uint8 i = 0; i < proof.size / 2; i++) {
+            for (uint8 j = 0; j < proof.size; j++) {
+                anonAuxiliaries.cycler[j][0] = anonAuxiliaries.cycler[j][0].add(anonAuxiliaries.f[j + i * 2][0]);
+                anonAuxiliaries.cycler[j][1] = anonAuxiliaries.cycler[j][1].add(anonAuxiliaries.f[j + i * 2][1]);
+                anonAuxiliaries.L2[i][0] = anonAuxiliaries.L2[i][0].add(statement.L[j].mul(anonAuxiliaries.f[j + i * 2][0]));
+                anonAuxiliaries.L2[i][1] = anonAuxiliaries.L2[i][1].add(statement.L[j].mul(anonAuxiliaries.f[j + i * 2][1]));
+                anonAuxiliaries.y2[i][0] = anonAuxiliaries.y2[i][0].add(statement.y[j].mul(anonAuxiliaries.f[j + i * 2][0]));
+                anonAuxiliaries.y2[i][1] = anonAuxiliaries.y2[i][1].add(statement.y[j].mul(anonAuxiliaries.f[j + i * 2][1]));
+            }
+            anonAuxiliaries.L2[i][0] = anonAuxiliaries.L2[i][0].add(anonProof.LG[i][0]).mul(anonAuxiliaries.xInv);
+            anonAuxiliaries.L2[i][1] = anonAuxiliaries.L2[i][1].add(anonProof.LG[i][1]).mul(anonAuxiliaries.xInv);
+        }
+        for (uint8 i = 0; i < proof.size; i++) {
+            anonAuxiliaries.balanceCommitNewL2 = anonAuxiliaries.balanceCommitNewL2.add(statement.balanceCommitNewL[i].mul(anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.balanceCommitNewR2 = anonAuxiliaries.balanceCommitNewR2.add(statement.balanceCommitNewR[i].mul(anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.parity = anonAuxiliaries.parity.add(statement.y[i].mul(anonAuxiliaries.cycler[i][0].mul(anonAuxiliaries.cycler[i][1])));
         }
 
-        b.otherExponents[0] = b.challenges[0];
-        for (uint8 i = 1; i < n; i++) {
-            b.otherExponents[0] = b.otherExponents[0].mul(b.challenges[i]);
+        require(anonAuxiliaries.parity.eq(anonProof.parityG1.mul(anonAuxiliaries.x).add(anonProof.parityG0)), "Index opposite parity check fail.");
+
+        anonAuxiliaries.gPrime = g.mul(anonAuxiliaries.x).add(anonProof.RG.neg()).mul(anonAuxiliaries.xInv);
+
+        SigmaProof memory sigmaProof = proof.sigmaProof;
+        SigmaAuxiliaries memory sigmaAuxiliaries;
+        sigmaAuxiliaries.minusC = sigmaProof.c.neg();
+        sigmaAuxiliaries.AL = new alt_bn128.G1Point[2][](proof.size / 2 - 1);
+        for (uint256 i = 1; i < proof.size / 2; i++) {
+            sigmaAuxiliaries.AL[i - 1][0] = anonAuxiliaries.y2[i][0].mul(sigmaProof.sR).add(anonAuxiliaries.L2[i][0]).mul(sigmaAuxiliaries.minusC);
+            sigmaAuxiliaries.AL[i - 1][1] = anonAuxiliaries.y2[i][1].mul(sigmaProof.sR).add(anonAuxiliaries.L2[i][1]).mul(sigmaAuxiliaries.minusC);
         }
-        b.otherExponents[0] = b.otherExponents[0].inv();
+        sigmaAuxiliaries.Ay = anonAuxiliaries.gPrime.mul(sigmaProof.sX).add(anonAuxiliaries.y2[0][0].mul(sigmaAuxiliaries.minusC));
+        sigmaAuxiliaries.gEpoch = alt_bn128.mapInto("Zether", statement.epoch);
+        sigmaAuxiliaries.Au = sigmaAuxiliaries.gEpoch.mul(sigmaProof.sX).add(statement.u.mul(sigmaProof.c.neg()));
+        sigmaAuxiliaries.ADiff = anonAuxiliaries.y2[0][0].add(anonAuxiliaries.y2[0][1]).mul(sigmaProof.sR).add(anonAuxiliaries.L2[0][0].add(anonAuxiliaries.L2[0][1])).mul(sigmaAuxiliaries.minusC);
+        sigmaAuxiliaries.cCommit = anonAuxiliaries.inOutR2.mul(sigmaProof.sX.mul(zetherAuxiliaries.zSquared)).add(anonAuxiliaries.balanceCommitNewR2.mul(sigmaProof.sX.mul(zetherAuxiliaries.zCubed)).neg()).add(anonAuxiliaries.balanceCommitNewL2.mul(sigmaProof.c.mul(zetherAuxiliaries.zCubed))).add(anonAuxiliaries.L2[0][0].mul(sigmaProof.c.mul(zetherAuxiliaries.zSquared)).neg());
+        sigmaAuxiliaries.At = g.mul(zetherAuxiliaries.t.mul(sigmaProof.c)).add(h.mul(proof.tauX.mul(sigmaProof.c))).add(sigmaAuxiliaries.cCommit.add(zetherAuxiliaries.tEval.mul(sigmaProof.c)).neg());
+
+        uint256 challenge = uint256(keccak256(abi.encode(anonAuxiliaries.x, sigmaAuxiliaries.AL, sigmaAuxiliaries.Ay, sigmaAuxiliaries.AD, sigmaAuxiliaries.Au, sigmaAuxiliaries.ADiff, sigmaAuxiliaries.At))).mod();
+        // warning: abi encoding difference vs. java
+        require(challenge == proof.sigmaProof.c, "Sigma protocol challenge equality failure.");
+
+        IPAuxiliaries memory ipAuxiliaries;
+        ipAuxiliaries.uChallenge = uint256(keccak256(abi.encode(sigmaProof.c, proof.t, proof.tauX, proof.mu))).mod(); // uChallenge
+        ipAuxiliaries.u = g.mul(ipAuxiliaries.uChallenge);
+        ipAuxiliaries.hPrimes = hadamard_inv(hs, zetherAuxiliaries.ys);
+        ipAuxiliaries.hExp = addVectors(times(zetherAuxiliaries.ys, zetherAuxiliaries.z), zetherAuxiliaries.twoTimesZSquared);
+        ipAuxiliaries.P = proof.A.add(proof.S.mul(zetherAuxiliaries.x));
+        ipAuxiliaries.P = ipAuxiliaries.P.add(sumPoints(gs).mul(zetherAuxiliaries.z.neg()));
+        ipAuxiliaries.P = ipAuxiliaries.P.add(commit(ipAuxiliaries.hPrimes, ipAuxiliaries.hExp)).add(h.mul(proof.mu).neg()).add(ipAuxiliaries.u.mul(proof.t));
+
+        // begin inner product verification
+        InnerProductProof memory ipProof = proof.ipProof;
+        for (uint8 i = 0; i < n; i++) {
+            ipAuxiliaries.uChallenge = uint256(keccak256(abi.encode(ipAuxiliaries.uChallenge, ipProof.ls[i], ipProof.rs[i]))).mod();
+            ipAuxiliaries.challenges[i] = ipAuxiliaries.uChallenge; // overwrites value
+            uint256 xInv = ipAuxiliaries.uChallenge.inv();
+            ipAuxiliaries.P = ipProof.ls[i].mul(ipAuxiliaries.uChallenge.exp(2)).add(ipProof.rs[i].mul(xInv.exp(2))).add(ipAuxiliaries.P);
+        }
+
+        ipAuxiliaries.otherExponents[0] = ipAuxiliaries.challenges[0];
+        for (uint8 i = 1; i < n; i++) {
+            ipAuxiliaries.otherExponents[0] = ipAuxiliaries.otherExponents[0].mul(ipAuxiliaries.challenges[i]);
+        }
+        bool[m] memory bitSet;
+        ipAuxiliaries.otherExponents[0] = ipAuxiliaries.otherExponents[0].inv();
         for (uint8 i = 0; i < m/2; ++i) {
             for (uint8 j = 0; (1 << j) + i < m; ++j) {
                 uint8 i1 = i + (1 << j);
-                if (!b.bitSet[i1]) {
-                    b.z = b.challenges[n-1-j].mul(b.challenges[n-1-j]);
-                    b.otherExponents[i1] = b.otherExponents[i].mul(b.z);
-                    b.bitSet[i1] = true;
+                if (!bitSet[i1]) {
+                    uint256 temp = ipAuxiliaries.challenges[n-1-j].mul(ipAuxiliaries.challenges[n-1-j]);
+                    ipAuxiliaries.otherExponents[i1] = ipAuxiliaries.otherExponents[i].mul(temp);
+                    bitSet[i1] = true;
                 }
             }
         }
 
-        b.g = multiExpGs(b.otherExponents);
-        b.h = multiExpHsInversed(b.otherExponents, hs);
-        b.prod = A.mul(B);
-        b.cProof = b.g.mul(A)
-            .add(b.h.mul(B))
-            .add(H.mul(b.prod));
-        return b.cProof.X == b.c.X && b.cProof.Y == b.c.Y;
+        alt_bn128.G1Point memory gTemp = multiExpGs(ipAuxiliaries.otherExponents);
+        alt_bn128.G1Point memory hTemp = multiExpHsInversed(ipAuxiliaries.otherExponents, hs);
+        alt_bn128.G1Point memory cProof = gTemp.mul(ipProof.a).add(hTemp.mul(ipProof.b)).add(h.mul(ipProof.a.mul(ipProof.b)));
+        require(ipAuxiliaries.P.eq(cProof), "Inner product equality check failure.");
+        return true;
     }
 
     function multiExpGs(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory g) {
-        g = gs[0].mul(ss[0]);
-        for (uint8 i = 1; i < m; i++) {
+        for (uint8 i = 0; i < m; i++) {
             g = g.add(gs[i].mul(ss[i]));
         }
     }
 
     function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory h) {
-        h = hs[0].mul(ss[m-1]);
-        for (uint8 i = 1; i < m; i++) {
+        for (uint8 i = 0; i < m; i++) {
             h = h.add(hs[i].mul(ss[m-1-i]));
         }
     }
@@ -212,28 +311,23 @@ contract ZetherVerifier {
     }
 
     function sumPoints(alt_bn128.G1Point[m] memory ps) internal view returns (alt_bn128.G1Point memory sum) {
-        sum = ps[0];
-        for (uint8 i = 1; i < m; i++) {
+        for (uint8 i = 0; i < m; i++) {
             sum = sum.add(ps[i]);
         }
     }
 
-    function commit(alt_bn128.G1Point[m] memory ps, uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory commit) {
-        commit = ps[0].mul(ss[0]);
-        for (uint8 i = 1; i < m; i++) {
-            commit = commit.add(ps[i].mul(ss[i]));
+    function commit(alt_bn128.G1Point[m] memory ps, uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory result) {
+        for (uint8 i = 0; i < m; i++) { // killed a silly initialization with the 0th indexes. [0x00, 0x00] will be treated as the zero point anyway
+            result = result.add(ps[i].mul(ss[i]));
         }
     }
 
-    function toXs(alt_bn128.G1Point[n] memory ps) internal pure returns (uint256[n] memory xs) {
-        for (uint8 i = 0; i < n; i++) {
-            xs[i] = ps[i].X;
-        }
-    }
-
-    function toYs(alt_bn128.G1Point[n] memory ps) internal pure returns (uint256[n] memory ys) {
-        for (uint8 i = 0; i < n; i++) {
-            ys[i] = ps[i].Y;
+    function double(alt_bn128.G1Point[m] memory gs, alt_bn128.G1Point[m] memory hs, uint256[2][] memory f) internal view returns (alt_bn128.G1Point memory result) {
+        // trying to save some sloads here ^^^ do i save by loading the whole array at once?
+        uint256 size = f.length;
+        for (uint8 i = 0; i < size; i++) { // comparison of different types?
+            result = result.add(gs[i].mul(f[i][0]));
+            result = result.add(hs[i].mul(f[i][1])); // commutative
         }
     }
 

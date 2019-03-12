@@ -58,7 +58,7 @@ contract BurnVerifier {
         }
     } // will it be more expensive later on to sload these than to recompute them?
 
-    function verify(bytes32[2] calldata CLn, bytes32[2] calldata CRn, bytes32[2] calldata y, uint256 bTransfer, uint256 epoch, bytes32[2] calldata u, bytes calldata proof) view external returns (bool) {
+    function verify(bytes32[2] memory CLn, bytes32[2] memory CRn, bytes32[2] memory y, uint256 bTransfer, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
         BurnStatement memory statement;
         statement.balanceCommitNewL = alt_bn128.G1Point(uint256(CLn[0]), uint256(CLn[1]));
         statement.balanceCommitNewR = alt_bn128.G1Point(uint256(CRn[0]), uint256(CRn[1]));
@@ -84,6 +84,7 @@ contract BurnVerifier {
     }
 
     struct SigmaAuxiliaries {
+        uint256 minusC;
         alt_bn128.G1Point Ay;
         alt_bn128.G1Point gEpoch;
         alt_bn128.G1Point Au;
@@ -107,9 +108,10 @@ contract BurnVerifier {
         burnAuxiliaries.t = proof.t.sub(burnAuxiliaries.k);
 
         SigmaAuxiliaries memory sigmaAuxiliaries;
-        sigmaAuxiliaries.Ay = g.mul(proof.sigmaProof.sX).add(statement.y.mul(proof.sigmaProof.c.neg()));
+        sigmaAuxiliaries.minusC = proof.sigmaProof.c.neg();
+        sigmaAuxiliaries.Ay = g.mul(proof.sigmaProof.sX).add(statement.y.mul(sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.gEpoch = alt_bn128.mapInto("Zether", statement.epoch);
-        sigmaAuxiliaries.Au = sigmaAuxiliaries.gEpoch.mul(proof.sigmaProof.sX).add(statement.u.mul(proof.sigmaProof.c.neg()));
+        sigmaAuxiliaries.Au = sigmaAuxiliaries.gEpoch.mul(proof.sigmaProof.sX).add(statement.u.mul(sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.cCommit = statement.balanceCommitNewL.mul(proof.sigmaProof.c.mul(burnAuxiliaries.zSquared)).add(statement.balanceCommitNewR.mul(proof.sigmaProof.sX.mul(burnAuxiliaries.zSquared))).neg();
         sigmaAuxiliaries.At = g.mul(burnAuxiliaries.t.mul(proof.sigmaProof.c)).add(h.mul(proof.tauX.mul(proof.sigmaProof.c))).add(sigmaAuxiliaries.cCommit.add(burnAuxiliaries.tEval.mul(proof.sigmaProof.c)).neg());
 
@@ -160,15 +162,13 @@ contract BurnVerifier {
     }
 
     function multiExpGs(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory g) {
-        g = gs[0].mul(ss[0]);
-        for (uint8 i = 1; i < m; i++) {
+        for (uint8 i = 0; i < m; i++) {
             g = g.add(gs[i].mul(ss[i]));
         }
     }
 
     function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory h) {
-        h = hs[0].mul(ss[m-1]);
-        for (uint8 i = 1; i < m; i++) {
+        for (uint8 i = 0; i < m; i++) {
             h = h.add(hs[i].mul(ss[m-1-i]));
         }
     }
@@ -198,28 +198,14 @@ contract BurnVerifier {
     }
 
     function sumPoints(alt_bn128.G1Point[m] memory ps) internal view returns (alt_bn128.G1Point memory sum) {
-        sum = ps[0];
-        for (uint8 i = 1; i < m; i++) {
+        for (uint8 i = 0; i < m; i++) {
             sum = sum.add(ps[i]);
         }
     }
 
-    function commit(alt_bn128.G1Point[m] memory ps, uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory commit) {
-        commit = ps[0].mul(ss[0]);
-        for (uint8 i = 1; i < m; i++) {
-            commit = commit.add(ps[i].mul(ss[i]));
-        }
-    }
-
-    function toXs(alt_bn128.G1Point[n] memory ps) internal pure returns (uint256[n] memory xs) {
-        for (uint8 i = 0; i < n; i++) {
-            xs[i] = ps[i].X;
-        }
-    }
-
-    function toYs(alt_bn128.G1Point[n] memory ps) internal pure returns (uint256[n] memory ys) {
-        for (uint8 i = 0; i < n; i++) {
-            ys[i] = ps[i].Y;
+    function commit(alt_bn128.G1Point[m] memory ps, uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory result) {
+        for (uint8 i = 0; i < m; i++) {
+            result = result.add(ps[i].mul(ss[i]));
         }
     }
 
