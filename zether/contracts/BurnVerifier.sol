@@ -7,15 +7,15 @@ contract BurnVerifier {
     using alt_bn128 for uint256;
     using alt_bn128 for alt_bn128.G1Point;
 
-    uint256 public constant m = 32;
-    uint256 public constant n = 5;
+    uint256 constant m = 32;
+    uint256 constant n = 5;
 
-    alt_bn128.G1Point[m] public gs;
-    alt_bn128.G1Point[m] public hs;
-    alt_bn128.G1Point public g;
-    alt_bn128.G1Point public h;
+    alt_bn128.G1Point[m] gs;
+    alt_bn128.G1Point[m] hs;
+    alt_bn128.G1Point g;
+    alt_bn128.G1Point h;
 
-    uint256[m] internal twos = powers(2); // how much is this actually used?
+    uint256[m] twos = powers(2); // how much is this actually used?
 
     struct BurnStatement {
         alt_bn128.G1Point balanceCommitNewL;
