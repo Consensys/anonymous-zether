@@ -72,7 +72,7 @@ contract ZetherVerifier {
 
     constructor() public {
         g = alt_bn128.mapInto("G");
-        h = alt_bn128.mapInto("H");
+        h = alt_bn128.mapInto("V");
         for (uint8 i = 0; i < m; i++) {
             gs[i] = alt_bn128.mapInto("G", i);
             hs[i] = alt_bn128.mapInto("H", i);
@@ -213,7 +213,7 @@ contract ZetherVerifier {
 
         require(anonAuxiliaries.parity.eq(anonProof.parityG1.mul(anonAuxiliaries.x).add(anonProof.parityG0)), "Index opposite parity check fail.");
 
-        anonAuxiliaries.gPrime = g.mul(anonAuxiliaries.x).add(anonProof.RG.neg()).mul(anonAuxiliaries.xInv);
+        anonAuxiliaries.gPrime = g.mul(anonAuxiliaries.x).add(anonProof.inOutRG.neg()).mul(anonAuxiliaries.xInv);
 
         SigmaProof memory sigmaProof = proof.sigmaProof;
         SigmaAuxiliaries memory sigmaAuxiliaries;

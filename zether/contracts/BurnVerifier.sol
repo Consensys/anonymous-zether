@@ -51,7 +51,7 @@ contract BurnVerifier {
 
     constructor() public {
         g = alt_bn128.mapInto("G");
-        h = alt_bn128.mapInto("H");
+        h = alt_bn128.mapInto("V");
         for (uint8 i = 0; i < m; i++) {
             gs[i] = alt_bn128.mapInto("G", i);
             hs[i] = alt_bn128.mapInto("H", i);
@@ -114,7 +114,7 @@ contract BurnVerifier {
         sigmaAuxiliaries.Ay = g.mul(proof.sigmaProof.sX).add(statement.y.mul(sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.gEpoch = alt_bn128.mapInto("Zether", statement.epoch);
         sigmaAuxiliaries.Au = sigmaAuxiliaries.gEpoch.mul(proof.sigmaProof.sX).add(statement.u.mul(sigmaAuxiliaries.minusC));
-        sigmaAuxiliaries.cCommit = statement.balanceCommitNewL.mul(proof.sigmaProof.c.mul(burnAuxiliaries.zSquared)).add(statement.balanceCommitNewR.mul(proof.sigmaProof.sX.mul(burnAuxiliaries.zSquared))).neg();
+        sigmaAuxiliaries.cCommit = statement.balanceCommitNewL.mul(proof.sigmaProof.c.mul(burnAuxiliaries.zSquared)).add(statement.balanceCommitNewR.mul(proof.sigmaProof.sX.mul(burnAuxiliaries.zSquared)).neg());
         sigmaAuxiliaries.At = g.mul(burnAuxiliaries.t.mul(proof.sigmaProof.c)).add(h.mul(proof.tauX.mul(proof.sigmaProof.c))).add(sigmaAuxiliaries.cCommit.add(burnAuxiliaries.tEval.mul(proof.sigmaProof.c)).neg());
 
         uint256 challenge = uint256(keccak256(abi.encode(burnAuxiliaries.x, sigmaAuxiliaries.Ay, sigmaAuxiliaries.Au, sigmaAuxiliaries.At))).mod();
