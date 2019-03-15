@@ -270,8 +270,8 @@ contract ZetherVerifier {
         }
 
         alt_bn128.G1Point memory gTemp = multiExpGs(ipAuxiliaries.otherExponents);
-        alt_bn128.G1Point memory hTemp = multiExpHsInversed(ipAuxiliaries.otherExponents);
-        alt_bn128.G1Point memory cProof = gTemp.mul(ipProof.a).add(hTemp.mul(ipProof.b)).add(h.mul(ipProof.a.mul(ipProof.b)));
+        alt_bn128.G1Point memory hTemp = multiExpHsInversed(ipAuxiliaries.otherExponents, ipAuxiliaries.hPrimes);
+        alt_bn128.G1Point memory cProof = gTemp.mul(ipProof.a).add(hTemp.mul(ipProof.b)).add(ipAuxiliaries.u.mul(ipProof.a.mul(ipProof.b)));
         require(ipAuxiliaries.P.eq(cProof), "Inner product equality check failure.");
         return true;
     }
@@ -283,7 +283,7 @@ contract ZetherVerifier {
         }
     }
 
-    function multiExpHsInversed(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory h) {
+    function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory h) {
         for (uint256 i = 0; i < m; i++) {
             h = h.add(hs[i].mul(ss[m-1-i]));
         }
