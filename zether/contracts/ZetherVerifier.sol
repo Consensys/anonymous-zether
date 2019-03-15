@@ -252,8 +252,8 @@ contract ZetherVerifier {
             ipAuxiliaries.P = ipProof.ls[i].mul(ipAuxiliaries.uChallenge.exp(2)).add(ipProof.rs[i].mul(xInv.exp(2))).add(ipAuxiliaries.P);
         }
 
-        ipAuxiliaries.otherExponents[0] = ipAuxiliaries.challenges[0];
-        for (uint256 i = 1; i < n; i++) {
+        ipAuxiliaries.otherExponents[0] = 1;
+        for (uint256 i = 0; i < n; i++) {
             ipAuxiliaries.otherExponents[0] = ipAuxiliaries.otherExponents[0].mul(ipAuxiliaries.challenges[i]);
         }
         bool[m] memory bitSet;

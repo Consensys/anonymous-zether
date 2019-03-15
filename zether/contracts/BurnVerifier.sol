@@ -139,8 +139,8 @@ contract BurnVerifier {
         }
 
         uint256[m] memory otherExponents;
-        otherExponents[0] = challenges[0];
-        for (uint256 i = 1; i < n; i++) {
+        otherExponents[0] = 1;
+        for (uint256 i = 0; i < n; i++) {
             otherExponents[0] = otherExponents[0].mul(challenges[i]);
         }
         bool[m] memory bitSet;
