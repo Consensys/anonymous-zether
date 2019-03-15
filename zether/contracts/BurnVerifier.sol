@@ -102,7 +102,8 @@ contract BurnVerifier {
         burnAuxiliaries.zSquared = burnAuxiliaries.z.mul(burnAuxiliaries.z);
         burnAuxiliaries.zCubed = burnAuxiliaries.zSquared.mul(burnAuxiliaries.z);
         burnAuxiliaries.twoTimesZSquared = times(twos, burnAuxiliaries.zSquared);
-        burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.commits[0], proof.commits[1]))).mod();
+        burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.commits))).mod();
+
         // begin verification of sigma proof. is it worth passing to a different method?
         burnAuxiliaries.k = sumScalars(burnAuxiliaries.ys).mul(burnAuxiliaries.z.sub(burnAuxiliaries.zSquared)).sub(burnAuxiliaries.zCubed.mul(2 ** m).sub(burnAuxiliaries.zCubed)); // really care about t - k
         burnAuxiliaries.tEval = proof.commits[0].mul(burnAuxiliaries.x).add(proof.commits[1].mul(burnAuxiliaries.x.mul(burnAuxiliaries.x))); // replace with "commit"?

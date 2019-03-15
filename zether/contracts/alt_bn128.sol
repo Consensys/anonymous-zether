@@ -17,7 +17,7 @@ library alt_bn128 {
             mstore(m, mload(p1))
             mstore(add(m, 0x20), mload(add(p1, 0x20)))
             mstore(add(m, 0x40), mload(p2))
-            mstore(add(m, 0x60), mload(add(p2, 0x40)))
+            mstore(add(m, 0x60), mload(add(p2, 0x20)))
             if iszero(staticcall(gas, 0x06, m, 0x80, r, 0x40)) {
                 revert(0, 0)
             }

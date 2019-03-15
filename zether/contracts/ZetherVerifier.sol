@@ -152,7 +152,7 @@ contract ZetherVerifier {
         require(proof.size % 2 == 0, "Anonymity set size must be even!"); // could also do this during deserialization?
 
         ZetherAuxiliaries memory zetherAuxiliaries;
-        zetherAuxiliaries.y = uint256(keccak256(abi.encode(keccak256(abi.encode(statement.R, statement.balanceCommitNewL, statement.balanceCommitNewR, statement.L, statement.y)), proof.A, proof.S))).mod();
+        zetherAuxiliaries.y = uint256(keccak256(abi.encode(keccak256(abi.encode(statement.epoch, statement.R, statement.balanceCommitNewL, statement.balanceCommitNewR, statement.L, statement.y)), proof.A, proof.S))).mod();
         // warning: not correct as written. the encoding will include length headers, whereas the java version does not!
         zetherAuxiliaries.ys = powers(zetherAuxiliaries.y);
         zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
@@ -189,7 +189,7 @@ contract ZetherVerifier {
         }
         require(anonProof.C.mul(anonAuxiliaries.x).add(anonProof.D).eq(temp.mul(anonProof.zC)), "Recovery failure for B^x * A.");
         anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
-        anonAuxiliaries.inOutR2 = statement.R.add(anonProof.RG.mul(anonAuxiliaries.x.neg()));
+        anonAuxiliaries.inOutR2 = statement.R.add(anonProof.inOutRG.mul(anonAuxiliaries.x.neg()));
         anonAuxiliaries.cycler = new uint256[2][](proof.size);
         anonAuxiliaries.L2 = new alt_bn128.G1Point[2][](proof.size);
         anonAuxiliaries.y2 = new alt_bn128.G1Point[2][](proof.size);
