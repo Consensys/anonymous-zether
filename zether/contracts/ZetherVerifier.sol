@@ -73,7 +73,7 @@ contract ZetherVerifier {
     constructor() public {
         g = alt_bn128.mapInto("G");
         h = alt_bn128.mapInto("V");
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             gs[i] = alt_bn128.mapInto("G", i);
             hs[i] = alt_bn128.mapInto("H", i);
         }
@@ -86,7 +86,7 @@ contract ZetherVerifier {
         statement.balanceCommitNewR = new alt_bn128.G1Point[](size);
         statement.L = new alt_bn128.G1Point[](size);
         statement.y = new alt_bn128.G1Point[](size);
-        for (uint8 i = 0; i < size; i++) {
+        for (uint256 i = 0; i < size; i++) {
             statement.balanceCommitNewL[i] = alt_bn128.G1Point(uint256(CL[i][0]), uint256(CL[i][1]));
             statement.balanceCommitNewR[i] = alt_bn128.G1Point(uint256(CR[i][0]), uint256(CR[i][1]));
             statement.L[i] = alt_bn128.G1Point(uint256(L[i][0]), uint256(L[i][1]));
@@ -193,8 +193,8 @@ contract ZetherVerifier {
         anonAuxiliaries.cycler = new uint256[2][](proof.size);
         anonAuxiliaries.L2 = new alt_bn128.G1Point[2][](proof.size);
         anonAuxiliaries.y2 = new alt_bn128.G1Point[2][](proof.size);
-        for (uint8 i = 0; i < proof.size / 2; i++) {
-            for (uint8 j = 0; j < proof.size; j++) {
+        for (uint256 i = 0; i < proof.size / 2; i++) {
+            for (uint256 j = 0; j < proof.size; j++) {
                 anonAuxiliaries.cycler[j][0] = anonAuxiliaries.cycler[j][0].add(anonAuxiliaries.f[j + i * 2][0]);
                 anonAuxiliaries.cycler[j][1] = anonAuxiliaries.cycler[j][1].add(anonAuxiliaries.f[j + i * 2][1]);
                 anonAuxiliaries.L2[i][0] = anonAuxiliaries.L2[i][0].add(statement.L[j].mul(anonAuxiliaries.f[j + i * 2][0]));
@@ -205,7 +205,7 @@ contract ZetherVerifier {
             anonAuxiliaries.L2[i][0] = anonAuxiliaries.L2[i][0].add(anonProof.LG[i][0]).mul(anonAuxiliaries.xInv);
             anonAuxiliaries.L2[i][1] = anonAuxiliaries.L2[i][1].add(anonProof.LG[i][1]).mul(anonAuxiliaries.xInv);
         }
-        for (uint8 i = 0; i < proof.size; i++) {
+        for (uint256 i = 0; i < proof.size; i++) {
             anonAuxiliaries.balanceCommitNewL2 = anonAuxiliaries.balanceCommitNewL2.add(statement.balanceCommitNewL[i].mul(anonAuxiliaries.f[i][0]));
             anonAuxiliaries.balanceCommitNewR2 = anonAuxiliaries.balanceCommitNewR2.add(statement.balanceCommitNewR[i].mul(anonAuxiliaries.f[i][0]));
             anonAuxiliaries.parity = anonAuxiliaries.parity.add(statement.y[i].mul(anonAuxiliaries.cycler[i][0].mul(anonAuxiliaries.cycler[i][1])));
@@ -245,7 +245,7 @@ contract ZetherVerifier {
 
         // begin inner product verification
         InnerProductProof memory ipProof = proof.ipProof;
-        for (uint8 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; i++) {
             ipAuxiliaries.uChallenge = uint256(keccak256(abi.encode(ipAuxiliaries.uChallenge, ipProof.ls[i], ipProof.rs[i]))).mod();
             ipAuxiliaries.challenges[i] = ipAuxiliaries.uChallenge; // overwrites value
             uint256 xInv = ipAuxiliaries.uChallenge.inv();
@@ -253,14 +253,14 @@ contract ZetherVerifier {
         }
 
         ipAuxiliaries.otherExponents[0] = ipAuxiliaries.challenges[0];
-        for (uint8 i = 1; i < n; i++) {
+        for (uint256 i = 1; i < n; i++) {
             ipAuxiliaries.otherExponents[0] = ipAuxiliaries.otherExponents[0].mul(ipAuxiliaries.challenges[i]);
         }
         bool[m] memory bitSet;
         ipAuxiliaries.otherExponents[0] = ipAuxiliaries.otherExponents[0].inv();
-        for (uint8 i = 0; i < m/2; ++i) {
-            for (uint8 j = 0; (1 << j) + i < m; ++j) {
-                uint8 i1 = i + (1 << j);
+        for (uint256 i = 0; i < m/2; ++i) {
+            for (uint256 j = 0; (1 << j) + i < m; ++j) {
+                uint256 i1 = i + (1 << j);
                 if (!bitSet[i1]) {
                     uint256 temp = ipAuxiliaries.challenges[n-1-j].mul(ipAuxiliaries.challenges[n-1-j]);
                     ipAuxiliaries.otherExponents[i1] = ipAuxiliaries.otherExponents[i].mul(temp);
@@ -277,13 +277,13 @@ contract ZetherVerifier {
     }
 
     function multiExpGs(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory g) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             g = g.add(gs[i].mul(ss[i]));
         }
     }
 
     function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory h) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             h = h.add(hs[i].mul(ss[m-1-i]));
         }
     }
@@ -304,7 +304,7 @@ contract ZetherVerifier {
         proof.sigmaProof = sigmaProof;
 
         InnerProductProof memory ipProof;
-        for (uint8 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; i++) {
             ipProof.ls[i] = alt_bn128.G1Point(slice(arr, 448 + i * 64), slice(arr, 480 + i * 64));
             ipProof.rs[i] = alt_bn128.G1Point(slice(arr, 448 + (n + i) * 64), slice(arr, 480 + (n + i) * 64));
         }
@@ -321,12 +321,12 @@ contract ZetherVerifier {
         anonProof.balanceCommitNewR = alt_bn128.G1Point(slice(arr, 1664), slice(arr, 1696));
         anonProof.parityG0 = alt_bn128.G1Point(slice(arr, 1728), slice(arr, 1760));
         anonProof.parityG1 = alt_bn128.G1Point(slice(arr, 1792), slice(arr, 1824));
-        for (uint8 i = 0; i < size - 1; i++) {
+        for (uint256 i = 0; i < size - 1; i++) {
             anonProof.f[i][0] = slice(arr, 1856 + 32 * i);
             anonProof.f[i][1] = slice(arr, 1856 + (size - 1 + i) * 32);
         }
 
-        for (uint8 i = 0; i < size / 2; i++) {
+        for (uint256 i = 0; i < size / 2; i++) {
             anonProof.LG[i][0] = alt_bn128.G1Point(slice(arr, 1792 + (size + i) * 64), slice(arr, 1824 + (size + i) * 64));
             anonProof.LG[i][1] = alt_bn128.G1Point(slice(arr, 1792 + size * 96 + i * 64), slice(arr, 1824 + size * 96 + i * 64));
             anonProof.yG[i][0] = alt_bn128.G1Point(slice(arr, 1792 + size * 128 + i * 64), slice(arr, 1824 + size * 128 + i * 64));
@@ -339,31 +339,31 @@ contract ZetherVerifier {
     }
 
     function addVectors(uint256[m] memory a, uint256[m] memory b) internal pure returns (uint256[m] memory result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result[i] = a[i].add(b[i]);
         }
     }
 
     function hadamard_inv(alt_bn128.G1Point[m] memory ps, uint256[m] memory ss) internal view returns (alt_bn128.G1Point[m] memory result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result[i] = ps[i].mul(ss[i].inv());
         }
     }
 
     function sumScalars(uint256[m] memory ys) internal pure returns (uint256 result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result = result.add(ys[i]);
         }
     }
 
     function sumPoints(alt_bn128.G1Point[m] memory ps) internal view returns (alt_bn128.G1Point memory sum) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             sum = sum.add(ps[i]);
         }
     }
 
     function commit(alt_bn128.G1Point[m] memory ps, uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory result) {
-        for (uint8 i = 0; i < m; i++) { // killed a silly initialization with the 0th indexes. [0x00, 0x00] will be treated as the zero point anyway
+        for (uint256 i = 0; i < m; i++) { // killed a silly initialization with the 0th indexes. [0x00, 0x00] will be treated as the zero point anyway
             result = result.add(ps[i].mul(ss[i]));
         }
     }
@@ -371,7 +371,7 @@ contract ZetherVerifier {
     function double(alt_bn128.G1Point[m] memory gs, alt_bn128.G1Point[m] memory hs, uint256[2][] memory f) internal view returns (alt_bn128.G1Point memory result) {
         // trying to save some sloads here ^^^ do i save by loading the whole array at once?
         uint256 size = f.length;
-        for (uint8 i = 0; i < size; i++) { // comparison of different types?
+        for (uint256 i = 0; i < size; i++) { // comparison of different types?
             result = result.add(gs[i].mul(f[i][0]));
             result = result.add(hs[i].mul(f[i][1])); // commutative
         }
@@ -380,13 +380,13 @@ contract ZetherVerifier {
     function powers(uint256 base) internal pure returns (uint256[m] memory powers) {
         powers[0] = 1;
         powers[1] = base;
-        for (uint8 i = 2; i < m; i++) {
+        for (uint256 i = 2; i < m; i++) {
             powers[i] = powers[i-1].mul(base);
         }
     }
 
     function times(uint256[m] memory v, uint256 x) internal pure returns (uint256[m] memory result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result[i] = v[i].mul(x);
         }
     }

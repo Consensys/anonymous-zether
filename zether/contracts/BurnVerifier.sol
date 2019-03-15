@@ -52,7 +52,7 @@ contract BurnVerifier {
     constructor() public {
         g = alt_bn128.mapInto("G");
         h = alt_bn128.mapInto("V");
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             gs[i] = alt_bn128.mapInto("G", i);
             hs[i] = alt_bn128.mapInto("H", i);
         }
@@ -131,7 +131,7 @@ contract BurnVerifier {
         // begin inner product verification
         InnerProductProof memory ipProof = proof.ipProof;
         uint256[n] memory challenges;
-        for (uint8 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; i++) {
             uChallenge = uint256(keccak256(abi.encode(uChallenge, ipProof.ls[i], ipProof.rs[i]))).mod();
             challenges[i] = uChallenge;
             uint256 xInv = uChallenge.inv();
@@ -140,14 +140,14 @@ contract BurnVerifier {
 
         uint256[m] memory otherExponents;
         otherExponents[0] = challenges[0];
-        for (uint8 i = 1; i < n; i++) {
+        for (uint256 i = 1; i < n; i++) {
             otherExponents[0] = otherExponents[0].mul(challenges[i]);
         }
         bool[m] memory bitSet;
         otherExponents[0] = otherExponents[0].inv();
-        for (uint8 i = 0; i < m/2; ++i) {
-            for (uint8 j = 0; (1 << j) + i < m; ++j) {
-                uint8 i1 = i + (1 << j);
+        for (uint256 i = 0; i < m/2; ++i) {
+            for (uint256 j = 0; (1 << j) + i < m; ++j) {
+                uint256 i1 = i + (1 << j);
                 if (!bitSet[i1]) {
                     uint256 temp = challenges[n-1-j].mul(challenges[n-1-j]);
                     otherExponents[i1] = otherExponents[i].mul(temp);
@@ -164,13 +164,13 @@ contract BurnVerifier {
     }
 
     function multiExpGs(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory g) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             g = g.add(gs[i].mul(ss[i]));
         }
     }
 
     function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory h) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             h = h.add(hs[i].mul(ss[m-1-i]));
         }
     }
@@ -192,7 +192,7 @@ contract BurnVerifier {
         proof.sigmaProof = sigmaProof;
 
         InnerProductProof memory ipProof;
-        for (uint8 i = 0; i < n; i++) {
+        for (uint256 i = 0; i < n; i++) {
             ipProof.ls[i] = alt_bn128.G1Point(slice(arr, 416 + i * 64), slice(arr, 448 + i * 64));
             ipProof.rs[i] = alt_bn128.G1Point(slice(arr, 416 + (n + i) * 64), slice(arr, 448 + (n + i) * 64));
         }
@@ -201,31 +201,31 @@ contract BurnVerifier {
     }
 
     function addVectors(uint256[m] memory a, uint256[m] memory b) internal pure returns (uint256[m] memory result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result[i] = a[i].add(b[i]);
         }
     }
 
     function hadamard_inv(alt_bn128.G1Point[m] memory ps, uint256[m] memory ss) internal view returns (alt_bn128.G1Point[m] memory result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result[i] = ps[i].mul(ss[i].inv());
         }
     }
 
     function sumScalars(uint256[m] memory ys) internal pure returns (uint256 result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result = result.add(ys[i]);
         }
     }
 
     function sumPoints(alt_bn128.G1Point[m] memory ps) internal view returns (alt_bn128.G1Point memory sum) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             sum = sum.add(ps[i]);
         }
     }
 
     function commit(alt_bn128.G1Point[m] memory ps, uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result = result.add(ps[i].mul(ss[i]));
         }
     }
@@ -233,13 +233,13 @@ contract BurnVerifier {
     function powers(uint256 base) internal pure returns (uint256[m] memory powers) {
         powers[0] = 1;
         powers[1] = base;
-        for (uint8 i = 2; i < m; i++) {
+        for (uint256 i = 2; i < m; i++) {
             powers[i] = powers[i-1].mul(base);
         }
     }
 
     function times(uint256[m] memory v, uint256 x) internal pure returns (uint256[m] memory result) {
-        for (uint8 i = 0; i < m; i++) {
+        for (uint256 i = 0; i < m; i++) {
             result[i] = v[i].mul(x);
         }
     }
