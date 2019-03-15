@@ -59,7 +59,9 @@ contract BurnVerifier {
     } // will it be more expensive later on to sload these than to recompute them?
 
     function verify(bytes32[2] memory CLn, bytes32[2] memory CRn, bytes32[2] memory y, uint256 bTransfer, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
-        BurnStatement memory statement;
+        BurnStatement memory statement; // WARNING: if this is called directly in the console,
+        // and your strings are less than 64 characters, they will be padded on the right, not the left. should hopefully not be an issue,
+        // as this will typically be called simply by the other contract, which will get its arguments using precompiles. still though, beware
         statement.balanceCommitNewL = alt_bn128.G1Point(uint256(CLn[0]), uint256(CLn[1]));
         statement.balanceCommitNewR = alt_bn128.G1Point(uint256(CRn[0]), uint256(CRn[1]));
         statement.y = alt_bn128.G1Point(uint256(y[0]), uint256(y[1]));
@@ -94,14 +96,13 @@ contract BurnVerifier {
 
     function verifyBurn(BurnStatement memory statement, BurnProof memory proof) view internal returns (bool) {
         BurnAuxiliaries memory burnAuxiliaries;
-        burnAuxiliaries.y = uint256(keccak256(abi.encode(keccak256(abi.encode(statement.bTransfer, statement.y)), proof.A, proof.S))).mod();
+        burnAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.bTransfer, statement.epoch, statement.y, statement.balanceCommitNewL, statement.balanceCommitNewR))).mod(), proof.A, proof.S))).mod();
         burnAuxiliaries.ys = powers(burnAuxiliaries.y);
         burnAuxiliaries.z = uint256(keccak256(abi.encode(burnAuxiliaries.y))).mod();
         burnAuxiliaries.zSquared = burnAuxiliaries.z.mul(burnAuxiliaries.z);
         burnAuxiliaries.zCubed = burnAuxiliaries.zSquared.mul(burnAuxiliaries.z);
         burnAuxiliaries.twoTimesZSquared = times(twos, burnAuxiliaries.zSquared);
         burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.commits[0], proof.commits[1]))).mod();
-
         // begin verification of sigma proof. is it worth passing to a different method?
         burnAuxiliaries.k = sumScalars(burnAuxiliaries.ys).mul(burnAuxiliaries.z.sub(burnAuxiliaries.zSquared)).sub(burnAuxiliaries.zCubed.mul(2 ** m).sub(burnAuxiliaries.zCubed)); // really care about t - k
         burnAuxiliaries.tEval = proof.commits[0].mul(burnAuxiliaries.x).add(proof.commits[1].mul(burnAuxiliaries.x.mul(burnAuxiliaries.x))); // replace with "commit"?
