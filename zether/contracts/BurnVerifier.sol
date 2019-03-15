@@ -157,7 +157,7 @@ contract BurnVerifier {
         }
 
         alt_bn128.G1Point memory gTemp = multiExpGs(otherExponents);
-        alt_bn128.G1Point memory hTemp = multiExpHsInversed(otherExponents, hs);
+        alt_bn128.G1Point memory hTemp = multiExpHsInversed(otherExponents);
         alt_bn128.G1Point memory cProof = gTemp.mul(ipProof.a).add(hTemp.mul(ipProof.b)).add(h.mul(ipProof.a.mul(ipProof.b)));
         require(P.eq(cProof), "Inner product equality check failure.");
         return true;
@@ -169,7 +169,7 @@ contract BurnVerifier {
         }
     }
 
-    function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory h) {
+    function multiExpHsInversed(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory h) {
         for (uint256 i = 0; i < m; i++) {
             h = h.add(hs[i].mul(ss[m-1-i]));
         }
@@ -196,6 +196,8 @@ contract BurnVerifier {
             ipProof.ls[i] = alt_bn128.G1Point(slice(arr, 416 + i * 64), slice(arr, 448 + i * 64));
             ipProof.rs[i] = alt_bn128.G1Point(slice(arr, 416 + (n + i) * 64), slice(arr, 448 + (n + i) * 64));
         }
+        ipProof.a = slice(arr, 416 + n * 128);
+        ipProof.b = slice(arr, 448 + n * 128);
         proof.ipProof = ipProof;
         return proof;
     }

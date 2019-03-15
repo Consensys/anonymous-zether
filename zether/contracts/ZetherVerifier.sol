@@ -270,19 +270,20 @@ contract ZetherVerifier {
         }
 
         alt_bn128.G1Point memory gTemp = multiExpGs(ipAuxiliaries.otherExponents);
-        alt_bn128.G1Point memory hTemp = multiExpHsInversed(ipAuxiliaries.otherExponents, hs);
+        alt_bn128.G1Point memory hTemp = multiExpHsInversed(ipAuxiliaries.otherExponents);
         alt_bn128.G1Point memory cProof = gTemp.mul(ipProof.a).add(hTemp.mul(ipProof.b)).add(h.mul(ipProof.a.mul(ipProof.b)));
         require(ipAuxiliaries.P.eq(cProof), "Inner product equality check failure.");
         return true;
     }
 
     function multiExpGs(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory g) {
+        // revisit whether sloads can be saved by passing gs into memory once. same as below, and for burn.
         for (uint256 i = 0; i < m; i++) {
             g = g.add(gs[i].mul(ss[i]));
         }
     }
 
-    function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory h) {
+    function multiExpHsInversed(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory h) {
         for (uint256 i = 0; i < m; i++) {
             h = h.add(hs[i].mul(ss[m-1-i]));
         }
@@ -308,6 +309,8 @@ contract ZetherVerifier {
             ipProof.ls[i] = alt_bn128.G1Point(slice(arr, 448 + i * 64), slice(arr, 480 + i * 64));
             ipProof.rs[i] = alt_bn128.G1Point(slice(arr, 448 + (n + i) * 64), slice(arr, 480 + (n + i) * 64));
         }
+        ipProof.a = slice(arr, 448 + n * 128);
+        ipProof.b = slice(arr, 480 + n * 128);
         proof.ipProof = ipProof;
 
         AnonProof memory anonProof;
@@ -317,8 +320,8 @@ contract ZetherVerifier {
         anonProof.C = alt_bn128.G1Point(slice(arr, 1408), slice(arr, 1440));
         anonProof.D = alt_bn128.G1Point(slice(arr, 1472), slice(arr, 1504));
         anonProof.inOutRG = alt_bn128.G1Point(slice(arr, 1536), slice(arr, 1568));
-        anonProof.balanceCommitNewL = alt_bn128.G1Point(slice(arr, 1600), slice(arr, 1632));
-        anonProof.balanceCommitNewR = alt_bn128.G1Point(slice(arr, 1664), slice(arr, 1696));
+        anonProof.balanceCommitNewLG = alt_bn128.G1Point(slice(arr, 1600), slice(arr, 1632));
+        anonProof.balanceCommitNewRG = alt_bn128.G1Point(slice(arr, 1664), slice(arr, 1696));
         anonProof.parityG0 = alt_bn128.G1Point(slice(arr, 1728), slice(arr, 1760));
         anonProof.parityG1 = alt_bn128.G1Point(slice(arr, 1792), slice(arr, 1824));
         for (uint256 i = 0; i < size - 1; i++) {
