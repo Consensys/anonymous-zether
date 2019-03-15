@@ -175,8 +175,27 @@ contract BurnVerifier {
     
     // begin util functions
 
-    function unserialize(bytes memory proof) internal pure returns (BurnProof memory) {
-        /// todo
+    function unserialize(bytes memory arr) internal pure returns (BurnProof memory) {
+        BurnProof memory proof;
+        proof.A = alt_bn128.G1Point(slice(arr, 0), slice(arr, 32));
+        proof.S = alt_bn128.G1Point(slice(arr, 64), slice(arr, 96));
+        proof.commits = [alt_bn128.G1Point(slice(arr, 128), slice(arr, 160)), alt_bn128.G1Point(slice(arr, 192), slice(arr, 224))];
+        proof.t = slice(arr, 256);
+        proof.tauX = slice(arr, 288);
+        proof.mu = slice(arr, 320);
+
+        SigmaProof memory sigmaProof;
+        sigmaProof.c = slice(arr, 352);
+        sigmaProof.sX = slice(arr, 384);
+        proof.sigmaProof = sigmaProof;
+
+        InnerProductProof memory ipProof;
+        for (uint8 i = 0; i < n; i++) {
+            ipProof.ls[i] = alt_bn128.G1Point(slice(arr, 416 + i * 64), slice(arr, 448 + i * 64));
+            ipProof.rs[i] = alt_bn128.G1Point(slice(arr, 416 + (n + i) * 64), slice(arr, 448 + (n + i) * 64));
+        }
+        proof.ipProof = ipProof;
+        return proof;
     }
 
     function addVectors(uint256[m] memory a, uint256[m] memory b) internal pure returns (uint256[m] memory result) {
@@ -220,6 +239,14 @@ contract BurnVerifier {
     function times(uint256[m] memory v, uint256 x) internal pure returns (uint256[m] memory result) {
         for (uint8 i = 0; i < m; i++) {
             result[i] = v[i].mul(x);
+        }
+    }
+
+    function slice(bytes memory input, uint256 start) internal pure returns (uint256 result) { // extracts exactly 32 bytes
+        assembly {
+            let m := mload(0x40)
+            mstore(m, mload(add(add(input, 0x20), start))) // why only 0x20?
+            result := mload(m)
         }
     }
 }

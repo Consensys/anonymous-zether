@@ -46,7 +46,7 @@ contract ZetherVerifier {
         alt_bn128.G1Point C;
         alt_bn128.G1Point D;
         alt_bn128.G1Point[2][] LG; // flipping the indexing order on this, 'cause...
-        alt_bn128.G1Point RG;
+        alt_bn128.G1Point inOutRG;
         alt_bn128.G1Point balanceCommitNewLG;
         alt_bn128.G1Point balanceCommitNewRG;
         alt_bn128.G1Point[2][] yG; // assuming this one has the same size..., N / 2 by 2,
@@ -170,7 +170,7 @@ contract ZetherVerifier {
         // length equality checks for anonProof members? or during deserialization?
         AnonProof memory anonProof = proof.anonProof;
         AnonAuxiliaries memory anonAuxiliaries;
-        anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.RG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, anonProof.parityG0, anonProof.parityG1))).mod();
+        anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.inOutRG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, anonProof.parityG0, anonProof.parityG1))).mod();
         // warning: will encode length headers, while java will not
         anonAuxiliaries.f = new uint256[2][](proof.size);
         anonAuxiliaries.f[0][0] = anonAuxiliaries.x;
@@ -288,8 +288,54 @@ contract ZetherVerifier {
         }
     }
 
-    function unserialize(bytes memory proof) internal pure returns (ZetherProof memory) {
-        /// todo
+    function unserialize(bytes memory arr) internal pure returns (ZetherProof memory) {
+        ZetherProof memory proof;
+        proof.A = alt_bn128.G1Point(slice(arr, 0), slice(arr, 32));
+        proof.S = alt_bn128.G1Point(slice(arr, 64), slice(arr, 96));
+        proof.commits = [alt_bn128.G1Point(slice(arr, 128), slice(arr, 160)), alt_bn128.G1Point(slice(arr, 192), slice(arr, 224))];
+        proof.t = slice(arr, 256);
+        proof.tauX = slice(arr, 288);
+        proof.mu = slice(arr, 320);
+
+        SigmaProof memory sigmaProof;
+        sigmaProof.c = slice(arr, 352);
+        sigmaProof.sX = slice(arr, 384);
+        sigmaProof.sR = slice(arr, 416);
+        proof.sigmaProof = sigmaProof;
+
+        InnerProductProof memory ipProof;
+        for (uint8 i = 0; i < n; i++) {
+            ipProof.ls[i] = alt_bn128.G1Point(slice(arr, 448 + i * 64), slice(arr, 480 + i * 64));
+            ipProof.rs[i] = alt_bn128.G1Point(slice(arr, 448 + (n + i) * 64), slice(arr, 480 + (n + i) * 64));
+        }
+        proof.ipProof = ipProof;
+
+        AnonProof memory anonProof;
+        uint256 size = (arr.length - 1280 - 576) / 192;  // warning: this and the below assume that n = 6!!!
+        anonProof.A = alt_bn128.G1Point(slice(arr, 1280), slice(arr, 1312));
+        anonProof.B = alt_bn128.G1Point(slice(arr, 1344), slice(arr, 1376));
+        anonProof.C = alt_bn128.G1Point(slice(arr, 1408), slice(arr, 1440));
+        anonProof.D = alt_bn128.G1Point(slice(arr, 1472), slice(arr, 1504));
+        anonProof.inOutRG = alt_bn128.G1Point(slice(arr, 1536), slice(arr, 1568));
+        anonProof.balanceCommitNewL = alt_bn128.G1Point(slice(arr, 1600), slice(arr, 1632));
+        anonProof.balanceCommitNewR = alt_bn128.G1Point(slice(arr, 1664), slice(arr, 1696));
+        anonProof.parityG0 = alt_bn128.G1Point(slice(arr, 1728), slice(arr, 1760));
+        anonProof.parityG1 = alt_bn128.G1Point(slice(arr, 1792), slice(arr, 1824));
+        for (uint8 i = 0; i < size - 1; i++) {
+            anonProof.f[i][0] = slice(arr, 1856 + 32 * i);
+            anonProof.f[i][1] = slice(arr, 1856 + (size - 1 + i) * 32);
+        }
+
+        for (uint8 i = 0; i < size / 2; i++) {
+            anonProof.LG[i][0] = alt_bn128.G1Point(slice(arr, 1792 + (size + i) * 64), slice(arr, 1824 + (size + i) * 64));
+            anonProof.LG[i][1] = alt_bn128.G1Point(slice(arr, 1792 + size * 96 + i * 64), slice(arr, 1824 + size * 96 + i * 64));
+            anonProof.yG[i][0] = alt_bn128.G1Point(slice(arr, 1792 + size * 128 + i * 64), slice(arr, 1824 + size * 128 + i * 64));
+            anonProof.yG[i][1] = alt_bn128.G1Point(slice(arr, 1792 + size * 160 + i * 64), slice(arr, 1824 + size * 160 + i * 64));
+            // these are tricky, and can maybe be optimized further?
+        }
+
+        proof.anonProof = anonProof;
+        return proof;
     }
 
     function addVectors(uint256[m] memory a, uint256[m] memory b) internal pure returns (uint256[m] memory result) {
@@ -342,6 +388,14 @@ contract ZetherVerifier {
     function times(uint256[m] memory v, uint256 x) internal pure returns (uint256[m] memory result) {
         for (uint8 i = 0; i < m; i++) {
             result[i] = v[i].mul(x);
+        }
+    }
+
+    function slice(bytes memory input, uint256 start) internal pure returns (uint256 result) { // extracts exactly 32 bytes
+        assembly {
+            let m := mload(0x40)
+            mstore(m, mload(add(add(input, 0x20), start))) // why only 0x20?
+            result := mload(m)
         }
     }
 }
