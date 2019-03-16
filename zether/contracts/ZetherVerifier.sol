@@ -7,15 +7,15 @@ contract ZetherVerifier {
     using alt_bn128 for uint256;
     using alt_bn128 for alt_bn128.G1Point;
 
-    uint256 public constant m = 64;
-    uint256 public constant n = 6;
+    uint256 constant m = 64;
+    uint256 constant n = 6;
 
-    alt_bn128.G1Point[m] public gs;
-    alt_bn128.G1Point[m] public hs;
-    alt_bn128.G1Point public g;
-    alt_bn128.G1Point public h;
+    alt_bn128.G1Point[m] gs;
+    alt_bn128.G1Point[m] hs;
+    alt_bn128.G1Point g;
+    alt_bn128.G1Point h;
 
-    uint256[m] internal twos = powers(2);
+    uint256[m] twos = powers(2);
 
     struct ZetherStatement {
         alt_bn128.G1Point[] balanceCommitNewL;
@@ -97,6 +97,7 @@ contract ZetherVerifier {
         statement.u = alt_bn128.G1Point(uint256(u[0]), uint256(u[1]));
         ZetherProof memory zetherProof = unserialize(proof);
         return verifyTransfer(statement, zetherProof);
+        return true;
     }
 
     struct ZetherAuxiliaries {
@@ -187,7 +188,7 @@ contract ZetherVerifier {
             anonAuxiliaries.f[i][0] = anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]);
             anonAuxiliaries.f[i][1] = anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]);
         }
-        require(anonProof.C.mul(anonAuxiliaries.x).add(anonProof.D).eq(temp.mul(anonProof.zC)), "Recovery failure for B^x * A.");
+        require(anonProof.C.mul(anonAuxiliaries.x).add(anonProof.D).eq(temp.mul(anonProof.zC)), "Recovery failure for C^x * D.");
         anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
         anonAuxiliaries.inOutR2 = statement.R.add(anonProof.inOutRG.mul(anonAuxiliaries.x.neg()));
         anonAuxiliaries.cycler = new uint256[2][](proof.size);
@@ -239,9 +240,7 @@ contract ZetherVerifier {
         ipAuxiliaries.u = g.mul(ipAuxiliaries.uChallenge);
         ipAuxiliaries.hPrimes = hadamard_inv(hs, zetherAuxiliaries.ys);
         ipAuxiliaries.hExp = addVectors(times(zetherAuxiliaries.ys, zetherAuxiliaries.z), zetherAuxiliaries.twoTimesZSquared);
-        ipAuxiliaries.P = proof.A.add(proof.S.mul(zetherAuxiliaries.x));
-        ipAuxiliaries.P = ipAuxiliaries.P.add(sumPoints(gs).mul(zetherAuxiliaries.z.neg()));
-        ipAuxiliaries.P = ipAuxiliaries.P.add(commit(ipAuxiliaries.hPrimes, ipAuxiliaries.hExp)).add(h.mul(proof.mu).neg()).add(ipAuxiliaries.u.mul(proof.t));
+        ipAuxiliaries.P = proof.A.add(proof.S.mul(zetherAuxiliaries.x)).add(sumPoints(gs).mul(zetherAuxiliaries.z.neg())).add(commit(ipAuxiliaries.hPrimes, ipAuxiliaries.hExp)).add(h.mul(proof.mu).neg()).add(ipAuxiliaries.u.mul(proof.t));
 
         // begin inner product verification
         InnerProductProof memory ipProof = proof.ipProof;
@@ -276,16 +275,16 @@ contract ZetherVerifier {
         return true;
     }
 
-    function multiExpGs(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory g) {
+    function multiExpGs(uint256[m] memory ss) internal view returns (alt_bn128.G1Point memory result) {
         // revisit whether sloads can be saved by passing gs into memory once. same as below, and for burn.
         for (uint256 i = 0; i < m; i++) {
-            g = g.add(gs[i].mul(ss[i]));
+            result = result.add(gs[i].mul(ss[i]));
         }
     }
 
-    function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory h) {
+    function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory result) {
         for (uint256 i = 0; i < m; i++) {
-            h = h.add(hs[i].mul(ss[m-1-i]));
+            result = result.add(hs[i].mul(ss[m-1-i]));
         }
     }
 

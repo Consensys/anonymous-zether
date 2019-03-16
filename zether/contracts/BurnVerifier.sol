@@ -124,9 +124,7 @@ contract BurnVerifier {
         alt_bn128.G1Point memory u = g.mul(uChallenge);
         alt_bn128.G1Point[m] memory hPrimes = hadamard_inv(hs, burnAuxiliaries.ys);
         uint256[m] memory hExp = addVectors(times(burnAuxiliaries.ys, burnAuxiliaries.z), burnAuxiliaries.twoTimesZSquared);
-        alt_bn128.G1Point memory P = proof.A.add(proof.S.mul(burnAuxiliaries.x));
-        P = P.add(sumPoints(gs).mul(burnAuxiliaries.z.neg()));
-        P = P.add(commit(hPrimes, hExp)).add(h.mul(proof.mu).neg()).add(u.mul(proof.t));
+        alt_bn128.G1Point memory P = proof.A.add(proof.S.mul(burnAuxiliaries.x)).add(sumPoints(gs).mul(burnAuxiliaries.z.neg())).add(commit(hPrimes, hExp)).add(h.mul(proof.mu).neg()).add(u.mul(proof.t));
 
         // begin inner product verification
         InnerProductProof memory ipProof = proof.ipProof;
