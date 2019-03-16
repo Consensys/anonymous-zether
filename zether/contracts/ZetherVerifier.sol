@@ -151,7 +151,7 @@ contract ZetherVerifier {
     }
 
     function verifyTransfer(ZetherStatement memory statement, ZetherProof memory proof) view internal returns (bool) {
-        if (proof.size % 2 != 0) { return false; } // "Anonymity set size must be even!"
+        require(proof.size % 2 == 0, "Anonymity set size must be even!");
 
         ZetherAuxiliaries memory zetherAuxiliaries;
         zetherAuxiliaries.y = uint256(keccak256(abi.encode(keccak256(abi.encode(statement.epoch, statement.R, statement.CL, statement.CR, statement.L, statement.y)), proof.A, proof.S))).mod();
@@ -188,12 +188,12 @@ contract ZetherVerifier {
             temp = add(temp, mul(gs[i], anonAuxiliaries.f[i][0]));
             temp = add(temp, mul(hs[i], anonAuxiliaries.f[i][1])); // commutative
         }
-        if (!eq(add(mul(anonProof.B, anonAuxiliaries.x), anonProof.A), mul(temp, anonProof.zA))) { return false; } // "Recovery failure for B^x * A."
+        require(eq(add(mul(anonProof.B, anonAuxiliaries.x), anonProof.A), mul(temp, anonProof.zA)), "Recovery failure for B^x * A.");
         for (uint i = 0; i < proof.size; i++) {
             anonAuxiliaries.f[i][0] = anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]);
             anonAuxiliaries.f[i][1] = anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]);
         }
-        if (!eq(add(mul(anonProof.C, anonAuxiliaries.x), anonProof.D), mul(temp, anonProof.zA))) { return false; } // "Recovery failure for C^x * D."
+        require(eq(add(mul(anonProof.C, anonAuxiliaries.x), anonProof.D), mul(temp, anonProof.zA)), "Recovery failure for C^x * D.");
         anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
         anonAuxiliaries.inOutR2 = add(statement.R, mul(anonProof.inOutRG, anonAuxiliaries.x.neg()));
         anonAuxiliaries.cycler = new uint256[2][](proof.size);
@@ -217,7 +217,7 @@ contract ZetherVerifier {
             anonAuxiliaries.parity = add(anonAuxiliaries.parity, mul(statement.y[i], anonAuxiliaries.cycler[i][0].mul(anonAuxiliaries.cycler[i][1])));
         }
 
-        if (!eq(anonAuxiliaries.parity, add(mul(anonProof.parityG1, anonAuxiliaries.x), anonProof.parityG0))) { return false; } // "Index opposite parity check fail."
+        require(eq(anonAuxiliaries.parity, add(mul(anonProof.parityG1, anonAuxiliaries.x), anonProof.parityG0)), "Index opposite parity check fail.");
 
         anonAuxiliaries.gPrime = add(mul(g, anonAuxiliaries.x), mul(neg(anonProof.inOutRG), anonAuxiliaries.xInv));
 
@@ -238,7 +238,7 @@ contract ZetherVerifier {
 
         uint256 challenge = uint256(keccak256(abi.encode(anonAuxiliaries.x, sigmaAuxiliaries.AL, sigmaAuxiliaries.Ay, sigmaAuxiliaries.AD, sigmaAuxiliaries.Au, sigmaAuxiliaries.ADiff, sigmaAuxiliaries.At))).mod();
         // warning: abi encoding difference vs. java
-        if (challenge != proof.sigmaProof.c) { return false; } // "Sigma protocol challenge equality failure."
+        require(challenge == proof.sigmaProof.c, "Sigma protocol challenge equality failure.");
 
         IPAuxiliaries memory ipAuxiliaries;
         ipAuxiliaries.uChallenge = uint256(keccak256(abi.encode(sigmaProof.c, proof.t, proof.tauX, proof.mu))).mod(); // uChallenge
@@ -285,7 +285,7 @@ contract ZetherVerifier {
             hTemp = add(hTemp, mul(ipAuxiliaries.hPrimes[i], ipAuxiliaries.otherExponents[m - 1 - i]));
         }
         G1Point memory cProof = add(add(mul(gTemp, ipProof.a), mul(hTemp, ipProof.b)), mul(ipAuxiliaries.u, ipProof.a.mul(ipProof.b)));
-        if (!eq(ipAuxiliaries.P, cProof)) { return false; } // "Inner product equality check failure."
+        require(eq(ipAuxiliaries.P, cProof), "Inner product equality check failure.");
 
         return true;
     }
