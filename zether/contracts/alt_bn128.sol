@@ -101,7 +101,7 @@ library alt_bn128 {
             output := mload(m)
         }
     }
-    
+
     function mapInto(uint256 seed) internal view returns (G1Point memory) { // warning: function totally untested!
         uint256 y;
         while (true) {
