@@ -169,7 +169,7 @@ contract BurnVerifier {
 
     function multiExpHsInversed(uint256[m] memory ss, alt_bn128.G1Point[m] memory hs) internal view returns (alt_bn128.G1Point memory result) {
         for (uint256 i = 0; i < m; i++) {
-            result = result.add(hs[i].mul(ss[m-1-i]));
+            result = result.add(hs[i].mul(ss[m - 1 - i]));
         }
     }
     
