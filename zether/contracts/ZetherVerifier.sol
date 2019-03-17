@@ -157,7 +157,11 @@ contract ZetherVerifier {
         zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
         zetherAuxiliaries.zSquared = zetherAuxiliaries.z.mul(zetherAuxiliaries.z);
         zetherAuxiliaries.zCubed = zetherAuxiliaries.zSquared.mul(zetherAuxiliaries.z);
-        zetherAuxiliaries.twoTimesZSquared = times(twos, zetherAuxiliaries.zSquared);
+        // zetherAuxiliaries.twoTimesZSquared = times(twos, zetherAuxiliaries.zSquared);
+        for (uint256 i = 0; i < m / 2; i++) {
+            zetherAuxiliaries.twoTimesZSquared[i] = zetherAuxiliaries.zSquared.mul(2 ** i);
+            zetherAuxiliaries.twoTimesZSquared[i + m / 2] = zetherAuxiliaries.zCubed.mul(2 ** i);
+        }
         zetherAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.z, proof.commits))).mod();
 
         uint256 zSum = zetherAuxiliaries.zSquared.add(zetherAuxiliaries.zCubed).mul(zetherAuxiliaries.z);
