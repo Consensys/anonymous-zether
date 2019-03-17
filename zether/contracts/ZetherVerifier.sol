@@ -1,10 +1,10 @@
 pragma solidity 0.5.4;
 pragma experimental ABIEncoderV2;
 
-import "./alt_bn128.sol";
+import "./Utils.sol";
 
 contract ZetherVerifier {
-    using alt_bn128 for uint256;
+    using Utils for uint256;
 
     uint256 constant m = 64;
     uint256 constant n = 6;
@@ -97,7 +97,6 @@ contract ZetherVerifier {
         statement.u = G1Point(uint256(u[0]), uint256(u[1]));
         ZetherProof memory zetherProof = unserialize(proof);
         return verifyTransfer(statement, zetherProof);
-        return true;
     }
 
     struct ZetherAuxiliaries {
@@ -147,7 +146,6 @@ contract ZetherVerifier {
         uint256 uChallenge;
         uint256[n] challenges;
         uint256[m] otherExponents;
-        G1Point sumPoints;
     }
 
     function verifyTransfer(ZetherStatement memory statement, ZetherProof memory proof) view internal returns (bool) {
@@ -245,10 +243,8 @@ contract ZetherVerifier {
         ipAuxiliaries.u = mul(g, ipAuxiliaries.uChallenge);
         ipAuxiliaries.hPrimes = hadamard_inv(hs, zetherAuxiliaries.ys);
         ipAuxiliaries.hExp = addVectors(times(zetherAuxiliaries.ys, zetherAuxiliaries.z), zetherAuxiliaries.twoTimesZSquared);
-        for (uint256 i = 0; i < m; i++) {
-            ipAuxiliaries.sumPoints = add(ipAuxiliaries.sumPoints, gs[i]);
-        }
-        ipAuxiliaries.P = add(add(proof.A, mul(proof.S, zetherAuxiliaries.x)), mul(ipAuxiliaries.sumPoints, zetherAuxiliaries.z.neg()));
+
+        ipAuxiliaries.P = add(add(proof.A, mul(proof.S, zetherAuxiliaries.x)), mul(sumPoints(gs), zetherAuxiliaries.z.neg()));
         ipAuxiliaries.P = add(neg(mul(h, proof.mu)), add(ipAuxiliaries.P, commit(ipAuxiliaries.hPrimes, ipAuxiliaries.hExp)));
         ipAuxiliaries.P = add(ipAuxiliaries.P, mul(ipAuxiliaries.u, proof.t));
 
@@ -360,6 +356,12 @@ contract ZetherVerifier {
         }
     }
 
+    function sumPoints(G1Point[m] memory ps) internal view returns (G1Point memory sum) {
+        for (uint256 i = 0; i < m; i++) {
+            sum = add(sum, ps[i]);
+        }
+    }
+
     function commit(G1Point[m] memory ps, uint256[m] memory ss) internal view returns (G1Point memory result) {
         for (uint256 i = 0; i < m; i++) { // killed a silly initialization with the 0th indexes. [0x00, 0x00] will be treated as the zero point anyway
             result = add(result, mul(ps[i], ss[i]));
@@ -388,8 +390,8 @@ contract ZetherVerifier {
         }
     }
     struct G1Point {
-        uint256 X;
-        uint256 Y;
+        uint256 x;
+        uint256 y;
     }
 
     function add(G1Point memory p1, G1Point memory p2) public view returns (G1Point memory r) {
@@ -418,11 +420,11 @@ contract ZetherVerifier {
     }
 
     function neg(G1Point memory p) internal view returns (G1Point memory) {
-        return G1Point(p.X, ORDER - (p.Y % ORDER)); // p.Y should already be reduced mod P?
+        return G1Point(p.x, ORDER - (p.y % ORDER)); // p.y should already be reduced mod P?
     }
 
     function eq(G1Point memory p1, G1Point memory p2) internal pure returns (bool) {
-        return p1.X == p2.X && p1.Y == p2.Y;
+        return p1.x == p2.x && p1.y == p2.y;
     }
 
     function fieldexp(uint256 base, uint256 exponent) internal view returns (uint256 output) { // warning: mod p, not q
