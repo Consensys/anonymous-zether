@@ -153,7 +153,6 @@ contract ZetherVerifier {
 
         ZetherAuxiliaries memory zetherAuxiliaries;
         zetherAuxiliaries.y = uint256(keccak256(abi.encode(keccak256(abi.encode(statement.epoch, statement.R, statement.CL, statement.CR, statement.L, statement.y)), proof.A, proof.S))).mod();
-        // warning: not correct as written. the encoding will include length headers, whereas the java version does not!
         zetherAuxiliaries.ys = powers(zetherAuxiliaries.y);
         zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
         zetherAuxiliaries.zSquared = zetherAuxiliaries.z.mul(zetherAuxiliaries.z);
@@ -171,7 +170,6 @@ contract ZetherVerifier {
         AnonProof memory anonProof = proof.anonProof;
         AnonAuxiliaries memory anonAuxiliaries;
         anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.inOutRG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, anonProof.parityG0, anonProof.parityG1))).mod();
-        // warning: will encode length headers, while java will not
         anonAuxiliaries.f = new uint256[2][](proof.size);
         anonAuxiliaries.f[0][0] = anonAuxiliaries.x;
         anonAuxiliaries.f[0][1] = anonAuxiliaries.x;
@@ -321,11 +319,15 @@ contract ZetherVerifier {
         anonProof.balanceCommitNewRG = G1Point(slice(arr, 1664), slice(arr, 1696));
         anonProof.parityG0 = G1Point(slice(arr, 1728), slice(arr, 1760));
         anonProof.parityG1 = G1Point(slice(arr, 1792), slice(arr, 1824));
+
+        anonProof.f = new uint256[2][](size - 1);
         for (uint256 i = 0; i < size - 1; i++) {
             anonProof.f[i][0] = slice(arr, 1856 + 32 * i);
             anonProof.f[i][1] = slice(arr, 1856 + (size - 1 + i) * 32);
         }
 
+        anonProof.LG = new G1Point[2][](size / 2);
+        anonProof.yG = new G1Point[2][](size / 2);
         for (uint256 i = 0; i < size / 2; i++) {
             anonProof.LG[i][0] = G1Point(slice(arr, 1792 + (size + i) * 64), slice(arr, 1824 + (size + i) * 64));
             anonProof.LG[i][1] = G1Point(slice(arr, 1792 + size * 96 + i * 64), slice(arr, 1824 + size * 96 + i * 64));
@@ -333,6 +335,9 @@ contract ZetherVerifier {
             anonProof.yG[i][1] = G1Point(slice(arr, 1792 + size * 160 + i * 64), slice(arr, 1824 + size * 160 + i * 64));
             // these are tricky, and can maybe be optimized further?
         }
+
+        anonProof.zA = slice(arr, 1792 + size * 192);
+        anonProof.zC = slice(arr, 1824 + size * 192);
 
         proof.anonProof = anonProof;
         return proof;
