@@ -127,6 +127,7 @@ contract ZetherVerifier {
     struct AnonAuxiliaries {
         uint256 x;
         uint256[2][] f;
+        uint256[2][] flipped; // need to retain the original f, can't overwrite
         uint256 xInv;
         G1Point inOutR2;
         G1Point balanceCommitNewL2;
@@ -187,29 +188,29 @@ contract ZetherVerifier {
         require(eq(add(mul(anonProof.B, anonAuxiliaries.x), anonProof.A), add(temp, mul(h, anonProof.zA))), "Recovery failure for B^x * A.");
         // warning: all hell will break loose if you use an anonset of size > 64
         for (uint i = 0; i < proof.size; i++) {
-            anonAuxiliaries.f[i][0] = anonAuxiliaries.f[i][0].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]));
-            anonAuxiliaries.f[i][1] = anonAuxiliaries.f[i][1].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]));
+            anonAuxiliaries.flipped[i][0] = anonAuxiliaries.f[i][0].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.flipped[i][1] = anonAuxiliaries.f[i][1].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]));
         }
         temp = G1Point(0, 0);
         for (uint256 i = 0; i < proof.size; i++) { // comparison of different types?
-            temp = add(temp, mul(gs[i], anonAuxiliaries.f[i][0]));
-            temp = add(temp, mul(hs[i], anonAuxiliaries.f[i][1])); // commutative
+            temp = add(temp, mul(gs[i], anonAuxiliaries.flipped[i][0]));
+            temp = add(temp, mul(hs[i], anonAuxiliaries.flipped[i][1])); // commutative
         }
         require(eq(add(mul(anonProof.C, anonAuxiliaries.x), anonProof.D), add(temp, mul(h, anonProof.zC))), "Recovery failure for C^x * D.");
 
         anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
-        anonAuxiliaries.inOutR2 = add(statement.R, mul(anonProof.inOutRG, anonAuxiliaries.x.neg()));
+        anonAuxiliaries.inOutR2 = add(statement.R, mul(anonProof.inOutRG, anonAuxiliaries.xInv.neg()));
         anonAuxiliaries.cycler = new uint256[2][](proof.size);
-        anonAuxiliaries.L2 = new G1Point[2][](proof.size);
-        anonAuxiliaries.y2 = new G1Point[2][](proof.size);
+        anonAuxiliaries.L2 = new G1Point[2][](proof.size / 2);
+        anonAuxiliaries.y2 = new G1Point[2][](proof.size / 2);
         for (uint256 i = 0; i < proof.size / 2; i++) {
             for (uint256 j = 0; j < proof.size; j++) {
-                anonAuxiliaries.cycler[j][0] = anonAuxiliaries.cycler[j][0].add(anonAuxiliaries.f[j + i * 2][0]);
-                anonAuxiliaries.cycler[j][1] = anonAuxiliaries.cycler[j][1].add(anonAuxiliaries.f[j + i * 2][1]);
-                anonAuxiliaries.L2[i][0] = add(anonAuxiliaries.L2[i][0], mul(statement.L[j], anonAuxiliaries.f[j + i * 2][0]));
-                anonAuxiliaries.L2[i][1] = add(anonAuxiliaries.L2[i][1], mul(statement.L[j], anonAuxiliaries.f[j + i * 2][1]));
-                anonAuxiliaries.y2[i][0] = add(anonAuxiliaries.y2[i][0], mul(statement.y[j], anonAuxiliaries.f[j + i * 2][0]));
-                anonAuxiliaries.y2[i][1] = add(anonAuxiliaries.y2[i][1], mul(statement.y[j], anonAuxiliaries.f[j + i * 2][1]));
+                anonAuxiliaries.cycler[j][0] = anonAuxiliaries.cycler[j][0].add(anonAuxiliaries.f[(j + i * 2) % proof.size][0]);
+                anonAuxiliaries.cycler[j][1] = anonAuxiliaries.cycler[j][1].add(anonAuxiliaries.f[(j + i * 2) % proof.size][1]);
+                anonAuxiliaries.L2[i][0] = add(anonAuxiliaries.L2[i][0], mul(statement.L[j], anonAuxiliaries.f[(j + i * 2) % proof.size][0]));
+                anonAuxiliaries.L2[i][1] = add(anonAuxiliaries.L2[i][1], mul(statement.L[j], anonAuxiliaries.f[(j + i * 2) % proof.size][1]));
+                anonAuxiliaries.y2[i][0] = add(anonAuxiliaries.y2[i][0], mul(statement.y[j], anonAuxiliaries.f[(j + i * 2) % proof.size][0]));
+                anonAuxiliaries.y2[i][1] = add(anonAuxiliaries.y2[i][1], mul(statement.y[j], anonAuxiliaries.f[(j + i * 2) % proof.size][1]));
             }
             anonAuxiliaries.L2[i][0] = add(anonAuxiliaries.L2[i][0], mul(anonProof.LG[i][0], anonAuxiliaries.xInv));
             anonAuxiliaries.L2[i][1] = add(anonAuxiliaries.L2[i][1], mul(anonProof.LG[i][1], anonAuxiliaries.xInv));
