@@ -10,7 +10,7 @@ contract ERC20Interface {
 
 contract ZSC {
     ERC20Interface coin;
-    ZKP zkp = new ZKP();
+    ZKP zkp;
     uint256 public epochLength;
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
@@ -30,8 +30,9 @@ contract ZSC {
     // no more RollOverOccurred. also, actually the argument was never used for fund and burn? killed now.
     // i guess it's still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
 
-    constructor(address _coin, uint256 _epochLength) public {
+    constructor(address _coin, address _zkp, uint256 _epochLength) public {
         coin = ERC20Interface(_coin);
+        zkp = ZKP(_zkp);
         epochLength = _epochLength;
     }
 
