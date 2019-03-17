@@ -152,7 +152,7 @@ contract ZetherVerifier {
         require(proof.size % 2 == 0, "Anonymity set size must be even!");
 
         ZetherAuxiliaries memory zetherAuxiliaries;
-        zetherAuxiliaries.y = uint256(keccak256(abi.encode(keccak256(abi.encode(statement.epoch, statement.R, statement.CL, statement.CR, statement.L, statement.y)), proof.A, proof.S))).mod();
+        zetherAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.epoch, statement.R, statement.CL, statement.CR, statement.L, statement.y))).mod(), proof.A, proof.S))).mod();
         zetherAuxiliaries.ys = powers(zetherAuxiliaries.y);
         zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
         zetherAuxiliaries.zSquared = zetherAuxiliaries.z.mul(zetherAuxiliaries.z);
@@ -179,6 +179,7 @@ contract ZetherVerifier {
             anonAuxiliaries.f[0][0] = anonAuxiliaries.f[0][0].sub(anonAuxiliaries.f[i][0]);
             anonAuxiliaries.f[0][1] = anonAuxiliaries.f[0][1].sub(anonAuxiliaries.f[i][1]);
         }
+
         G1Point memory temp;
         for (uint256 i = 0; i < anonAuxiliaries.f.length; i++) { // comparison of different types?
             temp = add(temp, mul(gs[i], anonAuxiliaries.f[i][0]));
@@ -190,6 +191,7 @@ contract ZetherVerifier {
             anonAuxiliaries.f[i][1] = anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]);
         }
         require(eq(add(mul(anonProof.C, anonAuxiliaries.x), anonProof.D), mul(temp, anonProof.zA)), "Recovery failure for C^x * D.");
+
         anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
         anonAuxiliaries.inOutR2 = add(statement.R, mul(anonProof.inOutRG, anonAuxiliaries.x.neg()));
         anonAuxiliaries.cycler = new uint256[2][](proof.size);
