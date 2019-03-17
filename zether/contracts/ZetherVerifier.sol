@@ -161,7 +161,7 @@ contract ZetherVerifier {
         zetherAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.z, proof.commits))).mod();
 
         uint256 zSum = zetherAuxiliaries.zSquared.add(zetherAuxiliaries.zCubed).mul(zetherAuxiliaries.z);
-        zetherAuxiliaries.k = sumScalars(zetherAuxiliaries.ys).mul(zetherAuxiliaries.z.sub(zetherAuxiliaries.zSquared)).sub(zSum.mul(2 ** m).sub(zSum));
+        zetherAuxiliaries.k = sumScalars(zetherAuxiliaries.ys).mul(zetherAuxiliaries.z.sub(zetherAuxiliaries.zSquared)).sub(zSum.mul(2 ** (m / 2)).sub(zSum));
         zetherAuxiliaries.tEval = add(mul(proof.commits[0], zetherAuxiliaries.x), mul(proof.commits[1], zetherAuxiliaries.x.mul(zetherAuxiliaries.x))); // replace with "commit"?
         zetherAuxiliaries.t = proof.t.sub(zetherAuxiliaries.k);
 
@@ -220,36 +220,40 @@ contract ZetherVerifier {
                 anonAuxiliaries.y2[i][0] = add(anonAuxiliaries.y2[i][0], mul(statement.y[j], anonAuxiliaries.f[(j + i * 2) % proof.size][0]));
                 anonAuxiliaries.y2[i][1] = add(anonAuxiliaries.y2[i][1], mul(statement.y[j], anonAuxiliaries.f[(j + i * 2) % proof.size][1]));
             }
-            anonAuxiliaries.L2[i][0] = add(anonAuxiliaries.L2[i][0], mul(anonProof.LG[i][0], anonAuxiliaries.xInv));
-            anonAuxiliaries.L2[i][1] = add(anonAuxiliaries.L2[i][1], mul(anonProof.LG[i][1], anonAuxiliaries.xInv));
+            anonAuxiliaries.L2[i][0] = mul(add(anonAuxiliaries.L2[i][0], neg(anonProof.LG[i][0])), anonAuxiliaries.xInv);
+            anonAuxiliaries.L2[i][1] = mul(add(anonAuxiliaries.L2[i][1], neg(anonProof.LG[i][1])), anonAuxiliaries.xInv);
+            anonAuxiliaries.y2[i][0] = mul(add(anonAuxiliaries.y2[i][0], neg(anonProof.yG[i][0])), anonAuxiliaries.xInv);
+            anonAuxiliaries.y2[i][1] = mul(add(anonAuxiliaries.y2[i][1], neg(anonProof.yG[i][1])), anonAuxiliaries.xInv);
         }
         for (uint256 i = 0; i < proof.size; i++) {
             anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, mul(statement.CL[i], anonAuxiliaries.f[i][0]));
             anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, mul(statement.CR[i], anonAuxiliaries.f[i][0]));
             anonAuxiliaries.parity = add(anonAuxiliaries.parity, mul(statement.y[i], anonAuxiliaries.cycler[i][0].mul(anonAuxiliaries.cycler[i][1])));
         }
+        anonAuxiliaries.balanceCommitNewL2 = mul(add(anonAuxiliaries.balanceCommitNewL2, neg(anonProof.balanceCommitNewLG)), anonAuxiliaries.xInv);
+        anonAuxiliaries.balanceCommitNewR2 = mul(add(anonAuxiliaries.balanceCommitNewR2, neg(anonProof.balanceCommitNewRG)), anonAuxiliaries.xInv);
 
         require(eq(anonAuxiliaries.parity, add(mul(anonProof.parityG1, anonAuxiliaries.x), anonProof.parityG0)), "Index opposite parity check fail.");
 
-        anonAuxiliaries.gPrime = add(mul(g, anonAuxiliaries.x), mul(neg(anonProof.inOutRG), anonAuxiliaries.xInv));
+        anonAuxiliaries.gPrime = mul(add(mul(g, anonAuxiliaries.x), neg(anonProof.inOutRG)), anonAuxiliaries.xInv);
 
         SigmaProof memory sigmaProof = proof.sigmaProof;
         SigmaAuxiliaries memory sigmaAuxiliaries;
         sigmaAuxiliaries.minusC = sigmaProof.c.neg();
         sigmaAuxiliaries.AL = new G1Point[2][](proof.size / 2 - 1);
         for (uint256 i = 1; i < proof.size / 2; i++) {
-            sigmaAuxiliaries.AL[i - 1][0] = mul(add(mul(anonAuxiliaries.y2[i][0], sigmaProof.sR), anonAuxiliaries.L2[i][0]), sigmaAuxiliaries.minusC);
-            sigmaAuxiliaries.AL[i - 1][1] = mul(add(mul(anonAuxiliaries.y2[i][1], sigmaProof.sR), anonAuxiliaries.L2[i][1]), sigmaAuxiliaries.minusC);
+            sigmaAuxiliaries.AL[i - 1][0] = add(mul(anonAuxiliaries.y2[i][0], sigmaProof.sR), mul(anonAuxiliaries.L2[i][0], sigmaAuxiliaries.minusC));
+            sigmaAuxiliaries.AL[i - 1][1] = add(mul(anonAuxiliaries.y2[i][1], sigmaProof.sR), mul(anonAuxiliaries.L2[i][1], sigmaAuxiliaries.minusC));
         }
+        sigmaAuxiliaries.AD = add(mul(anonAuxiliaries.gPrime, sigmaProof.sR), mul(anonAuxiliaries.inOutR2, sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.Ay = add(mul(anonAuxiliaries.gPrime, sigmaProof.sX), mul(anonAuxiliaries.y2[0][0], sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.gEpoch = mapInto("Zether", statement.epoch);
-        sigmaAuxiliaries.Au = add(mul(sigmaAuxiliaries.gEpoch, sigmaProof.sX), mul(statement.u, sigmaProof.c.neg()));
+        sigmaAuxiliaries.Au = add(mul(sigmaAuxiliaries.gEpoch, sigmaProof.sX), mul(statement.u, sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.ADiff = add(mul(add(anonAuxiliaries.y2[0][0], anonAuxiliaries.y2[0][1]), sigmaProof.sR), mul(add(anonAuxiliaries.L2[0][0], anonAuxiliaries.L2[0][1]), sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.cCommit = add(add(add(mul(anonAuxiliaries.inOutR2, sigmaProof.sX.mul(zetherAuxiliaries.zSquared)), mul(anonAuxiliaries.balanceCommitNewR2, sigmaProof.sX.mul(zetherAuxiliaries.zCubed).neg())), mul(anonAuxiliaries.balanceCommitNewL2, sigmaProof.c.mul(zetherAuxiliaries.zCubed))), mul(anonAuxiliaries.L2[0][0], sigmaProof.c.mul(zetherAuxiliaries.zSquared).neg()));
         sigmaAuxiliaries.At = add(add(mul(g, zetherAuxiliaries.t.mul(sigmaProof.c)), mul(h, proof.tauX.mul(sigmaProof.c))), neg(add(sigmaAuxiliaries.cCommit, mul(zetherAuxiliaries.tEval, sigmaProof.c))));
 
         uint256 challenge = uint256(keccak256(abi.encode(anonAuxiliaries.x, sigmaAuxiliaries.AL, sigmaAuxiliaries.Ay, sigmaAuxiliaries.AD, sigmaAuxiliaries.Au, sigmaAuxiliaries.ADiff, sigmaAuxiliaries.At))).mod();
-        // warning: abi encoding difference vs. java
         require(challenge == proof.sigmaProof.c, "Sigma protocol challenge equality failure.");
 
         IPAuxiliaries memory ipAuxiliaries;
