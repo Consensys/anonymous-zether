@@ -127,7 +127,6 @@ contract ZetherVerifier {
     struct AnonAuxiliaries {
         uint256 x;
         uint256[2][] f;
-        uint256[2][] flipped; // need to retain the original f, can't overwrite
         uint256 xInv;
         G1Point inOutR2;
         G1Point balanceCommitNewL2;
@@ -188,15 +187,24 @@ contract ZetherVerifier {
         require(eq(add(mul(anonProof.B, anonAuxiliaries.x), anonProof.A), add(temp, mul(h, anonProof.zA))), "Recovery failure for B^x * A.");
         // warning: all hell will break loose if you use an anonset of size > 64
         for (uint i = 0; i < proof.size; i++) {
-            anonAuxiliaries.flipped[i][0] = anonAuxiliaries.f[i][0].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]));
-            anonAuxiliaries.flipped[i][1] = anonAuxiliaries.f[i][1].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]));
+            anonAuxiliaries.f[i][0] = anonAuxiliaries.f[i][0].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.f[i][1] = anonAuxiliaries.f[i][1].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]));
         }
         temp = G1Point(0, 0);
         for (uint256 i = 0; i < proof.size; i++) { // comparison of different types?
-            temp = add(temp, mul(gs[i], anonAuxiliaries.flipped[i][0]));
-            temp = add(temp, mul(hs[i], anonAuxiliaries.flipped[i][1])); // commutative
+            temp = add(temp, mul(gs[i], anonAuxiliaries.f[i][0]));
+            temp = add(temp, mul(hs[i], anonAuxiliaries.f[i][1])); // commutative
         }
         require(eq(add(mul(anonProof.C, anonAuxiliaries.x), anonProof.D), add(temp, mul(h, anonProof.zC))), "Recovery failure for C^x * D.");
+
+        anonAuxiliaries.f[0][0] = anonAuxiliaries.x;
+        anonAuxiliaries.f[0][1] = anonAuxiliaries.x;
+        for (uint i = 1; i < proof.size; i++) { // need to recompute these. contract too large if use another variable
+            anonAuxiliaries.f[i][0] = anonProof.f[i - 1][0];
+            anonAuxiliaries.f[i][1] = anonProof.f[i - 1][1];
+            anonAuxiliaries.f[0][0] = anonAuxiliaries.f[0][0].sub(anonAuxiliaries.f[i][0]);
+            anonAuxiliaries.f[0][1] = anonAuxiliaries.f[0][1].sub(anonAuxiliaries.f[i][1]);
+        }
 
         anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
         anonAuxiliaries.inOutR2 = add(statement.R, mul(anonProof.inOutRG, anonAuxiliaries.xInv.neg()));
