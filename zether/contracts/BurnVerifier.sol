@@ -58,7 +58,7 @@ contract BurnVerifier {
         }
     } // will it be more expensive later on to sload these than to recompute them?
 
-    function verify(bytes32[2] memory CLn, bytes32[2] memory CRn, bytes32[2] memory y, uint256 bTransfer, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
+    function verifyBurn(bytes32[2] memory CLn, bytes32[2] memory CRn, bytes32[2] memory y, uint256 bTransfer, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
         BurnStatement memory statement; // WARNING: if this is called directly in the console,
         // and your strings are less than 64 characters, they will be padded on the right, not the left. should hopefully not be an issue,
         // as this will typically be called simply by the other contract, which will get its arguments using precompiles. still though, beware
@@ -69,7 +69,7 @@ contract BurnVerifier {
         statement.epoch = epoch;
         statement.u = G1Point(uint256(u[0]), uint256(u[1]));
         BurnProof memory burnProof = unserialize(proof);
-        return verifyBurn(statement, burnProof);
+        return verify(statement, burnProof);
     }
 
     struct BurnAuxiliaries {
@@ -94,7 +94,7 @@ contract BurnVerifier {
         G1Point At;
     }
 
-    function verifyBurn(BurnStatement memory statement, BurnProof memory proof) view internal returns (bool) {
+    function verify(BurnStatement memory statement, BurnProof memory proof) view internal returns (bool) {
         BurnAuxiliaries memory burnAuxiliaries;
         burnAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.bTransfer, statement.epoch, statement.y, statement.balanceCommitNewL, statement.balanceCommitNewR))).mod(), proof.A, proof.S))).mod();
         burnAuxiliaries.ys = powers(burnAuxiliaries.y);

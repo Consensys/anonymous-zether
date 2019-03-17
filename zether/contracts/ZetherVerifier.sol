@@ -79,7 +79,7 @@ contract ZetherVerifier {
         }
     }
 
-    function verify(bytes32[2][] memory CL, bytes32[2][] memory CR, bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
+    function verifyTransfer(bytes32[2][] memory CL, bytes32[2][] memory CR, bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
         ZetherStatement memory statement;
         uint256 size = y.length;
         statement.CL = new G1Point[](size);
@@ -96,7 +96,7 @@ contract ZetherVerifier {
         statement.epoch = epoch;
         statement.u = G1Point(uint256(u[0]), uint256(u[1]));
         ZetherProof memory zetherProof = unserialize(proof);
-        return verifyTransfer(statement, zetherProof);
+        return verify(statement, zetherProof);
     }
 
     struct ZetherAuxiliaries {
@@ -148,7 +148,7 @@ contract ZetherVerifier {
         uint256[m] otherExponents;
     }
 
-    function verifyTransfer(ZetherStatement memory statement, ZetherProof memory proof) view internal returns (bool) {
+    function verify(ZetherStatement memory statement, ZetherProof memory proof) view internal returns (bool) {
         require(proof.size % 2 == 0, "Anonymity set size must be even!");
 
         ZetherAuxiliaries memory zetherAuxiliaries;
