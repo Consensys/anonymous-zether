@@ -17,7 +17,7 @@ contract ZSC {
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
     mapping(bytes32 => bytes32[2][2]) public acc; // main account mapping
     mapping(bytes32 => bytes32[2][2]) public pTransfers; // storage for pending transfers
-    mapping(bytes32 => address) public ethAddrs; // i guess the only point of this now is to lock addresses so as to prevent front-running during burns.
+    mapping(bytes32 => address) ethAddrs; // this can probably become private soon.
     mapping(bytes32 => uint256) public lastRollOver; // had this but killed it, reviving
     bytes32[] nonceSet; // would be more natural to use a mapping, but they can't be deleted / reset!
     uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated

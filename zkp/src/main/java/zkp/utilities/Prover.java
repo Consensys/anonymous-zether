@@ -37,8 +37,8 @@ public class Prover {
 //        System.out.println("CL: " + BN128Point.unserialize(CL));
 //        System.out.println("CR: " + BN128Point.unserialize(CR));
         BigInteger x = new BigInteger(1, xBytes);
-        String epoch = new BigInteger(1, epochBytes).toString(10); // radix 10 i guess.
-        BN128Point gEpoch = group.mapInto(ProofUtils.hash("Zether " + epoch));
+        int epoch = new BigInteger(1, epochBytes).intValue(); // radix 10 i guess.
+        BN128Point gEpoch = group.mapInto(ProofUtils.paddedHash("Zether", epoch)); // this doesn't matter, actually.
         BN128Point u = gEpoch.multiply(x);
         ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(balanceCommitNewL, balanceCommitNewR, L, R, y, epoch, u);
         ZetherWitness zetherWitness = new ZetherWitness(x, r, b, new BigInteger(1, bDiffBytes), index);
@@ -69,8 +69,8 @@ public class Prover {
         BN128Point balanceCommitNewR = BN128Point.unserialize(CR);
 
         BigInteger x = new BigInteger(1, xBytes);
-        String epoch = new BigInteger(1, epochBytes).toString(10); // radix 10 i guess.
-        BN128Point gEpoch = group.mapInto(ProofUtils.hash("Zether " + epoch));
+        int epoch = new BigInteger(1, epochBytes).intValue(); // radix 10 i guess.
+        BN128Point gEpoch = group.mapInto(ProofUtils.paddedHash("Zether", epoch));
         BN128Point u = gEpoch.multiply(x);
 
         BurnStatement<BN128Point> burnStatement = new BurnStatement<>(balanceCommitNewL, balanceCommitNewR, y, bTransfer, epoch, u);

@@ -25,7 +25,7 @@ public class Verifier {
         BN128Point R = BN128Point.unserialize(RBytes);
         GeneratorVector<BN128Point> CLn = L.add(GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(CLBytes[i])), group));
         GeneratorVector<BN128Point> CRn = GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(CRBytes[i]).add(R)), group);
-        ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(CLn, CRn, L, R, y, new BigInteger(1, epoch).toString(10), BN128Point.unserialize(u));
+        ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(CLn, CRn, L, R, y, new BigInteger(1, epoch).intValue(), BN128Point.unserialize(u));
         ZetherProof<BN128Point> zetherProof = ZetherProof.unserialize(proof);
         boolean success = true;
         System.out.println("CLn: " + CLn);
@@ -44,7 +44,7 @@ public class Verifier {
     }
 
     public boolean verifyBurn(byte[] CLn, byte[] CRn, byte[] y, byte[] bTransfer, byte[] epoch, byte[] u, byte[] proof) {
-        BurnStatement<BN128Point> burnStatement = new BurnStatement<>(BN128Point.unserialize(CLn), BN128Point.unserialize(CRn), BN128Point.unserialize(y), new BigInteger(1, bTransfer), new BigInteger(1, epoch).toString(10), BN128Point.unserialize(u));
+        BurnStatement<BN128Point> burnStatement = new BurnStatement<>(BN128Point.unserialize(CLn), BN128Point.unserialize(CRn), BN128Point.unserialize(y), new BigInteger(1, bTransfer), new BigInteger(1, epoch).intValue(), BN128Point.unserialize(u));
         BurnProof<BN128Point> burnProof = BurnProof.unserialize(proof);
         boolean success = true;
         try {

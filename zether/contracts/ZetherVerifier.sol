@@ -8,7 +8,7 @@ contract ZetherVerifier {
 
     uint256 constant m = 64;
     uint256 constant n = 6;
-    uint256 public constant ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 constant ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
     G1Point[m] gs;
     G1Point[m] hs;
@@ -424,7 +424,7 @@ contract ZetherVerifier {
         uint256 y;
     }
 
-    function add(G1Point memory p1, G1Point memory p2) public view returns (G1Point memory r) {
+    function add(G1Point memory p1, G1Point memory p2) internal view returns (G1Point memory r) {
         assembly {
             let m := mload(0x40)
             mstore(m, mload(p1))
