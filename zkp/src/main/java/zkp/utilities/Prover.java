@@ -38,7 +38,7 @@ public class Prover {
 //        System.out.println("CR: " + BN128Point.unserialize(CR));
         BigInteger x = new BigInteger(1, xBytes);
         int epoch = new BigInteger(1, epochBytes).intValue(); // radix 10 i guess.
-        BN128Point gEpoch = group.mapInto(ProofUtils.paddedHash("Zether", epoch));
+        BN128Point gEpoch = group.mapInto(ProofUtils.paddedHash("Zether", epoch)); // this doesn't matter, actually.
         BN128Point u = gEpoch.multiply(x);
         ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(balanceCommitNewL, balanceCommitNewR, L, R, y, epoch, u);
         ZetherWitness zetherWitness = new ZetherWitness(x, r, b, new BigInteger(1, bDiffBytes), index);

@@ -16,15 +16,18 @@ public class Verifier {
     private ZetherVerifier<BN128Point> zetherVerifier = new ZetherVerifier<>();
     private BurnVerifier<BN128Point> burnVerifier = new BurnVerifier<>();
 
-    public boolean verifyTransfer(byte[][] CLBytes, byte[][] CRBytes, byte[][] LBytes, byte[] RBytes, byte[][] yBytes, byte[] epoch, byte[] u, byte[] proof) {
+    public boolean verifyTransfer(byte[][] CLnBytes, byte[][] CRnBytes, byte[][] LBytes, byte[] RBytes, byte[][] yBytes, byte[] epoch, byte[] u, byte[] proof) {
         // note note note note note: CL and CR now reflect _pre_-deduction states. this is purely a design choice, it's easier to do it this way this time because
         // unlike before, acc - outL no longer needs to be calculated within-contract, either for the sender or for anyone else.
         int size = yBytes.length;
         GeneratorVector<BN128Point> y = GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(yBytes[i])), group);
         GeneratorVector<BN128Point> L = GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(LBytes[i])), group);
         BN128Point R = BN128Point.unserialize(RBytes);
-        GeneratorVector<BN128Point> CLn = L.add(GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(CLBytes[i])), group));
-        GeneratorVector<BN128Point> CRn = GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(CRBytes[i]).add(R)), group);
+//        GeneratorVector<BN128Point> CLn = L.add(GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(CLBytes[i])), group));
+//        GeneratorVector<BN128Point> CRn = GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(CRBytes[i]).add(R)), group);
+        GeneratorVector<BN128Point> CLn = GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(CLnBytes[i])), group);
+        GeneratorVector<BN128Point> CRn = GeneratorVector.from(VectorX.range(0, size).map(i -> BN128Point.unserialize(CRnBytes[i])), group);
+
         ZetherStatement<BN128Point> zetherStatement = new ZetherStatement<>(CLn, CRn, L, R, y, new BigInteger(1, epoch).intValue(), BN128Point.unserialize(u));
         ZetherProof<BN128Point> zetherProof = ZetherProof.unserialize(proof);
         boolean success = true;

@@ -10,14 +10,14 @@ contract ERC20Interface {
 
 contract ZSC {
     ERC20Interface coin;
-    ZKP zkp = new ZKP();
+    ZKP zkp;
     uint256 public epochLength;
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
-    // uint256 constant MAX = 4294967295; // 2^32 - 1 // save an sload, use a literal...
+    uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
     mapping(bytes32 => bytes32[2][2]) public acc; // main account mapping
     mapping(bytes32 => bytes32[2][2]) public pTransfers; // storage for pending transfers
-    mapping(bytes32 => address) public ethAddrs; // i guess the only point of this now is to lock addresses so as to prevent front-running during burns.
+    mapping(bytes32 => address) ethAddrs; // this can probably become private soon.
     mapping(bytes32 => uint256) public lastRollOver; // had this but killed it, reviving
     bytes32[] nonceSet; // would be more natural to use a mapping, but they can't be deleted / reset!
     uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated
@@ -30,8 +30,9 @@ contract ZSC {
     // no more RollOverOccurred. also, actually the argument was never used for fund and burn? killed now.
     // i guess it's still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
 
-    constructor(address _coin, uint256 _epochLength) public {
+    constructor(address _coin, address _zkp, uint256 _epochLength) public {
         coin = ERC20Interface(_coin);
+        zkp = ZKP(_zkp);
         epochLength = _epochLength;
     }
 
@@ -88,8 +89,8 @@ contract ZSC {
         rollOver(yHash);
 
         // registration check here would be redundant, as any `transferFrom` the 0 address will necessarily fail. save an sload
-        require(bTransfer <= 4294967295, "Deposit amount out of range."); // uint, so other way not necessary?
-        require(bTransfer + bTotal <= 4294967295, "Fund pushes contract past maximum value.");
+        require(bTransfer <= MAX, "Deposit amount out of range."); // uint, so other way not necessary?
+        require(bTransfer + bTotal <= MAX, "Fund pushes contract past maximum value.");
         // if pTransfers[yHash] == [0, 0, 0, 0] then an add and a write will be equivalent...
         bytes32[2] memory scratch = acc[yHash][0];
         // won't let me assign this array using literals / casts
@@ -117,8 +118,8 @@ contract ZSC {
 
     function transfer(bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, bytes32[2] memory u, bytes memory proof) public {
         uint256 size = y.length;
-        bytes32[2][] memory CL = new bytes32[2][](size);
-        bytes32[2][] memory CR = new bytes32[2][](size);
+        bytes32[2][] memory CLn = new bytes32[2][](size);
+        bytes32[2][] memory CRn = new bytes32[2][](size);
         require(L.length == size, "Input array length mismatch!");
         uint256 result = 1;
         for (uint256 i = 0; i < y.length; i++) {
@@ -144,8 +145,19 @@ contract ZSC {
             }
             pTransfers[yHash] = scratch; // credit / debit / neither y's account.
             scratch = acc[yHash];
-            CL[i] = scratch[0];
-            CR[i] = scratch[1];
+            assembly {
+                let m := mload(0x40)
+                mstore(m, mload(mload(scratch)))
+                mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
+                mstore(add(m, 0x40), mload(mload(add(add(L, 0x20), mul(i, 0x20)))))
+                mstore(add(m, 0x60), mload(add(mload(add(add(L, 0x20), mul(i, 0x20))), 0x20)))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(add(CLn, 0x20), mul(i, 0x20))), 0x40))
+                mstore(m, mload(mload(add(scratch, 0x20))))
+                mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
+                mstore(add(m, 0x40), mload(R))
+                mstore(add(m, 0x60), mload(add(R, 0x20)))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(add(CRn, 0x20), mul(i, 0x20))), 0x40))
+            }
         }
         require(result == 1, "Elliptic curve operations failure. Bad points?");
 
@@ -170,7 +182,7 @@ contract ZSC {
             }
         }
         require(!seen, "Nonce already seen!");
-        require(zkp.verifyTransfer(CL, CR, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
+        require(zkp.verifyTransfer(CLn, CRn, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
         nonceSet.push(uHash);
         emit TransferOccurred(y);
@@ -181,7 +193,7 @@ contract ZSC {
         rollOver(yHash);
 
         require(ethAddrs[yHash] != address(0), "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
-        require(0 <= bTransfer && bTransfer <= 4294967295, "Transfer amount out of range");
+        require(0 <= bTransfer && bTransfer <= MAX, "Transfer amount out of range");
         bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
         assembly {
             let result := 1
