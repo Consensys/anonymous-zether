@@ -21,26 +21,29 @@ The first thing we're going to need is a running ERC20 contract, for which (at l
 
 In separate windows, let's attach to four of the 7 nodes---Alice, Bob, Charlie, and Eve, let's say. In all windows, execute
 ```javascript
-> loadScript('[path to]/BulletProofPOC/zether/tracker.js')
+> loadScript('../../../BulletProofPOC/zether/tracker.js')
 ```
 In one of these windows (doesn't matter which), deploy the main Zether "ZSC" contract using
 ```javascript
-> var zsc = demo.deployZSC(erc20mintableAddress)
+> demo.deployZSC(erc20mintableAddress)
+"Initiating deployment..."
+> ZSC deployed at address "0x64adf24051beb1b867c5a04a5dc7dd643d8da40e".
 ```
 Recover this contract in all _other_ windows by executing:
 ```javascript
-> var zsc = demo.recoverZSC(zscAddress)
+> demo.recoverZSC(zscAddress)
+"Recovered."
 ```
-where the value `zscAddress` is copied from the value of `zsc.address` in the original window.
+where the value `zscAddress` is copied from the address you saw in the original window.
 
 In the first window, Alice's let's say, execute
 ```javascript
-> var alice = new tracker(zsc)
+> var alice = new tracker()
 > Initial registration successful.
 ```
 and in Bob's,
 ```javascript
-> var bob = new tracker(zsc)
+> var bob = new tracker()
 > Initial registration successful.
 ```
 Do something similar for the other two.
