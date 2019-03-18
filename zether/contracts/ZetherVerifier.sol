@@ -18,8 +18,8 @@ contract ZetherVerifier {
     uint256[m] twos = powers(2);
 
     struct ZetherStatement {
-        G1Point[] CL;
-        G1Point[] CR;
+        G1Point[] CLn;
+        G1Point[] CRn;
         G1Point[] L;
         G1Point R;
         G1Point[] y;
@@ -79,16 +79,16 @@ contract ZetherVerifier {
         }
     }
 
-    function verifyTransfer(bytes32[2][] memory CL, bytes32[2][] memory CR, bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
+    function verifyTransfer(bytes32[2][] memory CLn, bytes32[2][] memory CRn, bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
         ZetherStatement memory statement;
         uint256 size = y.length;
-        statement.CL = new G1Point[](size);
-        statement.CR = new G1Point[](size);
+        statement.CLn = new G1Point[](size);
+        statement.CRn = new G1Point[](size);
         statement.L = new G1Point[](size);
         statement.y = new G1Point[](size);
         for (uint256 i = 0; i < size; i++) {
-            statement.CL[i] = G1Point(uint256(CL[i][0]), uint256(CL[i][1]));
-            statement.CR[i] = G1Point(uint256(CR[i][0]), uint256(CR[i][1]));
+            statement.CLn[i] = G1Point(uint256(CLn[i][0]), uint256(CLn[i][1]));
+            statement.CRn[i] = G1Point(uint256(CRn[i][0]), uint256(CRn[i][1]));
             statement.L[i] = G1Point(uint256(L[i][0]), uint256(L[i][1]));
             statement.y[i] = G1Point(uint256(y[i][0]), uint256(y[i][1]));
         }
@@ -152,7 +152,7 @@ contract ZetherVerifier {
         require(proof.size % 2 == 0, "Anonymity set size must be even!");
 
         ZetherAuxiliaries memory zetherAuxiliaries;
-        zetherAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.epoch, statement.R, statement.CL, statement.CR, statement.L, statement.y))).mod(), proof.A, proof.S))).mod();
+        zetherAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.epoch, statement.R, statement.CLn, statement.CRn, statement.L, statement.y))).mod(), proof.A, proof.S))).mod();
         zetherAuxiliaries.ys = powers(zetherAuxiliaries.y);
         zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
         zetherAuxiliaries.zSquared = zetherAuxiliaries.z.mul(zetherAuxiliaries.z);
@@ -230,8 +230,8 @@ contract ZetherVerifier {
             anonAuxiliaries.y2[i][1] = mul(add(anonAuxiliaries.y2[i][1], neg(anonProof.yG[i][1])), anonAuxiliaries.xInv);
         }
         for (uint256 i = 0; i < proof.size; i++) {
-            anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, mul(statement.CL[i], anonAuxiliaries.f[i][0]));
-            anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, mul(statement.CR[i], anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, mul(statement.CLn[i], anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, mul(statement.CRn[i], anonAuxiliaries.f[i][0]));
             anonAuxiliaries.parity = add(anonAuxiliaries.parity, mul(statement.y[i], anonAuxiliaries.cycler[i][0].mul(anonAuxiliaries.cycler[i][1])));
         }
         anonAuxiliaries.balanceCommitNewL2 = mul(add(anonAuxiliaries.balanceCommitNewL2, neg(anonProof.balanceCommitNewLG)), anonAuxiliaries.xInv);

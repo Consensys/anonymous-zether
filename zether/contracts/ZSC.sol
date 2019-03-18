@@ -118,8 +118,8 @@ contract ZSC {
 
     function transfer(bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, bytes32[2] memory u, bytes memory proof) public {
         uint256 size = y.length;
-        bytes32[2][] memory CL = new bytes32[2][](size);
-        bytes32[2][] memory CR = new bytes32[2][](size);
+        bytes32[2][] memory CLn = new bytes32[2][](size);
+        bytes32[2][] memory CRn = new bytes32[2][](size);
         require(L.length == size, "Input array length mismatch!");
         uint256 result = 1;
         for (uint256 i = 0; i < y.length; i++) {
@@ -145,8 +145,19 @@ contract ZSC {
             }
             pTransfers[yHash] = scratch; // credit / debit / neither y's account.
             scratch = acc[yHash];
-            CL[i] = scratch[0];
-            CR[i] = scratch[1];
+            assembly {
+                let m := mload(0x40)
+                mstore(m, mload(mload(scratch)))
+                mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
+                mstore(add(m, 0x40), mload(mload(add(add(L, 0x20), mul(i, 0x20)))))
+                mstore(add(m, 0x60), mload(add(mload(add(add(L, 0x20), mul(i, 0x20))), 0x20)))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(add(CLn, 0x20), mul(i, 0x20))), 0x40))
+                mstore(m, mload(mload(add(scratch, 0x20))))
+                mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
+                mstore(add(m, 0x40), mload(R))
+                mstore(add(m, 0x60), mload(add(R, 0x20)))
+                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(add(CRn, 0x20), mul(i, 0x20))), 0x40))
+            }
         }
         require(result == 1, "Elliptic curve operations failure. Bad points?");
 
@@ -171,7 +182,7 @@ contract ZSC {
             }
         }
         require(!seen, "Nonce already seen!");
-        require(zkp.verifyTransfer(CL, CR, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
+        require(zkp.verifyTransfer(CLn, CRn, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
         nonceSet.push(uHash);
         emit TransferOccurred(y);
