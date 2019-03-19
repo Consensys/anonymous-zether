@@ -26,7 +26,7 @@ In separate windows, let's attach to four of the 7 nodes---Alice, Bob, Charlie, 
 In one of these windows (doesn't matter which), deploy the main Zether "ZSC" contract using
 ```javascript
 > demo.deployZSC(erc20mintableAddress)
-"Initiating deployment..."
+"Deploying contracts."
 > ZSC deployed at address "0x64adf24051beb1b867c5a04a5dc7dd643d8da40e".
 ```
 Recover this contract in all _other_ windows by executing:
