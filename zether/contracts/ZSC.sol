@@ -109,7 +109,7 @@ contract ZSC {
             }
         }
         acc[yHash][0] = scratch;
-        require(coin.transferFrom(ethAddrs[yHash], address(this), bTransfer), "Transfer from sender failed");
+        require(coin.transferFrom(ethAddrs[yHash], address(this), bTransfer), "Transfer from sender failed.");
         // front-running here would be disadvantageous, but still prevent it here by using ethAddrs[yHash] instead of msg.sender
         // also adds flexibility: can later issue messages from arbitrary ethereum accounts.
         bTotal += bTransfer;
@@ -193,7 +193,7 @@ contract ZSC {
         rollOver(yHash);
 
         require(ethAddrs[yHash] != address(0), "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
-        require(0 <= bTransfer && bTransfer <= MAX, "Transfer amount out of range");
+        require(0 <= bTransfer && bTransfer <= MAX, "Transfer amount out of range.");
         bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
         assembly {
             let result := 1
@@ -220,7 +220,7 @@ contract ZSC {
         }
         require(!seen, "Nonce already seen!");
         require(zkp.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, proof), "Burn proof verification failed!");
-        require(coin.transfer(ethAddrs[yHash], bTransfer), "This shouldn't fail... Something went severely wrong");
+        require(coin.transfer(ethAddrs[yHash], bTransfer), "This shouldn't fail... Something went severely wrong.");
         // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".
         acc[yHash] = scratch; // debit y's balance
         bTotal -= bTransfer;

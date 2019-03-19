@@ -36,7 +36,7 @@ contract BurnVerifier {
         SigmaProof sigmaProof;
         InnerProductProof ipProof;
     }
-    
+
     struct SigmaProof {
         uint256 c;
         uint256 sX;
@@ -175,7 +175,7 @@ contract BurnVerifier {
             result = add(result, mul(hs[i], ss[m - 1 - i]));
         }
     }
-    
+
     // begin util functions
 
     function unserialize(bytes memory arr) internal pure returns (BurnProof memory) {
