@@ -143,8 +143,9 @@ function tracker() {
             for (var i = 0; i < event.args['parties'].length; i++) { // (var party in event.args['parties']) { // var in doesn't work for nested arrays?
                 if (that.mine(event.args['parties'][i])) { // weird: this will trigger even when you were the sender.
                     that.state = that.simulateBalances(event.blockNumber);
-                    if (that.check()) // if rollOver happens remotely, will mimic it locally, and start from 0
-                        console.log("Transfer received! New balance is " + (that.state.available + that.state.pending) + ".");
+                    var value;
+                    if (value = that.check()) // if rollOver happens remotely, will mimic it locally, and start from 0
+                        console.log("Transfer of " + value + " received! New balance is " + (that.state.available + that.state.pending) + ".");
                     // interesting: impossible even to know who sent you funds.
                     // could always report back msg.sender, but that means nothing basically. can always send from different eth address
                     break;
@@ -177,7 +178,7 @@ function tracker() {
             [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
         ];
         this.state.pending = zether.readBalance(pTransfers, keypair['x'], this.state.pending, 4294967295);
-        return this.state.pending > pending; // just a shortcut
+        return this.state.pending - pending; // just a shortcut
     }
 
     this.deposit = function(value) {

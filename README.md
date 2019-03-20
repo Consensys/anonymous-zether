@@ -78,7 +78,7 @@ You can now do
 ```
 In Bob's window, you should see:
 ```javascript
-> Transfer received! New balance is 20.
+> Transfer of 20 received! New balance is 20.
 ```
 You can also add Alice, Charlie and Eve as friends of Bob. Now, you can try:
 ```javascript
