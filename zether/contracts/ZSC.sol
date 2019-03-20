@@ -92,7 +92,7 @@ contract ZSC {
         require(bTransfer <= MAX, "Deposit amount out of range."); // uint, so other way not necessary?
         require(bTransfer + bTotal <= MAX, "Fund pushes contract past maximum value.");
         // if pTransfers[yHash] == [0, 0, 0, 0] then an add and a write will be equivalent...
-        bytes32[2] memory scratch = acc[yHash][0];
+        bytes32[2] memory scratch = pTransfers[yHash][0];
         // won't let me assign this array using literals / casts
         assembly {
             let m := mload(0x40)
@@ -108,7 +108,7 @@ contract ZSC {
                 revert(0, 0)
             }
         }
-        acc[yHash][0] = scratch;
+        pTransfers[yHash][0] = scratch;
         require(coin.transferFrom(ethAddrs[yHash], address(this), bTransfer), "Transfer from sender failed.");
         // front-running here would be disadvantageous, but still prevent it here by using ethAddrs[yHash] instead of msg.sender
         // also adds flexibility: can later issue messages from arbitrary ethereum accounts.
@@ -194,13 +194,29 @@ contract ZSC {
 
         require(ethAddrs[yHash] != address(0), "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
         require(0 <= bTransfer && bTransfer <= MAX, "Transfer amount out of range.");
-        bytes32[2][2] memory scratch = acc[yHash]; // could technically use sload, but... let's not go there.
+        bytes32[2][2] memory scratch = pTransfers[yHash]; // could technically use sload, but... let's not go there.
         assembly {
             let result := 1
             let m := mload(0x40)
             mstore(m, mload(mload(scratch)))
             mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
             // load bulletproof generator here
+            mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4) // g_x
+            mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875) // g_y
+            mstore(add(m, 0x80), sub(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001, bTransfer))
+            result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
+            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * g ^ -b, scratch[1] doesn't change
+            if iszero(result) {
+                revert(0, 0)
+            }
+        }
+        pTransfers[yHash] = scratch; // debit y's balance
+        scratch = acc[yHash]; // simulate debit of acc---just for use in verification, won't be applied
+        assembly {
+            let result := 1
+            let m := mload(0x40)
+            mstore(m, mload(mload(scratch)))
+            mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
             mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4) // g_x
             mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875) // g_y
             mstore(add(m, 0x80), sub(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001, bTransfer))
@@ -222,7 +238,6 @@ contract ZSC {
         require(zkp.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, proof), "Burn proof verification failed!");
         require(coin.transfer(ethAddrs[yHash], bTransfer), "This shouldn't fail... Something went severely wrong.");
         // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".
-        acc[yHash] = scratch; // debit y's balance
         bTotal -= bTransfer;
         nonceSet.push(uHash);
         emit BurnOccurred();
