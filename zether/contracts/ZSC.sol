@@ -23,9 +23,9 @@ contract ZSC {
     uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated
     // not implementing account locking for now...revisit
 
-    event RegistrationOccurred(bytes32[2] registerer, address addr);
-    event FundOccurred();
-    event BurnOccurred();
+    event RegistrationOccurred(); // no more args: that the transaction occurred and was not modified (including replays)
+    event FundOccurred(); // can be determined on the basis of the transaction hash alone.
+    event BurnOccurred(); // in particular, the signature is included in the hashed statement...
     event TransferOccurred(bytes32[2][] parties); // i guess all parties will be notified, and the client can sort out whether it was real or not.
     // no more RollOverOccurred. also, actually the argument was never used for fund and burn? killed now.
     // i guess it's still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
@@ -81,7 +81,7 @@ contract ZSC {
             // account of y is now [y, g] = ElG_y(e, 1). sentinel for having registered
         }
         acc[yHash] = scratch;
-        emit RegistrationOccurred(y, msg.sender); // client must use this event callback to confirm.
+        emit RegistrationOccurred(); // client must use this event callback to confirm.
     }
 
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
