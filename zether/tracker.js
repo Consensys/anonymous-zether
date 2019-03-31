@@ -80,6 +80,8 @@ function tracker() {
     var friends = {};
     var table = {}; // key: txHash of a transfer that _I_ originated, value: callback.
     var epochLength = zsc.epochLength(); // could retain this locally
+    var home = eth.accounts[0]; // register this once and for all
+    var throwaway;
 
     var state = function() {
         this.available = 0; // reflects WOULD-BE value in acc (i.e., if rollOver were called). do not touch this manually
@@ -88,6 +90,11 @@ function tracker() {
         this.lastRollOver = 0; // would it make sense to just pull this directly every time...?!
     }
     this.state = new state();
+
+    this.restock = function() {
+        throwaway = web3.personal.newAccount("");
+        web3.personal.unlockAccount(throwaway, "", 0);
+    }
 
     var getEpoch = function(blockNumber) {
         return Math.floor((blockNumber === undefined ? eth.blockNumber + 1 : blockNumber) / epochLength);
@@ -188,7 +195,7 @@ function tracker() {
             events.stopWatching();
             console.log("Deposit failed...")
         }, 5000);
-        zsc.fund(keypair['y'], value, { from: eth.accounts[0], gas: 5470000 }, function(error, txHash) {
+        zsc.fund(keypair['y'], value, { from: home, gas: 5470000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
             } else {
@@ -199,7 +206,7 @@ function tracker() {
                         clearTimeout(timer);
                         state.pending += value;
                         that.state = state;
-                        console.log("Deposit of " + value + " was successful. Balance is now " + (state.available + state.pending) + ".");
+                        console.log("Deposit of " + value + " successful. Balance is now " + (state.available + state.pending) + ".");
                         events.stopWatching();
                     }
                 });
@@ -220,6 +227,7 @@ function tracker() {
             else if (state.nonceUsed)
                 throw "You've already made a transfer/withdrawal during this epoch! Please wait till the next one, " + wait + " block" + plural + " away.";
         }
+
         if (decoys && decoys.length % 2 == 1)
             throw "Please choose a decoys set of even length (add one or remove one)."
 
@@ -264,9 +272,7 @@ function tracker() {
             console.log("Transfer failed...");
             // can't, but don't actually need to, delete txHash from the table.
         }, 5000);
-        account = web3.personal.newAccount(""); // this takes a while... :(
-        web3.personal.unlockAccount(account, "", 0); // this takes a while... :(
-        zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: account, gas: 547000000 }, function(error, txHash) {
+        zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: throwaway, gas: 547000000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
             } else {
@@ -279,6 +285,7 @@ function tracker() {
                         state.pending -= value;
                         that.state = state;
                         console.log("Transfer of " + value + " was successful. Balance now " + (state.available + state.pending) + ".");
+                        that.restock(); // trying to hide this from the viewer!
                     }
                 };
             }
@@ -305,7 +312,7 @@ function tracker() {
             events.stopWatching();
             console.log("Withdrawal failed...")
         }, 5000);
-        zsc.burn(keypair['y'], value, proof['u'], proof['proof'], { from: eth.accounts[0], gas: 547000000 }, function(error, txHash) {
+        zsc.burn(keypair['y'], value, proof['u'], proof['proof'], { from: home, gas: 547000000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
             } else {
@@ -336,13 +343,14 @@ function tracker() {
             console.log("Error: " + error);
         } else if (that.mine(event.args['registerer'])) {
             clearTimeout(timer);
-            if (event.args['addr'] != eth.accounts[0]) {
+            if (event.args['addr'] != home) {
                 console.log("Registration process compromised! Create a new tracker and do not use this one.");
             } else {
                 console.log("Initial registration successful.");
             }
             register.stopWatching();
+            that.restock();
         }
     });
-    zsc.register(keypair['y'], { from: eth.accounts[0], gas: 5470000 });
+    zsc.register(keypair['y'], { from: home, gas: 5470000 });
 }
