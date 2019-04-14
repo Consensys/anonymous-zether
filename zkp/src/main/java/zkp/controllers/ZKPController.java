@@ -64,6 +64,16 @@ public class ZKPController {
         return proof;
     }
 
+    @RequestMapping("/gEpoch")
+    String proveBurn(@RequestParam("epoch") String epoch) {
+        System.out.println("epoch: " + epoch);
+        String gEpoch = Util.bytesToHex(prover.gEpochGenerator(
+                Util.hexStringToByteArray(epoch) // let's pass this as a padded, 32-byte (hex) integer.
+        ));
+        System.out.println("gEpoch: " + gEpoch);
+        return gEpoch;
+    }
+
     @RequestMapping("/verify-transfer")
     boolean verifyTransfer(@RequestParam("input") String input) {
         System.out.println("verify transfer");
