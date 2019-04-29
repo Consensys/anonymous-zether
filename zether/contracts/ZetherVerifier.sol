@@ -47,6 +47,7 @@ contract ZetherVerifier {
         G1Point D;
         G1Point[2][] LG; // flipping the indexing order on this, 'cause...
         G1Point inOutRG;
+        G1Point gG;
         G1Point balanceCommitNewLG;
         G1Point balanceCommitNewRG;
         G1Point[2][] yG; // assuming this one has the same size..., N / 2 by 2,
@@ -106,6 +107,7 @@ contract ZetherVerifier {
         uint256 zSquared;
         uint256 zCubed;
         uint256[m] twoTimesZSquared;
+        uint256 zSum;
         uint256 k;
         G1Point tEval;
         uint256 t;
@@ -164,8 +166,8 @@ contract ZetherVerifier {
         }
         zetherAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.z, proof.commits))).mod();
 
-        uint256 zSum = zetherAuxiliaries.zSquared.add(zetherAuxiliaries.zCubed).mul(zetherAuxiliaries.z);
-        zetherAuxiliaries.k = sumScalars(zetherAuxiliaries.ys).mul(zetherAuxiliaries.z.sub(zetherAuxiliaries.zSquared)).sub(zSum.mul(2 ** (m / 2)).sub(zSum));
+        zetherAuxiliaries.zSum = zetherAuxiliaries.zSquared.add(zetherAuxiliaries.zCubed).mul(zetherAuxiliaries.z);
+        zetherAuxiliaries.k = sumScalars(zetherAuxiliaries.ys).mul(zetherAuxiliaries.z.sub(zetherAuxiliaries.zSquared)).sub(zetherAuxiliaries.zSum.mul(2 ** (m / 2)).sub(zetherAuxiliaries.zSum));
         zetherAuxiliaries.tEval = add(mul(proof.commits[0], zetherAuxiliaries.x), mul(proof.commits[1], zetherAuxiliaries.x.mul(zetherAuxiliaries.x))); // replace with "commit"?
         zetherAuxiliaries.t = proof.t.sub(zetherAuxiliaries.k);
 
@@ -173,7 +175,8 @@ contract ZetherVerifier {
         // length equality checks for anonProof members? or during deserialization?
         AnonProof memory anonProof = proof.anonProof;
         AnonAuxiliaries memory anonAuxiliaries;
-        anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.inOutRG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, anonProof.parityG0, anonProof.parityG1))).mod();
+        G1Point[2] memory parityG = [anonProof.parityG0, anonProof.parityG1]; // breaking this out to avoid stacktoodeep. won't affect encoding
+        anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.inOutRG, anonProof.gG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, parityG))).mod();
         anonAuxiliaries.f = new uint256[2][](proof.size);
         anonAuxiliaries.f[0][0] = anonAuxiliaries.x;
         anonAuxiliaries.f[0][1] = anonAuxiliaries.x;
@@ -239,7 +242,7 @@ contract ZetherVerifier {
 
         require(eq(anonAuxiliaries.parity, add(mul(anonProof.parityG1, anonAuxiliaries.x), anonProof.parityG0)), "Index opposite parity check fail.");
 
-        anonAuxiliaries.gPrime = mul(add(mul(g, anonAuxiliaries.x), neg(anonProof.inOutRG)), anonAuxiliaries.xInv);
+        anonAuxiliaries.gPrime = mul(add(mul(g, anonAuxiliaries.x), neg(anonProof.gG)), anonAuxiliaries.xInv);
 
         SigmaProof memory sigmaProof = proof.sigmaProof;
         SigmaAuxiliaries memory sigmaAuxiliaries;
@@ -339,30 +342,31 @@ contract ZetherVerifier {
         anonProof.C = G1Point(slice(arr, 1408), slice(arr, 1440));
         anonProof.D = G1Point(slice(arr, 1472), slice(arr, 1504));
         anonProof.inOutRG = G1Point(slice(arr, 1536), slice(arr, 1568));
-        anonProof.balanceCommitNewLG = G1Point(slice(arr, 1600), slice(arr, 1632));
-        anonProof.balanceCommitNewRG = G1Point(slice(arr, 1664), slice(arr, 1696));
-        anonProof.parityG0 = G1Point(slice(arr, 1728), slice(arr, 1760));
-        anonProof.parityG1 = G1Point(slice(arr, 1792), slice(arr, 1824));
+        anonProof.gG = G1Point(slice(arr, 1600), slice(arr, 1632));
+        anonProof.balanceCommitNewLG = G1Point(slice(arr, 1664), slice(arr, 1696));
+        anonProof.balanceCommitNewRG = G1Point(slice(arr, 1728), slice(arr, 1760));
+        anonProof.parityG0 = G1Point(slice(arr, 1792), slice(arr, 1824));
+        anonProof.parityG1 = G1Point(slice(arr, 1856), slice(arr, 1888));
 
         anonProof.f = new uint256[2][](size - 1);
         for (uint256 i = 0; i < size - 1; i++) {
-            anonProof.f[i][0] = slice(arr, 1856 + 32 * i);
-            anonProof.f[i][1] = slice(arr, 1856 + (size - 1 + i) * 32);
+            anonProof.f[i][0] = slice(arr, 1920 + 32 * i);
+            anonProof.f[i][1] = slice(arr, 1920 + (size - 1 + i) * 32);
         }
 
         anonProof.LG = new G1Point[2][](size / 2);
         anonProof.yG = new G1Point[2][](size / 2);
         for (uint256 i = 0; i < size / 2; i++) {
-            anonProof.LG[i][0] = G1Point(slice(arr, 1792 + (size + i) * 64), slice(arr, 1824 + (size + i) * 64));
-            anonProof.LG[i][1] = G1Point(slice(arr, 1792 + size * 96 + i * 64), slice(arr, 1824 + size * 96 + i * 64));
-            anonProof.yG[i][0] = G1Point(slice(arr, 1792 + size * 128 + i * 64), slice(arr, 1824 + size * 128 + i * 64));
-            anonProof.yG[i][1] = G1Point(slice(arr, 1792 + size * 160 + i * 64), slice(arr, 1824 + size * 160 + i * 64));
+            anonProof.LG[i][0] = G1Point(slice(arr, 1856 + (size + i) * 64), slice(arr, 1888 + (size + i) * 64));
+            anonProof.LG[i][1] = G1Point(slice(arr, 1856 + size * 96 + i * 64), slice(arr, 1888 + size * 96 + i * 64));
+            anonProof.yG[i][0] = G1Point(slice(arr, 1856 + size * 128 + i * 64), slice(arr, 1888 + size * 128 + i * 64));
+            anonProof.yG[i][1] = G1Point(slice(arr, 1856 + size * 160 + i * 64), slice(arr, 1888 + size * 160 + i * 64));
             // these are tricky, and can maybe be optimized further?
         }
         proof.size = size;
 
-        anonProof.zA = slice(arr, 1792 + size * 192);
-        anonProof.zC = slice(arr, 1824 + size * 192);
+        anonProof.zA = slice(arr, 1856 + size * 192);
+        anonProof.zC = slice(arr, 1888 + size * 192);
 
         proof.anonProof = anonProof;
         return proof;
