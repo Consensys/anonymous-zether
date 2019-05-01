@@ -8,7 +8,7 @@ contract BurnVerifier {
 
     uint256 constant m = 32;
     uint256 constant n = 5;
-    uint256 constant ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 constant FIELD_ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
     G1Point[m] gs;
     G1Point[m] hs;
@@ -122,7 +122,7 @@ contract BurnVerifier {
 
         uint256 uChallenge = uint256(keccak256(abi.encode(proof.sigmaProof.c, proof.t, proof.tauX, proof.mu))).mod();
         G1Point memory u = mul(g, uChallenge);
-        G1Point[m] memory hPrimes = hadamard_inv(hs, burnAuxiliaries.ys);
+        G1Point[m] memory hPrimes = hadamardInv(hs, burnAuxiliaries.ys);
         uint256[m] memory hExp = addVectors(times(burnAuxiliaries.ys, burnAuxiliaries.z), burnAuxiliaries.twoTimesZSquared);
         G1Point memory P = add(add(proof.A, mul(proof.S, burnAuxiliaries.x)), mul(sumPoints(gs), burnAuxiliaries.z.neg()));
         P = add(neg(mul(h, proof.mu)), add(P, commit(hPrimes, hExp)));
@@ -150,7 +150,7 @@ contract BurnVerifier {
             for (uint256 j = 0; (1 << j) + i < m; ++j) {
                 uint256 i1 = i + (1 << j);
                 if (!bitSet[i1]) {
-                    uint256 temp = challenges[n-1-j].mul(challenges[n-1-j]);
+                    uint256 temp = challenges[n - 1 - j].mul(challenges[n - 1 - j]);
                     otherExponents[i1] = otherExponents[i].mul(temp);
                     bitSet[i1] = true;
                 }
@@ -177,9 +177,7 @@ contract BurnVerifier {
     }
 
     // begin util functions
-
-    function unserialize(bytes memory arr) internal pure returns (BurnProof memory) {
-        BurnProof memory proof;
+    function unserialize(bytes memory arr) internal pure returns (BurnProof memory proof) {
         proof.A = G1Point(slice(arr, 0), slice(arr, 32));
         proof.S = G1Point(slice(arr, 64), slice(arr, 96));
         proof.commits = [G1Point(slice(arr, 128), slice(arr, 160)), G1Point(slice(arr, 192), slice(arr, 224))];
@@ -209,7 +207,7 @@ contract BurnVerifier {
         }
     }
 
-    function hadamard_inv(G1Point[m] memory ps, uint256[m] memory ss) internal view returns (G1Point[m] memory result) {
+    function hadamardInv(G1Point[m] memory ps, uint256[m] memory ss) internal view returns (G1Point[m] memory result) {
         for (uint256 i = 0; i < m; i++) {
             result[i] = mul(ps[i], ss[i].inv());
         }
@@ -286,15 +284,15 @@ contract BurnVerifier {
     }
 
     function neg(G1Point memory p) internal view returns (G1Point memory) {
-        return G1Point(p.x, ORDER - (p.y % ORDER)); // p.y should already be reduced mod P?
+        return G1Point(p.x, FIELD_ORDER - (p.y % FIELD_ORDER)); // p.y should already be reduced mod P?
     }
 
     function eq(G1Point memory p1, G1Point memory p2) internal pure returns (bool) {
         return p1.x == p2.x && p1.y == p2.y;
     }
 
-    function fieldexp(uint256 base, uint256 exponent) internal view returns (uint256 output) { // warning: mod p, not q
-        uint256 ORDER = ORDER;
+    function fieldExp(uint256 base, uint256 exponent) internal view returns (uint256 output) { // warning: mod p, not q
+        uint256 FIELD_ORDER = FIELD_ORDER;
         assembly {
             let m := mload(0x40)
             mstore(m, 0x20)
@@ -302,7 +300,7 @@ contract BurnVerifier {
             mstore(add(m, 0x40), 0x20)
             mstore(add(m, 0x60), base)
             mstore(add(m, 0x80), exponent)
-            mstore(add(m, 0xa0), ORDER)
+            mstore(add(m, 0xa0), FIELD_ORDER)
             if iszero(staticcall(gas, 0x05, m, 0xc0, m, 0x20)) { // staticcall or call?
                 revert(0, 0)
             }
@@ -313,9 +311,9 @@ contract BurnVerifier {
     function mapInto(uint256 seed) internal view returns (G1Point memory) { // warning: function totally untested!
         uint256 y;
         while (true) {
-            uint256 ySquared = fieldexp(seed, 3) + 3; // addmod instead of add: waste of gas, plus function overhead cost
-            y = fieldexp(ySquared, (ORDER + 1) / 4);
-            if (fieldexp(y, 2) == ySquared) {
+            uint256 ySquared = fieldExp(seed, 3) + 3; // addmod instead of add: waste of gas, plus function overhead cost
+            y = fieldExp(ySquared, (FIELD_ORDER + 1) / 4);
+            if (fieldExp(y, 2) == ySquared) {
                 break;
             }
             seed += 1;
@@ -324,11 +322,11 @@ contract BurnVerifier {
     }
 
     function mapInto(string memory input) internal view returns (G1Point memory) { // warning: function totally untested!
-        return mapInto(uint256(keccak256(abi.encodePacked(input))) % ORDER);
+        return mapInto(uint256(keccak256(abi.encodePacked(input))) % FIELD_ORDER);
     }
 
     function mapInto(string memory input, uint256 i) internal view returns (G1Point memory) { // warning: function totally untested!
-        return mapInto(uint256(keccak256(abi.encodePacked(input, i))) % ORDER);
+        return mapInto(uint256(keccak256(abi.encodePacked(input, i))) % FIELD_ORDER);
         // ^^^ important: i haven't tested this, i.e. whether it agrees with ProofUtils.paddedHash(input, i) (cf. also the go version)
     }
 }

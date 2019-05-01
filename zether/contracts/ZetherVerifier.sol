@@ -8,10 +8,11 @@ contract ZetherVerifier {
 
     uint256 constant m = 64;
     uint256 constant n = 6;
-    uint256 constant ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 constant FIELD_ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 constant UNITY = 9334303377689037989442018753807510978357674015322511348041267794643984346845; // primitive 2^28th root of unity modulo GROUP_ORDER (not field!)
 
-    G1Point[m] gs;
-    G1Point[m] hs;
+    G1Point[] gs; // warning: this and the below are not statically sized anymore
+    G1Point[] hs; // need to push to these if large anonsets are used.
     G1Point g;
     G1Point h;
 
@@ -75,14 +76,29 @@ contract ZetherVerifier {
         g = mapInto("G");
         h = mapInto("V");
         for (uint256 i = 0; i < m; i++) {
-            gs[i] = mapInto("G", i);
-            hs[i] = mapInto("H", i);
+            gs.push(mapInto("G", i));
+            hs.push(mapInto("H", i));
+        }
+    }
+    function extendBase(uint256 size) external payable {
+        // this is a hack, but necessary. essentially, we need vector bases of arbitrary (linear) length for large anonsets...
+        // could mitigate this by using the logarithmic tricks of Groth and Kohlweiss; see also BCC+15
+        // but this would cause problems elsewhere: N log N-sized proofs and N log^2(N) prove / verify time.
+        // the increase in proof size is paradoxical: while _f_ will become smaller (log N), you'll need more correction terms
+        // thus a linear space overhead is not so bad in the grand scheme, and we deem this acceptable.
+        // tbd: the best place / architecture to situate this in the workflow (should ZSC call it...?)
+        // figure out if a "query base size" method should be exposed, or if just call this every time, or take care early...
+        for (uint256 i = gs.length; i < size; i++) {
+            gs.push(mapInto("G", i));
+            hs.push(mapInto("H", i));
         }
     }
 
     function verifyTransfer(bytes32[2][] memory CLn, bytes32[2][] memory CRn, bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
         ZetherStatement memory statement;
         uint256 size = y.length;
+        require(gs.length >= size, "Inadequate stored vector base! Call extendBase and then try again.");
+
         statement.CLn = new G1Point[](size);
         statement.CRn = new G1Point[](size);
         statement.L = new G1Point[](size);
@@ -133,7 +149,7 @@ contract ZetherVerifier {
         G1Point inOutR2;
         G1Point balanceCommitNewL2;
         G1Point balanceCommitNewR2;
-        uint256[2][] cycler;
+        uint256[2][2] cycler; // should need no inline declaration / initialization. should be pre-allocated
         G1Point[2][] L2;
         G1Point[2][] y2;
         G1Point parity;
@@ -151,8 +167,6 @@ contract ZetherVerifier {
     }
 
     function verify(ZetherStatement memory statement, ZetherProof memory proof) view internal returns (bool) {
-        require(proof.size % 2 == 0, "Anonymity set size must be even!");
-
         ZetherAuxiliaries memory zetherAuxiliaries;
         zetherAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.epoch, statement.R, statement.CLn, statement.CRn, statement.L, statement.y))).mod(), proof.A, proof.S))).mod();
         zetherAuxiliaries.ys = powers(zetherAuxiliaries.y);
@@ -191,6 +205,7 @@ contract ZetherVerifier {
             temp = add(temp, mul(gs[i], anonAuxiliaries.f[i][0]));
             temp = add(temp, mul(hs[i], anonAuxiliaries.f[i][1])); // commutative
         }
+
         require(eq(add(mul(anonProof.B, anonAuxiliaries.x), anonProof.A), add(temp, mul(h, anonProof.zA))), "Recovery failure for B^x * A.");
         // warning: all hell will break loose if you use an anonset of size > 64
         for (uint i = 0; i < proof.size; i++) {
@@ -198,7 +213,7 @@ contract ZetherVerifier {
             anonAuxiliaries.f[i][1] = anonAuxiliaries.f[i][1].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]));
         }
         temp = G1Point(0, 0);
-        for (uint256 i = 0; i < proof.size; i++) { // comparison of different types?
+        for (uint256 i = 0; i < proof.size; i++) { // danger... gs and hs need to be big enough.
             temp = add(temp, mul(gs[i], anonAuxiliaries.f[i][0]));
             temp = add(temp, mul(hs[i], anonAuxiliaries.f[i][1])); // commutative
         }
@@ -215,27 +230,25 @@ contract ZetherVerifier {
 
         anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
         anonAuxiliaries.inOutR2 = add(statement.R, mul(anonProof.inOutRG, anonAuxiliaries.xInv.neg()));
-        anonAuxiliaries.cycler = new uint256[2][](proof.size);
-        anonAuxiliaries.L2 = new G1Point[2][](proof.size / 2);
-        anonAuxiliaries.y2 = new G1Point[2][](proof.size / 2);
-        for (uint256 i = 0; i < proof.size / 2; i++) {
-            for (uint256 j = 0; j < proof.size; j++) {
-                anonAuxiliaries.cycler[j][0] = anonAuxiliaries.cycler[j][0].add(anonAuxiliaries.f[(j + i * 2) % proof.size][0]);
-                anonAuxiliaries.cycler[j][1] = anonAuxiliaries.cycler[j][1].add(anonAuxiliaries.f[(j + i * 2) % proof.size][1]);
-                anonAuxiliaries.L2[i][0] = add(anonAuxiliaries.L2[i][0], mul(statement.L[j], anonAuxiliaries.f[(j + i * 2) % proof.size][0]));
-                anonAuxiliaries.L2[i][1] = add(anonAuxiliaries.L2[i][1], mul(statement.L[j], anonAuxiliaries.f[(j + i * 2) % proof.size][1]));
-                anonAuxiliaries.y2[i][0] = add(anonAuxiliaries.y2[i][0], mul(statement.y[j], anonAuxiliaries.f[(j + i * 2) % proof.size][0]));
-                anonAuxiliaries.y2[i][1] = add(anonAuxiliaries.y2[i][1], mul(statement.y[j], anonAuxiliaries.f[(j + i * 2) % proof.size][1]));
+        anonAuxiliaries.L2 = assembleConvolutions(anonAuxiliaries.f, statement.L); // will internally include _two_ fourier transforms, and split even / odd, etc.
+        anonAuxiliaries.y2 = assembleConvolutions(anonAuxiliaries.f, statement.y);
+        for (uint256 i = 0; i < proof.size / 2; i++) { // order of loops can be switched...
+            // could use _two_ further nested loops inside this, but...
+            for (uint256 j = 0; j < 2; j++) {
+                for (uint256 k = 0; k < 2; k++) {
+                    anonAuxiliaries.cycler[k][j] = anonAuxiliaries.cycler[k][j].add(anonAuxiliaries.f[2 * i + k][j]);
+                }
+                anonAuxiliaries.L2[i][j] = mul(add(anonAuxiliaries.L2[i][j], neg(anonProof.LG[i][j])), anonAuxiliaries.xInv);
+                anonAuxiliaries.y2[i][j] = mul(add(anonAuxiliaries.y2[i][j], neg(anonProof.yG[i][j])), anonAuxiliaries.xInv);
             }
-            anonAuxiliaries.L2[i][0] = mul(add(anonAuxiliaries.L2[i][0], neg(anonProof.LG[i][0])), anonAuxiliaries.xInv);
-            anonAuxiliaries.L2[i][1] = mul(add(anonAuxiliaries.L2[i][1], neg(anonProof.LG[i][1])), anonAuxiliaries.xInv);
-            anonAuxiliaries.y2[i][0] = mul(add(anonAuxiliaries.y2[i][0], neg(anonProof.yG[i][0])), anonAuxiliaries.xInv);
-            anonAuxiliaries.y2[i][1] = mul(add(anonAuxiliaries.y2[i][1], neg(anonProof.yG[i][1])), anonAuxiliaries.xInv);
         }
+        // replace the leftmost column with the Hadamard of the left and right columns. just do the multiplication once...
+        anonAuxiliaries.cycler[0][0] = anonAuxiliaries.cycler[0][0].mul(anonAuxiliaries.cycler[0][1]);
+        anonAuxiliaries.cycler[1][0] = anonAuxiliaries.cycler[1][0].mul(anonAuxiliaries.cycler[1][1]);
         for (uint256 i = 0; i < proof.size; i++) {
             anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, mul(statement.CLn[i], anonAuxiliaries.f[i][0]));
             anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, mul(statement.CRn[i], anonAuxiliaries.f[i][0]));
-            anonAuxiliaries.parity = add(anonAuxiliaries.parity, mul(statement.y[i], anonAuxiliaries.cycler[i][0].mul(anonAuxiliaries.cycler[i][1])));
+            anonAuxiliaries.parity = add(anonAuxiliaries.parity, mul(statement.y[i], anonAuxiliaries.cycler[i % 2][0])); // Hadamard already baked in...
         }
         anonAuxiliaries.balanceCommitNewL2 = mul(add(anonAuxiliaries.balanceCommitNewL2, neg(anonProof.balanceCommitNewLG)), anonAuxiliaries.xInv);
         anonAuxiliaries.balanceCommitNewR2 = mul(add(anonAuxiliaries.balanceCommitNewR2, neg(anonProof.balanceCommitNewRG)), anonAuxiliaries.xInv);
@@ -292,7 +305,7 @@ contract ZetherVerifier {
             for (uint256 j = 0; (1 << j) + i < m; ++j) {
                 uint256 i1 = i + (1 << j);
                 if (!bitSet[i1]) {
-                    uint256 temp = ipAuxiliaries.challenges[n-1-j].mul(ipAuxiliaries.challenges[n-1-j]);
+                    uint256 temp = ipAuxiliaries.challenges[n - 1 - j].mul(ipAuxiliaries.challenges[n - 1 - j]);
                     ipAuxiliaries.otherExponents[i1] = ipAuxiliaries.otherExponents[i].mul(temp);
                     bitSet[i1] = true;
                 }
@@ -311,8 +324,97 @@ contract ZetherVerifier {
         return true;
     }
 
-    function unserialize(bytes memory arr) internal pure returns (ZetherProof memory) {
-        ZetherProof memory proof;
+    function assembleConvolutions(uint256[2][] memory exponent, G1Point[] memory base) internal view returns (G1Point[2][] memory result) {
+        // exponent is two "rows" (actually columns).
+        // will return two rows, each of half the length of the exponents;
+        // namely, we will return the Hadamards of "base" by the even circular shifts of "exponent"'s rows.
+        uint256 size = exponent.length;
+        result = new G1Point[2][](size / 2); // assuming that this is necessary even when return is declared up top
+
+        for (uint256 i = 1; i < size / 2; i++) {
+            G1Point memory temp = base[i];
+            base[i] = base[(size - i) % size];
+            base[(size - i) % size] = temp;
+        } // performs a "convolutional flip" on the elements of base.
+        G1Point[] memory base_fft = fft(base, false);
+
+        uint256[] memory temp = new uint256[](size);
+        for (uint256 i = 0; i < 2; i++) {
+            for (uint256 j = 0; j < size; j++) {
+                temp[j] = exponent[j][i];
+            }
+
+            uint256[] memory exponent_fft = fft(temp);
+            G1Point[] memory inverse_fft = new G1Point[](size);
+            for (uint256 j = 0; j < size; j++) { // Hadamard
+                inverse_fft[j] = mul(base_fft[j], exponent_fft[j]);
+            }
+
+            inverse_fft = fft(inverse_fft, true);
+            for (uint256 j = 0; j < size / 2; j++) {
+                result[j][i] = inverse_fft[j * 2]; // only keep the evens
+            }
+        }
+        return result;
+    }
+
+    function fft(G1Point[] memory input, bool inverse) internal view returns (G1Point[] memory result) {
+        uint256 size = input.length;
+        if (size == 1) {
+            return input;
+        }
+        require(size % 2 == 0, "Input size is not a power of 2!");
+
+        uint256 omega = UNITY.exp(2**28 / size);
+        uint256 compensation = 1;
+        if (inverse) {
+            omega = omega.inv();
+            compensation = 2;
+        }
+        compensation = compensation.inv();
+        G1Point[] memory even = fft(extract(input, 0), inverse);
+        G1Point[] memory odd = fft(extract(input, 1), inverse);
+        uint256 omega_run = 1;
+        result = new G1Point[](size);
+        for (uint256 i = 0; i < size; i++) {
+            result[i] = mul(add(even[i % (size / 2)], mul(odd[i % (size / 2)], omega_run)), compensation);
+            omega_run = omega_run.mul(omega);
+        }
+    }
+
+    function extract(G1Point[] memory input, uint256 parity) internal pure returns (G1Point[] memory result) {
+        result = new G1Point[](input.length / 2);
+        for (uint256 i = 0; i < input.length / 2; i++) {
+            result[i] = input[2 * i + parity];
+        }
+    }
+
+    function fft(uint256[] memory input) internal view returns (uint256[] memory result) {
+        uint256 size = input.length;
+        if (size == 1) {
+            return input;
+        }
+        require(size % 2 == 0, "Input size is not a power of 2!");
+
+        uint256 omega = UNITY.exp(2**28 / size);
+        uint256[] memory even = fft(extract(input, 0));
+        uint256[] memory odd = fft(extract(input, 1));
+        uint256 omega_run = 1;
+        result = new uint256[](size);
+        for (uint256 i = 0; i < size; i++) {
+            result[i] = even[i % (size / 2)].add(odd[i % (size / 2)].mul(omega_run));
+            omega_run = omega_run.mul(omega);
+        }
+    }
+
+    function extract(uint256[] memory input, uint256 parity) internal pure returns (uint256[] memory result) {
+        result = new uint256[](input.length / 2);
+        for (uint256 i = 0; i < input.length / 2; i++) {
+            result[i] = input[2 * i + parity];
+        }
+    }
+
+    function unserialize(bytes memory arr) internal pure returns (ZetherProof memory proof) {
         proof.A = G1Point(slice(arr, 0), slice(arr, 32));
         proof.S = G1Point(slice(arr, 64), slice(arr, 96));
         proof.commits = [G1Point(slice(arr, 128), slice(arr, 160)), G1Point(slice(arr, 192), slice(arr, 224))];
@@ -336,7 +438,7 @@ contract ZetherVerifier {
         proof.ipProof = ipProof;
 
         AnonProof memory anonProof;
-        uint256 size = (arr.length - 1280 - 576) / 192;  // warning: this and the below assume that n = 6!!!
+        uint256 size = (arr.length - 1280 - 640) / 192;  // warning: this and the below assume that n = 6!!!
         anonProof.A = G1Point(slice(arr, 1280), slice(arr, 1312));
         anonProof.B = G1Point(slice(arr, 1344), slice(arr, 1376));
         anonProof.C = G1Point(slice(arr, 1408), slice(arr, 1440));
@@ -378,7 +480,7 @@ contract ZetherVerifier {
         }
     }
 
-    function hadamard_inv(G1Point[m] memory ps, uint256[m] memory ss) internal view returns (G1Point[m] memory result) {
+    function hadamard_inv(G1Point[] memory ps, uint256[m] memory ss) internal view returns (G1Point[m] memory result) {
         for (uint256 i = 0; i < m; i++) {
             result[i] = mul(ps[i], ss[i].inv());
         }
@@ -390,7 +492,7 @@ contract ZetherVerifier {
         }
     }
 
-    function sumPoints(G1Point[m] memory ps) internal view returns (G1Point memory sum) {
+    function sumPoints(G1Point[] memory ps) internal view returns (G1Point memory sum) {
         for (uint256 i = 0; i < m; i++) {
             sum = add(sum, ps[i]);
         }
@@ -423,6 +525,7 @@ contract ZetherVerifier {
             result := mload(m)
         }
     }
+
     struct G1Point {
         uint256 x;
         uint256 y;
@@ -454,15 +557,15 @@ contract ZetherVerifier {
     }
 
     function neg(G1Point memory p) internal view returns (G1Point memory) {
-        return G1Point(p.x, ORDER - (p.y % ORDER)); // p.y should already be reduced mod P?
+        return G1Point(p.x, FIELD_ORDER - (p.y % FIELD_ORDER)); // p.y should already be reduced mod P?
     }
 
     function eq(G1Point memory p1, G1Point memory p2) internal pure returns (bool) {
         return p1.x == p2.x && p1.y == p2.y;
     }
 
-    function fieldexp(uint256 base, uint256 exponent) internal view returns (uint256 output) { // warning: mod p, not q
-        uint256 ORDER = ORDER;
+    function fieldExp(uint256 base, uint256 exponent) internal view returns (uint256 output) { // warning: mod p, not q
+        uint256 FIELD_ORDER = FIELD_ORDER;
         assembly {
             let m := mload(0x40)
             mstore(m, 0x20)
@@ -470,7 +573,7 @@ contract ZetherVerifier {
             mstore(add(m, 0x40), 0x20)
             mstore(add(m, 0x60), base)
             mstore(add(m, 0x80), exponent)
-            mstore(add(m, 0xa0), ORDER)
+            mstore(add(m, 0xa0), FIELD_ORDER)
             if iszero(staticcall(gas, 0x05, m, 0xc0, m, 0x20)) { // staticcall or call?
                 revert(0, 0)
             }
@@ -481,9 +584,9 @@ contract ZetherVerifier {
     function mapInto(uint256 seed) internal view returns (G1Point memory) { // warning: function totally untested!
         uint256 y;
         while (true) {
-            uint256 ySquared = fieldexp(seed, 3) + 3; // addmod instead of add: waste of gas, plus function overhead cost
-            y = fieldexp(ySquared, (ORDER + 1) / 4);
-            if (fieldexp(y, 2) == ySquared) {
+            uint256 ySquared = fieldExp(seed, 3) + 3; // addmod instead of add: waste of gas, plus function overhead cost
+            y = fieldExp(ySquared, (FIELD_ORDER + 1) / 4);
+            if (fieldExp(y, 2) == ySquared) {
                 break;
             }
             seed += 1;
@@ -492,11 +595,11 @@ contract ZetherVerifier {
     }
 
     function mapInto(string memory input) internal view returns (G1Point memory) { // warning: function totally untested!
-        return mapInto(uint256(keccak256(abi.encodePacked(input))) % ORDER);
+        return mapInto(uint256(keccak256(abi.encodePacked(input))) % FIELD_ORDER);
     }
 
     function mapInto(string memory input, uint256 i) internal view returns (G1Point memory) { // warning: function totally untested!
-        return mapInto(uint256(keccak256(abi.encodePacked(input, i))) % ORDER);
+        return mapInto(uint256(keccak256(abi.encodePacked(input, i))) % FIELD_ORDER);
         // ^^^ important: i haven't tested this, i.e. whether it agrees with ProofUtils.paddedHash(input, i) (cf. also the go version)
     }
 }

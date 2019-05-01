@@ -1,4 +1,4 @@
-pragma solidity 0.5.4; // unexplainable problems when switch to 0.5.5
+pragma solidity 0.5.4;
 
 import './ZKP.sol';
 
