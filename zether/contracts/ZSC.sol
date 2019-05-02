@@ -1,6 +1,7 @@
 pragma solidity 0.5.4;
 
-import './ZKP.sol';
+import './ZetherVerifier.sol';
+import './BurnVerifier.sol';
 
 contract ERC20Interface {
   function transfer(address to, uint256 value) external returns (bool);
@@ -10,7 +11,8 @@ contract ERC20Interface {
 
 contract ZSC {
     ERC20Interface coin;
-    ZKP zkp;
+    ZetherVerifier zetherverifier;
+    BurnVerifier burnverifier;
     uint256 public epochLength;
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
@@ -24,15 +26,15 @@ contract ZSC {
     // not implementing account locking for now...revisit
 
     event RegistrationOccurred(); // no more args: that the transaction occurred and was not modified (including replays)
-    event FundOccurred(); // can be determined on the basis of the transaction hash alone.
-    event BurnOccurred(); // in particular, the signature is included in the hashed statement...
-    event TransferOccurred(bytes32[2][] parties); // i guess all parties will be notified, and the client can sort out whether it was real or not.
-    // no more RollOverOccurred. also, actually the argument was never used for fund and burn? killed now.
-    // i guess it's still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
+    event FundOccurred(); // can be determined on the basis of the transaction hash alone. (sig is included in hash)
+    event TransferOccurred(bytes32[2][] parties); // all parties will be notified, client can determine whether it was real or not.
+    // arg is still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
+    event BurnOccurred();
 
-    constructor(address _coin, address _zkp, uint256 _epochLength) public {
+    constructor(address _coin, address _zether, address _burn, uint256 _epochLength) public {
         coin = ERC20Interface(_coin);
-        zkp = ZKP(_zkp);
+        zetherverifier = ZetherVerifier(_zether);
+        burnverifier = BurnVerifier(_burn);
         epochLength = _epochLength;
     }
 
@@ -182,7 +184,10 @@ contract ZSC {
             }
         }
         require(!seen, "Nonce already seen!");
-        require(zkp.verifyTransfer(CLn, CRn, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
+        if (size > zetherverifier.baseSize()) {
+            zetherverifier.extendBase(size);
+        }
+        require(zetherverifier.verifyTransfer(CLn, CRn, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
         nonceSet.push(uHash);
         emit TransferOccurred(y);
@@ -235,7 +240,7 @@ contract ZSC {
             }
         }
         require(!seen, "Nonce already seen!");
-        require(zkp.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, proof), "Burn proof verification failed!");
+        require(burnverifier.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, proof), "Burn proof verification failed!");
         require(coin.transfer(ethAddrs[yHash], bTransfer), "This shouldn't fail... Something went severely wrong.");
         // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".
         bTotal -= bTransfer;

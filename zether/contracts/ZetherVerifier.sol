@@ -80,14 +80,17 @@ contract ZetherVerifier {
             hs.push(mapInto("H", i));
         }
     }
+
+    function baseSize() external view returns (uint256 size) {
+        return gs.length;
+    }
+
     function extendBase(uint256 size) external payable {
-        // this is a hack, but necessary. essentially, we need vector bases of arbitrary (linear) length for large anonsets...
+        // unfortunate, but necessary. essentially, we need vector bases of arbitrary (linear) length for large anonsets...
         // could mitigate this by using the logarithmic tricks of Groth and Kohlweiss; see also BCC+15
         // but this would cause problems elsewhere: N log N-sized proofs and N log^2(N) prove / verify time.
         // the increase in proof size is paradoxical: while _f_ will become smaller (log N), you'll need more correction terms
-        // thus a linear space overhead is not so bad in the grand scheme, and we deem this acceptable.
-        // tbd: the best place / architecture to situate this in the workflow (should ZSC call it...?)
-        // figure out if a "query base size" method should be exposed, or if just call this every time, or take care early...
+        // thus a linear persistent space overhead is not so bad in the grand scheme, and we deem this acceptable.
         for (uint256 i = gs.length; i < size; i++) {
             gs.push(mapInto("G", i));
             hs.push(mapInto("H", i));
