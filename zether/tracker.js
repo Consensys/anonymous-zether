@@ -266,7 +266,7 @@ function tracker() {
             console.log("Transfer failed...");
             // can't, but don't actually need to, delete txHash from the table.
         }, 5000);
-        zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: throwaway, gas: 547000000 }, function(error, txHash) {
+        zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: throwaway, gas: 3047000000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
             } else {
