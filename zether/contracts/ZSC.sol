@@ -13,7 +13,7 @@ contract ZSC {
     ERC20Interface coin;
     ZetherVerifier zetherverifier;
     BurnVerifier burnverifier;
-    uint256 public epochLength;
+    uint256 public epochLength; // now in milliseconds.
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
@@ -39,9 +39,10 @@ contract ZSC {
     }
 
     function rollOver(bytes32 yHash) internal {
-        uint256 e = block.number / epochLength;
-        if (lastRollOver[yHash] < e) { // consider replacing with a "time-based" approach
-            // changed the logic here, must check / test this
+        uint256 e = block.timestamp / 1000000 / epochLength; // can block.timestamp be "gamed"?
+        // https://github.com/ethereum/wiki/blob/c02254611f218f43cbb07517ca8e5d00fd6d6d75/Block-Protocol-2.0.md
+        // note that block.timestamp is technically in _nanoseconds_, although its trailing 3 digits are always 0 (so really micro)
+        if (lastRollOver[yHash] < e) {
             bytes32[2][2][2] memory scratch = [acc[yHash], pTransfers[yHash]];
             assembly {
                 let result := 1
