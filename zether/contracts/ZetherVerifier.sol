@@ -379,8 +379,9 @@ contract ZetherVerifier {
         G1Point[] memory odd = fft(extract(input, 1), inverse);
         uint256 omega_run = 1;
         result = new G1Point[](size);
-        for (uint256 i = 0; i < size; i++) {
-            result[i] = mul(add(even[i % (size / 2)], mul(odd[i % (size / 2)], omega_run)), compensation);
+        for (uint256 i = 0; i < size / 2; i++) {
+            result[i] = mul(add(even[i], mul(odd[i], omega_run)), compensation);
+            result[i + size / 2] = mul(add(even[i], mul(odd[i], omega_run.neg())), compensation);
             omega_run = omega_run.mul(omega);
         }
     }
@@ -404,8 +405,9 @@ contract ZetherVerifier {
         uint256[] memory odd = fft(extract(input, 1));
         uint256 omega_run = 1;
         result = new uint256[](size);
-        for (uint256 i = 0; i < size; i++) {
-            result[i] = even[i % (size / 2)].add(odd[i % (size / 2)].mul(omega_run));
+        for (uint256 i = 0; i < size / 2; i++) {
+            result[i] = even[i].add(odd[i].mul(omega_run));
+            result[i + size / 2] = even[i].add(odd[i].mul(omega_run.neg()));
             omega_run = omega_run.mul(omega);
         }
     }
