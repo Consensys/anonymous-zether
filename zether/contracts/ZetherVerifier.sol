@@ -380,8 +380,9 @@ contract ZetherVerifier {
         uint256 omega_run = 1;
         result = new G1Point[](size);
         for (uint256 i = 0; i < size / 2; i++) {
-            result[i] = mul(add(even[i], mul(odd[i], omega_run)), compensation);
-            result[i + size / 2] = mul(add(even[i], mul(odd[i], omega_run.neg())), compensation);
+            G1Point memory temp = mul(odd[i], omega_run);
+            result[i] = mul(add(even[i], temp), compensation);
+            result[i + size / 2] = mul(add(even[i], neg(temp)), compensation);
             omega_run = omega_run.mul(omega);
         }
     }
@@ -406,8 +407,9 @@ contract ZetherVerifier {
         uint256 omega_run = 1;
         result = new uint256[](size);
         for (uint256 i = 0; i < size / 2; i++) {
-            result[i] = even[i].add(odd[i].mul(omega_run));
-            result[i + size / 2] = even[i].add(odd[i].mul(omega_run.neg()));
+            uint256 temp = odd[i].mul(omega_run);
+            result[i] = even[i].add(temp);
+            result[i + size / 2] = even[i].sub(temp);
             omega_run = omega_run.mul(omega);
         }
     }
