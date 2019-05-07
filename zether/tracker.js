@@ -32,7 +32,7 @@ var demo = {
             }
         });
         var initZSC = function() {
-            var _epochLength = 60 * 1000; // will express epoch length in milliseconds.
+            var _epochLength = 20 * 1000; // will express epoch length in milliseconds.
             zsc = zscContract.new(
                 coin,
                 _zether,
@@ -98,17 +98,23 @@ function tracker() {
     var simulateAccount = function(address) { // "baby" version of the below which will be used for _foreign_ accounts.
         var yHash = web3.sha3(address[0].slice(2) + address[1].slice(2), { encoding: 'hex' });
         var updated = new state();
+        var blockNumber = eth.blockNumber;
         updated.acc = [
-            [zsc.acc(yHash, 0, 0), zsc.acc(yHash, 0, 1)],
-            [zsc.acc(yHash, 1, 0), zsc.acc(yHash, 1, 1)]
+            [zsc.acc(yHash, 0, 0, blockNumber), zsc.acc(yHash, 0, 1, blockNumber)],
+            [zsc.acc(yHash, 1, 0, blockNumber), zsc.acc(yHash, 1, 1, blockNumber)]
         ];
         if (zsc.lastRollOver(yHash) < getEpoch()) {
             var pTransfers = [
-                [zsc.pTransfers(yHash, 0, 0), zsc.pTransfers(yHash, 0, 1)],
-                [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
+                [zsc.pTransfers(yHash, 0, 0, blockNumber), zsc.pTransfers(yHash, 0, 1, blockNumber)],
+                [zsc.pTransfers(yHash, 1, 0, blockNumber), zsc.pTransfers(yHash, 1, 1, blockNumber)]
             ];
             updated.acc = zether.add(updated.acc, pTransfers);
         }
+        // the meaning of the above block's condition is that the counterparty is _due for_ a rollover as of the impending transaction, but hasn't been rolled over yet (and _we will do it_).
+        // the essential fact is that even if someone else beats us to it (and rolls the counteparty over) before we get there, we will still end up being correct about the value of their `acc`
+        // however, there's a highly unlikely "tearing" scenario where this update happens _while_ (i.e., in the middle of) we are querying the balance itself---this possible for both queries---
+        // so that some of the four values reflect pre-rollover state, and some reflect post. this will result in malformed points or other nonsense.
+        // thus we fix a blockNumber once and for all, and use it in all four of course, by the above arguments, it doesn't matter whether this blockNumber is before or after we get scooped.
         return updated;
     }
 
@@ -138,10 +144,25 @@ function tracker() {
         } else {
             for (var i = 0; i < event.args['parties'].length; i++) { // (var party in event.args['parties']) { // var in doesn't work for nested arrays?
                 if (that.mine(event.args['parties'][i])) { // weird: this will trigger even when you were the sender.
-                    that.state = that.simulateBalances(eth.getBlock(event.blockNumber).timestamp / 1000000);
+                    var blockNumber = event.blockNumber;
+                    var yHash = web3.sha3(that.me()[0].slice(2) + that.me()[1].slice(2), { encoding: 'hex' });
 
-                    var value;
-                    if (value = that.check()) // if rollOver happens remotely, will mimic it locally, and start from 0
+                    that.state = that.simulateBalances(eth.getBlock(blockNumber).timestamp / 1000000);
+
+                    var pending = that.state.pending;
+                    var pTransfers = [
+                        [zsc.pTransfers(yHash, 0, 0, blockNumber), zsc.pTransfers(yHash, 0, 1, blockNumber)],
+                        [zsc.pTransfers(yHash, 1, 0, blockNumber), zsc.pTransfers(yHash, 1, 1, blockNumber)]
+                    ]; // passing the blockNumber is necessary to prevent a subtle bug whereby the var "value" (below) is only assigned a value _after_
+                    // not just event.transactionHash hass been applied to the blockchain, but _further_ transactions also have been as well
+                    // in essence, the amount which we decide to credit ourselves gets contaminated by future transactions and leads to an incorrect representation of state
+                    // even with this remediation, things will _still_ go (very) wrong if this function gets fired out-of-order, i.e. different from the blockchain. check this
+                    // not sure if web3 offers any guarantees of this sort (an analogous property _is_ guaranteed for post-facto calls, i.e. TransferOccurred().get())
+                    that.state.pending = zether.readBalance(pTransfers, keypair['x'], pending, 4294967295);
+                    var value = that.state.pending - pending; // this could be wrong in weird conditions
+                    // i.e., if we debit our own pending before this thing is fired. but shouldn't affect correctness.
+
+                    if (value) // if rollOver happens remotely, will mimic it locally, and start from 0
                         console.log("Transfer of " + value + " received! New balance is " + (that.state.available + that.state.pending) + ".");
                     // interesting: impossible even to know who sent you funds.
                     // could always report back msg.sender, but that means nothing basically. can always send from different eth address
@@ -168,16 +189,6 @@ function tracker() {
 
     this.friends = function() { return friends; }
 
-    this.check = function() { // would save a few dereferences to pass in the state, but...
-        var pending = this.state.pending;
-        var pTransfers = [
-            [zsc.pTransfers(yHash, 0, 0), zsc.pTransfers(yHash, 0, 1)],
-            [zsc.pTransfers(yHash, 1, 0), zsc.pTransfers(yHash, 1, 1)]
-        ];
-        this.state.pending = zether.readBalance(pTransfers, keypair['x'], this.state.pending, 4294967295);
-        return this.state.pending - pending; // just a shortcut
-    }
-
     this.deposit = function(value) {
         var state = this.simulateBalances();
         var events = zsc.FundOccurred();
@@ -194,9 +205,9 @@ function tracker() {
                         console.log("Error: " + error);
                     } else if (txHash == event.transactionHash) {
                         clearTimeout(timer);
-                        state.pending += value;
-                        that.state = state;
-                        console.log("Deposit of " + value + " successful. Balance is now " + (state.available + state.pending) + ".");
+                        that.state = that.simulateBalances(); // have to freshly call it
+                        that.state.pending += value;
+                        console.log("Deposit of " + value + " successful. Balance is now " + (that.state.available + that.state.pending) + ".");
                         events.stopWatching();
                     }
                 });
@@ -279,10 +290,10 @@ function tracker() {
                         console.log("Error: " + error);
                     } else {
                         clearTimeout(timer);
-                        state.nonceUsed = true;
-                        state.pending -= value;
-                        that.state = state;
-                        console.log("Transfer of " + value + " was successful. Balance now " + (state.available + state.pending) + ".");
+                        that.state = that.simulateBalances(); // have to freshly call it
+                        that.state.nonceUsed = true;
+                        that.state.pending -= value;
+                        console.log("Transfer of " + value + " was successful. Balance now " + (that.state.available + that.state.pending) + ".");
                         that.restock(); // trying to hide this from the viewer!
                     }
                 };
@@ -319,10 +330,10 @@ function tracker() {
                         console.log("Error: " + error);
                     } else if (txHash == event.transactionHash) {
                         clearTimeout(timer);
-                        state.pending -= value;
-                        state.nonceUsed = true; // or: after confirming, that.state.nonceUsed = true.
-                        that.state = state;
-                        console.log("Withdrawal of " + value + " was successful. Balance now " + (state.available + state.pending) + ".");
+                        that.state = that.simulateBalances(); // have to freshly call it
+                        that.state.nonceUsed = true;
+                        that.state.pending -= value;
+                        console.log("Withdrawal of " + value + " was successful. Balance now " + (that.state.available + that.state.pending) + ".");
                         events.stopWatching();
                     }
                 });
