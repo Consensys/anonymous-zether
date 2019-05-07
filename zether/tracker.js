@@ -32,7 +32,9 @@ var demo = {
             }
         });
         var initZSC = function() {
-            var _epochLength = 25 * 1000; // will express epoch length in milliseconds.
+            var _epochLength = 25 * 1000; // this duration is suitable for <= 64-sized anonsets _under the current setup_.
+            // in particular, once you can batch the "gathering account state" phase using web3 1.0, things will speed up a lot.
+            // not to mention making the prover faster, by say porting it to C++.
             zsc = zscContract.new(
                 coin,
                 _zether,
@@ -145,22 +147,20 @@ function tracker() {
             for (var i = 0; i < event.args['parties'].length; i++) { // (var party in event.args['parties']) { // var in doesn't work for nested arrays?
                 if (that.mine(event.args['parties'][i])) { // weird: this will trigger even when you were the sender.
                     var blockNumber = event.blockNumber;
-                    var yHash = web3.sha3(that.me()[0].slice(2) + that.me()[1].slice(2), { encoding: 'hex' });
+                    // var yHash = web3.sha3(that.me()[0].slice(2) + that.me()[1].slice(2), { encoding: 'hex' });
 
                     that.state = that.simulateBalances(eth.getBlock(blockNumber).timestamp / 1000000);
 
                     var pending = that.state.pending;
-                    var pTransfers = [
-                        [zsc.pTransfers(yHash, 0, 0, blockNumber), zsc.pTransfers(yHash, 0, 1, blockNumber)],
-                        [zsc.pTransfers(yHash, 1, 0, blockNumber), zsc.pTransfers(yHash, 1, 1, blockNumber)]
-                    ]; // passing the blockNumber is necessary to prevent a subtle bug whereby the var "value" (below) is only assigned a value _after_
-                    // not just event.transactionHash hass been applied to the blockchain, but _further_ transactions also have been as well
-                    // in essence, the amount which we decide to credit ourselves gets contaminated by future transactions and leads to an incorrect representation of state
-                    // even with this remediation, things will _still_ go (very) wrong if this function gets fired out-of-order, i.e. different from the blockchain. check this
-                    // not sure if web3 offers any guarantees of this sort (an analogous property _is_ guaranteed for post-facto calls, i.e. TransferOccurred().get())
-                    that.state.pending = zether.readBalance(pTransfers, keypair['x'], pending, 4294967295);
-                    var value = that.state.pending - pending; // this could be wrong in weird conditions
-                    // i.e., if we debit our own pending before this thing is fired. but shouldn't affect correctness.
+                    var types = [{ name: 'L', type: 'bytes32[2][]' },
+                        { name: 'R', type: 'bytes32[2]' },
+                        { name: 'y', type: 'bytes32[2][]' },
+                        { name: 'u', type: 'bytes32[2]' },
+                        { name: 'proof', type: 'bytes' }
+                    ];
+                    var parameters = web3.eth.abi.decodeParameters(types, "0x" + eth.getTransaction(event.transactionHash).input.slice(10));
+                    that.state.pending += zether.readBalance([parameters['L'][i], parameters['R']], keypair['x'], 0, 4294967295)
+                    var value = that.state.pending - pending;
 
                     if (value) // if rollOver happens remotely, will mimic it locally, and start from 0
                         console.log("Transfer of " + value + " received! New balance is " + (that.state.available + that.state.pending) + ".");
@@ -244,8 +244,8 @@ function tracker() {
         var size = 2 + (decoys ? decoys.length : 0);
         var time = new Date().getTime();
         var estimated = size * Math.log(size) / Math.log(2) * 46 + 5000; // NOTE: this estimation includes not just proving time but also "data gathering" time.
-        // batch requests are not available in this version of web3, and the performance is regrettably bad.
-        // hence the necessity of upgrading to a web3 1.0-based situation...
+        // batch requests are not available in this version of web3, and the performance is not good. hence the necessity of upgrading to a web3 1.0-based situation.
+        // once you do, be sure to update this function so that it reflects (an upper bound of) the actual rate of growth.
 
         if (estimated > epochLength)
             throw "The size (" + size + ") you've requested might take longer than the epoch length " + epochLength + " ms to prove. Consider re-deploying, with an epoch longer than " + Math.ceil(estimated) + " ms.";
