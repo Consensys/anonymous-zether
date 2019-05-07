@@ -32,7 +32,7 @@ var demo = {
             }
         });
         var initZSC = function() {
-            var _epochLength = 20 * 1000; // will express epoch length in milliseconds.
+            var _epochLength = 25 * 1000; // will express epoch length in milliseconds.
             zsc = zscContract.new(
                 coin,
                 _zether,
@@ -92,7 +92,7 @@ function tracker() {
 
     var away = function() {
         current = (new Date).getTime();
-        return Math.ceil((Math.ceil(current / epochLength) * epochLength - current) / 1000);
+        return Math.ceil(current / epochLength) * epochLength - current;
     }
 
     var simulateAccount = function(address) { // "baby" version of the below which will be used for _foreign_ accounts.
@@ -221,16 +221,41 @@ function tracker() {
         var state = this.simulateBalances();
         if (value > state.available + state.pending)
             throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-        else {
-            var wait = away();
-            var plural = wait == 1 ? "" : "s";
-            if (value > state.available)
-                throw "Requested transfer amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + wait + " second" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
-            else if (state.nonceUsed)
-                throw "You've already made a transfer/withdrawal during this epoch! Please wait till the next one, " + wait + " second" + plural + " away.";
+
+        var wait = away();
+        var seconds = Math.ceil(wait / 1000);
+        var plural = seconds == 1 ? "" : "s";
+        if (value > state.available) {
+            var timer = setTimeout(function() {
+                that.transfer(name, value, decoys);
+            }, wait);
+            return "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
+            // note: another option here would be to simply throw an error and abort.
+            // the upside to doing that would be that the user might be willing to simply send a lower amount, and not have to wait.
+            // the downside is of course if the user doesn't want that, then having to wait manually and then manually re-enter the transaction.
+        }
+        if (state.nonceUsed) {
+            var timer = setTimeout(function() {
+                that.transfer(name, value, decoys);
+            }, wait);
+            return "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
         var size = 2 + (decoys ? decoys.length : 0);
+        var time = new Date().getTime();
+        var estimated = size * Math.log(size) / Math.log(2) * 46 + 5000; // NOTE: this estimation includes not just proving time but also "data gathering" time.
+        // batch requests are not available in this version of web3, and the performance is regrettably bad.
+        // hence the necessity of upgrading to a web3 1.0-based situation...
+
+        if (estimated > epochLength)
+            throw "The size (" + size + ") you've requested might take longer than the epoch length " + epochLength + " ms to prove. Consider re-deploying, with an epoch longer than " + Math.ceil(estimated) + " ms.";
+        if (estimated > wait) {
+            var timer = setTimeout(function() {
+                that.transfer(name, value, decoys);
+            }, wait);
+            return "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+        }
+
         if (size & (size - 1)) {
             var previous = 1;
             var next = 2;
@@ -268,6 +293,7 @@ function tracker() {
             index[1] = index[1] + (index[1] % 2 == 0 ? 1 : -1);
         } // make sure you and your friend have opposite parity
 
+        console.log("Gathering account state..."); // extremely slow!
         var CL = [];
         var CR = [];
         for (var i = 0; i < y.length; i++) { // (var address in y) { // could use an array.map if i had a better javascript shell.
@@ -276,12 +302,13 @@ function tracker() {
             CR.push(updated.acc[1]);
         }
 
+        console.log("Generating proof...");
         var proof = zether.proveTransfer(CL, CR, y, state.lastRollOver, keypair['x'], value, state.available - value, index);
         var timer = setTimeout(function() {
             console.log("Transfer failed...");
             // can't, but don't actually need to, delete txHash from the table.
         }, 5000);
-        zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: throwaway, gas: 3047000000 }, function(error, txHash) {
+        zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: throwaway, gas: 2000000000 }, function(error, txHash) {
             if (error) {
                 console.log("Error: " + error);
             } else {
@@ -299,6 +326,7 @@ function tracker() {
                 };
             }
         });
+
         return "Initiating transfer.";
     }
 
@@ -306,14 +334,23 @@ function tracker() {
         var state = this.simulateBalances();
         if (value > state.available + state.pending)
             throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-        else {
-            var wait = away();
-            var plural = wait == 1 ? "" : "s";
-            if (value > state.available)
-                throw "Requested withdrawal amount of " + value + " exceeds presently available balance of " + state.available + ". Please wait until the next rollover (" + wait + " second" + plural + " away), at which point you'll have " + (state.available + state.pending) + " available.";
-            else if (state.nonceUsed)
-                throw "You've already made a transfer/withdrawal during this epoch! Please wait till the next one, " + wait + " second" + plural + " away.";
+
+        var wait = away();
+        var seconds = Math.ceil(wait / 1000);
+        var plural = seconds == 1 ? "" : "s";
+        if (value > state.available) {
+            var timer = setTimeout(function() {
+                that.transfer(name, value, decoys);
+            }, wait);
+            return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
         }
+        if (state.nonceUsed) {
+            var timer = setTimeout(function() {
+                that.withdraw(value);
+            }, wait);
+            return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+        }
+
         var updated = simulateAccount(keypair['y']);
         var proof = zether.proveBurn(updated.acc[0], updated.acc[1], keypair['y'], value, state.lastRollOver, keypair['x'], state.available - value);
         var events = zsc.BurnOccurred();
