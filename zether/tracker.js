@@ -32,9 +32,7 @@ var demo = {
             }
         });
         var initZSC = function() {
-            var _epochLength = 25 * 1000; // this duration is suitable for <= 64-sized anonsets _under the current setup_.
-            // in particular, once you can batch the "gathering account state" phase using web3 1.0, things will speed up a lot.
-            // not to mention making the prover faster, by say porting it to C++.
+            var _epochLength = estimate(4, true) // this epoch duration is suitable for <= 4-sized anonsets _under the current setup_. see notes on this below
             zsc = zscContract.new(
                 coin,
                 _zether,
@@ -59,6 +57,16 @@ var demo = {
         return "Recovered.";
     },
 };
+
+var estimate = function(size, contract) {
+    // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size
+    // this function should hopefully give you good epoch lengths also for 8, 16, 32, etc... if you have very heavy traffic, may need to bump it up (many verifications)
+    // note that this estimation includes not just raw proving time but also "data gathering" time, which takes a while unfortunately (under the current setup)
+    // batch requests are not available in this version of web3, and the performance is not good. hence the necessity of upgrading to a web3 1.0-based situation.
+    // notes on this are below. if you do, be sure to update this function so that it reflects (an upper bound of) the actual rate of growth.
+    return Math.ceil(size * Math.log(size) / Math.log(2) * 40 + 140 * size + 2200) + (contract ? 20 : 0);
+    // the 20-millisecond buffer is designed to give the callback time to fire (see below).
+}
 
 function tracker() {
     var that = this;
@@ -150,20 +158,20 @@ function tracker() {
                     that.state = that.simulateBalances(eth.getBlock(blockNumber).timestamp / 1000000);
                     var pending = that.state.pending;
 
-                    // var types = [{ name: 'L', type: 'bytes32[2][]' },
-                    //     { name: 'R', type: 'bytes32[2]' },
-                    //     { name: 'y', type: 'bytes32[2][]' },
-                    //     { name: 'u', type: 'bytes32[2]' },
-                    //     { name: 'proof', type: 'bytes' }
-                    // ];
-                    // var parameters = web3.eth.abi.decodeParameters(types, "0x" + eth.getTransaction(event.transactionHash).input.slice(10));
+                    // var inputs = zscContract.jsonInterface.abi.methods.transfer.abiItem.inputs;
+                    // // [ { name: 'L', type: 'bytes32[2][]' },
+                    // //   { name: 'R', type: 'bytes32[2]' },
+                    // //   { name: 'y', type: 'bytes32[2][]' },
+                    // //   { name: 'u', type: 'bytes32[2]' },
+                    // //   { name: 'proof', type: 'bytes' } ]
+                    // var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + eth.getTransaction(event.transactionHash).input.slice(10));
                     // var value = zether.readBalance([parameters['L'][i], parameters['R']], keypair['x'], 0, 4294967295)
 
+                    // ^^^ the above is how this should work if you are in a web3 1.0 setting. as it stands, we have to scrap together an emulation of the parse args method
                     var calldata = eth.getTransaction(event.transactionHash).input.slice(10);
                     var L_i = ["0x" + calldata.slice(512 + i * 128, 576 + i * 128), "0x" + calldata.slice(576 + i * 128, 640 + i * 128)];
                     var R = ["0x" + calldata.slice(64, 128), "0x" + calldata.slice(128, 192)];
                     var value = zether.readBalance([L_i, R], keypair['x'], 0, 4294967295);
-                    // ^^^ the above is how this should work if you are in a web3 1.0 setting. as it stands, we have to scrap together an emulation of the parse args method
 
                     that.state.pending += value;
                     if (value)
@@ -244,18 +252,14 @@ function tracker() {
         }
 
         var size = 2 + (decoys ? decoys.length : 0);
-        var time = new Date().getTime();
-        var estimated = size * Math.log(size) / Math.log(2) * 46 + 5000; // NOTE: this estimation includes not just proving time but also "data gathering" time.
-        // batch requests are not available in this version of web3, and the performance is not good. hence the necessity of upgrading to a web3 1.0-based situation.
-        // once you do, be sure to update this function so that it reflects (an upper bound of) the actual rate of growth.
-
+        var estimated = estimate(size, false); // see notes above
         if (estimated > epochLength)
-            throw "The size (" + size + ") you've requested might take longer than the epoch length " + epochLength + " ms to prove. Consider re-deploying, with an epoch longer than " + Math.ceil(estimated) + " ms.";
+            throw "The size (" + size + ") you've requested might take longer than the epoch length " + epochLength + " ms to prove. Consider re-deploying, with an epoch at least " + estimate(size, true) + " ms.";
         if (estimated > wait) {
             var timer = setTimeout(function() {
                 that.transfer(name, value, decoys);
             }, wait);
-            return "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+            return wait < 2000 ? "Initiating transfer." : "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
         if (size & (size - 1)) {
@@ -295,19 +299,19 @@ function tracker() {
             index[1] = index[1] + (index[1] % 2 == 0 ? 1 : -1);
         } // make sure you and your friend have opposite parity
 
-        console.log("Gathering account state..."); // extremely slow!
+        // console.log("Gathering account state...")
         var CL = [];
         var CR = [];
         for (var i = 0; i < y.length; i++) { // (var address in y) { // could use an array.map if i had a better javascript shell.
             var updated = simulateAccount(y[i]);
             CL.push(updated.acc[0]);
             CR.push(updated.acc[1]);
-        }
+        } // this is extremely slow! todo: use web3 1.0 and batch these calls.
 
-        console.log("Generating proof...");
+        // console.log("Generating proof...");
         var proof = zether.proveTransfer(CL, CR, y, state.lastRollOver, keypair['x'], value, state.available - value, index);
         var timer = setTimeout(function() {
-            console.log("Transfer failed...");
+            console.log("Transfer failed..."); // this could accidentally fire for massive anonsets.
             // can't, but don't actually need to, delete txHash from the table.
         }, 5000);
         zsc.transfer(proof["L"], proof["R"], y, proof['u'], proof['proof'], { from: throwaway, gas: 2000000000 }, function(error, txHash) {
@@ -328,7 +332,6 @@ function tracker() {
                 };
             }
         });
-
         return "Initiating transfer.";
     }
 
@@ -342,7 +345,7 @@ function tracker() {
         var plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
             var timer = setTimeout(function() {
-                that.transfer(name, value, decoys);
+                that.withdraw(value);
             }, wait);
             return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
         }
@@ -351,6 +354,13 @@ function tracker() {
                 that.withdraw(value);
             }, wait);
             return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+        }
+
+        if (2000 > wait) { // withdrawals will take <= 2 seconds (actually, more like 1)...
+            var timer = setTimeout(function() {
+                that.withdraw(value);
+            }, wait);
+            return "Initiating withdrawal.";
         }
 
         var updated = simulateAccount(keypair['y']);

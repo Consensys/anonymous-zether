@@ -1,22 +1,27 @@
-# BulletProofPOC
+**WARNING**: The security of this cryptographic protocol has not yet been formally proven. More concretely, its PRNGs are not secure. This repository should not be considered suitable for production use.
 
-This repo contains a Java-based _Bulletproofs_ service, as well as a demo for a _private funds transfer_ system (based on Benedikt Bünz's "Zether protocol"), built on top of Quorum.
+# Anonymous Zether
 
-### Folders in this Repo
+This is a private payment system, an _anonymous_ extension of Bünz, Agrawal, Zamani and Boneh's [Zether protocol](https://crypto.stanford.edu/~buenz/papers/zether.pdf).
 
-[zkp](zkp) is a maven project, which uses our [fork](https://github.com/QuorumEngineering/BulletProofLib) of [Benedikt Bünz's Bulletproofs library](https://github.com/bbuenz/BulletProofLib) as an external dependency. It is designed to be used with a modified version of quorum, currently hosted in the [quorum-mirror](https://github.com/QuorumEngineering/quorum-mirror/tree/anonymous).
+The outlines of an anonymous approach are sketched in the authors' original manuscript. We develop an explicit proof protocol for this extension, described in the technical note [AnonZether.pdf](AnonZether.pdf). We also provide a full implementation of the anonymous protocol (including a proof generator, verification contracts, and a client / front-end).
 
-The [zether](zether) folder contains the ZSC (Zether Smart Contract), as well as scripts to interact with it from the geth console. It can be used to showcase an end-to-end demo.
+Thanks go to Benedikt Bünz for discussions around this, as well as for basic Zether. Also, Sergey Vasilyev's [range proof contracts](https://github.com/leanderdulac/BulletProofLib/blob/master/truffle/contracts/RangeProofVerifier.sol) served as a starting point for our [Zether verification contracts](zether/contracts).
+
+### Folders in this repo
+
+[zkp](zkp) is a Maven project, which spins up a Java service capable of generating zero-knowledge proofs. This service uses [our fork of](https://github.com/jpmorganchase/BulletProofLib) [Benedikt Bünz's Bulletproofs library](https://github.com/bbuenz/BulletProofLib) as an external dependency. It is designed to be used with a [modified version of Quorum](https://github.com/jpmorganchase/quorum/tree/anonymous), which automates communication with this Java service.
+
+The [zether](zether) folder contains the ZSC (Zether Smart Contract) and auxiliary contracts, as well as scripts to interact with it from the `geth` console.
 
 ### User Instructions
 
-#### Prerequisites
-- Build the above-linked `anonymous` branch of Quorum
-- Spin up a Quorum cluster (you may refer to the [7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes))
-- Start the Spring application inside the `/zkp` directory of _this_ repo. The easiest way is to import the maven project into an IDE and execute `zkp/src/main/java/zkp/App.java`.
-- [Optional] To package everything into a jar file, you could config the `efficientct` jar dependency into the local `.m2` folder, import from there and run `mvn clean install`. After that run `java -jar [path to your jar file]`
+#### Setting things up
+- Build the above-linked `anonymous` branch of Quorum.
+- Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)).
+- Start the Spring application inside the `/zkp` directory of this repo. The easiest way to do this is to import the Maven project into an IDE, and execute `zkp/src/main/java/zkp/App.java`.
 
-#### Demo
+#### Usage Example
 The first thing we're going to need is a running ERC20 contract, for which (at least) one of the participating nodes has a balance. I won't go through the steps here; in short, you can compile [OpenZeppelin's ERC20Mintable](https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/token/ERC20/ERC20Mintable.sol) contract, deploy it, and then mint yourself some funds. I'll assume that this has already been done, and that the contract resides at the address `erc20mintableAddress = erc20mintable.address`.
 
 In separate windows, let's attach to four of the 7 nodes---Alice, Bob, Charlie, and Eve, let's say. In all windows, execute
@@ -87,7 +92,14 @@ You can also add Alice, Charlie and Eve as friends of Bob. Now, you can try:
 > Transfer of 10 was successful. Balance now 10.
 ```
 
-The meaning of this syntax is that Charlie and Eve are being included, along with Bob and Alice, in Bob's transaction's _anonymity set_. As a consequence, _no outside observer_ will be able to distinguish, among the four participants, who initiated this transaction, who sent funds, who received funds, and how much was transferred. The account balances of all four participants will also be private.
+The meaning of this syntax is that Charlie and Eve are being included, along with Bob and Alice, in Bob's transaction's _anonymity set_. As a consequence, _no outside observer_ will be able to distinguish, among the four participants, who sent funds, who received funds, and how much was transferred. The account balances of all four participants are also private.
+
+In fact, you can see for yourself the perspective of Eve---the eavesdropper, let's say:
+
+```javascript
+> eth.getTransaction(eth.getBlock('latest').transactions[0])
+```
+The resulting transaction's `input` field will contain a bunch of bytes (parsable using web3 1.0), which conjecturally reveal nothing about the transaction.
 
 Keep in mind that there are a few obvious situations where information can be determined. For example, if someone who has never deposited before appears in a transaction for the first time (this was the case of Bob earlier above), then it will be clear that this person was not the transaction's originator. Similarly, if a certain person has performed only deposits and withdrawals, then his account balance will obviously be visible.
 
