@@ -292,7 +292,7 @@ contract BurnVerifier {
     }
 
     function fieldExp(uint256 base, uint256 exponent) internal view returns (uint256 output) { // warning: mod p, not q
-        uint256 FIELD_ORDER = FIELD_ORDER;
+        uint256 order = FIELD_ORDER;
         assembly {
             let m := mload(0x40)
             mstore(m, 0x20)
@@ -300,7 +300,7 @@ contract BurnVerifier {
             mstore(add(m, 0x40), 0x20)
             mstore(add(m, 0x60), base)
             mstore(add(m, 0x80), exponent)
-            mstore(add(m, 0xa0), FIELD_ORDER)
+            mstore(add(m, 0xa0), order)
             if iszero(staticcall(gas, 0x05, m, 0xc0, m, 0x20)) { // staticcall or call?
                 revert(0, 0)
             }
