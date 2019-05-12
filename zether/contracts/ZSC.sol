@@ -17,10 +17,10 @@ contract ZSC {
 
     uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
-    mapping(bytes32 => bytes32[2][2]) public acc; // main account mapping
-    mapping(bytes32 => bytes32[2][2]) public pTransfers; // storage for pending transfers
-    mapping(bytes32 => address) ethAddrs; // this can probably become private soon.
-    mapping(bytes32 => uint256) public lastRollOver; // had this but killed it, reviving
+    mapping(bytes32 => bytes32[2][2]) acc; // main account mapping
+    mapping(bytes32 => bytes32[2][2]) pTransfers; // storage for pending transfers
+    mapping(bytes32 => address) ethAddrs;
+    mapping(bytes32 => uint256) lastRollOver;
     bytes32[] nonceSet; // would be more natural to use a mapping, but they can't be deleted / reset!
     uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated
     // not implementing account locking for now...revisit
@@ -38,6 +38,38 @@ contract ZSC {
         epochLength = _epochLength;
     }
 
+    function simulateAccounts(bytes32[2][] calldata y, uint256 epoch) view external returns (bytes32[2][2][] memory accounts) {
+        // all of this could be assembled locally by querying `acc` and `pTransfers` (and `lastRollOver`) and assembling things by hand
+        // turns out this is extremely _slow_ though, because of the ~ 4 * N queries which must be made. turns out it's much faster
+        // to simply move the entire process into a contract method, and in fact this allows us to make the above 3 private
+        uint256 size = y.length;
+        accounts = new bytes32[2][2][](size);
+        for (uint256 i = 0; i < size; i++) {
+            bytes32 yHash = keccak256(abi.encodePacked(y[i]));
+            accounts[i] = acc[yHash];
+            if (lastRollOver[yHash] < epoch) {
+                bytes32[2][2] memory scratch = pTransfers[yHash];
+                assembly {
+                    let result := 1
+                    let m := mload(0x40)
+                    mstore(m, mload(mload(scratch)))
+                    mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
+                    mstore(add(m, 0x40), mload(mload(mload(add(add(accounts, 0x20), mul(i, 0x20))))))
+                    mstore(add(m, 0x60), mload(add(mload(mload(add(add(accounts, 0x20), mul(i, 0x20)))), 0x20)))
+                    result := and(result, staticcall(gas, 0x06, m, 0x80, mload(mload(add(add(accounts, 0x20), mul(i, 0x20)))), 0x40))
+                    mstore(m, mload(mload(add(scratch, 0x20))))
+                    mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
+                    mstore(add(m, 0x40), mload(mload(add(mload(add(add(accounts, 0x20), mul(i, 0x20))), 0x20))))
+                    mstore(add(m, 0x60), mload(add(mload(add(mload(add(add(accounts, 0x20), mul(i, 0x20))), 0x20)), 0x20)))
+                    result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(mload(add(add(accounts, 0x20), mul(i, 0x20))), 0x20)), 0x40))
+                    if iszero(result) {
+                        revert(0, 0)
+                    }
+                }
+            }
+        }
+    }
+
     function rollOver(bytes32 yHash) internal {
         uint256 e = block.timestamp / 1000000 / epochLength; // can block.timestamp be "gamed"?
         // https://github.com/ethereum/wiki/blob/c02254611f218f43cbb07517ca8e5d00fd6d6d75/Block-Protocol-2.0.md
@@ -51,12 +83,12 @@ contract ZSC {
                 mstore(add(m, 0x20), mload(add(mload(mload(scratch)), 0x20)))
                 mstore(add(m, 0x40), mload(mload(mload(add(scratch, 0x20)))))
                 mstore(add(m, 0x60), mload(add(mload(mload(add(scratch, 0x20))), 0x20)))
-                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(mload(scratch)), 0x40))
+                result := and(result, staticcall(gas, 0x06, m, 0x80, mload(mload(scratch)), 0x40))
                 mstore(m, mload(mload(add(mload(scratch), 0x20))))
                 mstore(add(m, 0x20), mload(add(mload(add(mload(scratch), 0x20)), 0x20)))
                 mstore(add(m, 0x40), mload(mload(add(mload(add(scratch, 0x20)), 0x20))))
                 mstore(add(m, 0x60), mload(add(mload(add(mload(add(scratch, 0x20)), 0x20)), 0x20)))
-                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(mload(scratch), 0x20)), 0x40))
+                result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(mload(scratch), 0x20)), 0x40))
                 if iszero(result) {
                     revert(0, 0)
                 }
@@ -105,8 +137,8 @@ contract ZSC {
             mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
             mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
             mstore(add(m, 0x80), bTransfer) // b will hopefully be a primitive / literal and not a pointer / address?
-            result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
-            result := and(result, call(gas, 0x06, 0, m, 0x80, scratch, 0x40))
+            result := and(result, staticcall(gas, 0x07, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
+            result := and(result, staticcall(gas, 0x06, m, 0x80, scratch, 0x40))
             if iszero(result) {
                 revert(0, 0)
             }
@@ -138,13 +170,13 @@ contract ZSC {
                 // as a result, have to use the below two lines instead of the above single line.
                 mstore(add(m, 0x40), mload(mload(add(add(L, 0x20), mul(i, 0x20)))))
                 mstore(add(m, 0x60), mload(add(mload(add(add(L, 0x20), mul(i, 0x20))), 0x20)))
-                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40))
+                result := and(result, staticcall(gas, 0x06, m, 0x80, mload(scratch), 0x40))
                 mstore(m, mload(mload(add(scratch, 0x20))))
                 mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
                 // calldatacopy(add(m, 0x40), 0x24, 0x40) // copy R onto running block
                 mstore(add(m, 0x40), mload(R))
                 mstore(add(m, 0x60), mload(add(R, 0x20)))
-                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(scratch, 0x20)), 0x40))
+                result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(scratch, 0x20)), 0x40))
             }
             pTransfers[yHash] = scratch; // credit / debit / neither y's account.
             scratch = acc[yHash];
@@ -154,12 +186,12 @@ contract ZSC {
                 mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
                 mstore(add(m, 0x40), mload(mload(add(add(L, 0x20), mul(i, 0x20)))))
                 mstore(add(m, 0x60), mload(add(mload(add(add(L, 0x20), mul(i, 0x20))), 0x20)))
-                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(add(CLn, 0x20), mul(i, 0x20))), 0x40))
+                result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(add(CLn, 0x20), mul(i, 0x20))), 0x40))
                 mstore(m, mload(mload(add(scratch, 0x20))))
                 mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
                 mstore(add(m, 0x40), mload(R))
                 mstore(add(m, 0x60), mload(add(R, 0x20)))
-                result := and(result, call(gas, 0x06, 0, m, 0x80, mload(add(add(CRn, 0x20), mul(i, 0x20))), 0x40))
+                result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(add(CRn, 0x20), mul(i, 0x20))), 0x40))
             }
         }
         require(result == 1, "Elliptic curve operations failure. Bad points?");
@@ -210,8 +242,8 @@ contract ZSC {
             mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4) // g_x
             mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875) // g_y
             mstore(add(m, 0x80), sub(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001, bTransfer))
-            result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
-            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * g ^ -b, scratch[1] doesn't change
+            result := and(result, staticcall(gas, 0x07, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
+            result := and(result, staticcall(gas, 0x06, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * g ^ -b, scratch[1] doesn't change
             if iszero(result) {
                 revert(0, 0)
             }
@@ -226,8 +258,8 @@ contract ZSC {
             mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4) // g_x
             mstore(add(m, 0x60), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875) // g_y
             mstore(add(m, 0x80), sub(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001, bTransfer))
-            result := and(result, call(gas, 0x07, 0, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
-            result := and(result, call(gas, 0x06, 0, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * g ^ -b, scratch[1] doesn't change
+            result := and(result, staticcall(gas, 0x07, add(m, 0x40), 0x60, add(m, 0x40), 0x40))
+            result := and(result, staticcall(gas, 0x06, m, 0x80, mload(scratch), 0x40)) // scratch[0] = acc[yHash][0] * g ^ -b, scratch[1] doesn't change
             if iszero(result) {
                 revert(0, 0)
             }
