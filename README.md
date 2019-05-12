@@ -1,4 +1,4 @@
-**WARNING**: The security of this cryptographic protocol has not yet been formally proven. More concretely, its PRNGs are not secure. This repository should not be considered suitable for production use.
+**WARNING**: The security of this cryptographic protocol has not yet been formally proven. This repository should not be considered suitable for production use.
 
 # Anonymous Zether
 
