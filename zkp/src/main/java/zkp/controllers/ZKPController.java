@@ -19,8 +19,7 @@ public class ZKPController {
     @PostConstruct
     public void init() {
         byte[][] empty = new byte[2][64];
-        byte[][] indexBytes = {{0x00}, {0x01}};
-        prover.proveTransfer(empty, empty, empty, new byte[32], new byte[32], new byte[32], new byte[32], new byte[32], indexBytes);
+        prover.proveTransfer(empty, empty, empty, new byte[32], new byte[32], new byte[32], new byte[32], new byte[32], empty);
         // horrific hack, to force classes to load...
     }
 
