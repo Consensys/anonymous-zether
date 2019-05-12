@@ -7,6 +7,7 @@ import zkp.utilities.Prover;
 import zkp.utilities.Util;
 import zkp.utilities.Verifier;
 
+import javax.annotation.PostConstruct;
 import java.math.BigInteger;
 
 @RestController
@@ -14,6 +15,14 @@ public class ZKPController {
 
     private Prover prover = new Prover();
     private Verifier verifier = new Verifier();
+
+    @PostConstruct
+    public void init() {
+        byte[][] empty = new byte[2][64];
+        byte[][] indexBytes = {{0x00}, {0x01}};
+        prover.proveTransfer(empty, empty, empty, new byte[32], new byte[32], new byte[32], new byte[32], new byte[32], indexBytes);
+        // horrific hack, to force classes to load...
+    }
 
     @RequestMapping("/prove-transfer")
     String proveTransfer(@RequestParam("CL") String CL, @RequestParam("CR") String CR, @RequestParam("y") String y, @RequestParam("epoch") String epoch, @RequestParam("x") String x, @RequestParam("r") String r, @RequestParam("bTransfer") String bTransfer, @RequestParam("bDiff") String bDiff, @RequestParam("outIndex") String outIndex, @RequestParam("inIndex") String inIndex) {
