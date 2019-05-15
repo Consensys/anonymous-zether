@@ -1,6 +1,7 @@
 const axios = require('axios');
 const baseURL = "http://localhost:8080"
 const bn128 = require('./bn128.js');
+const BN = require('BN.js');
 
 const service = {};
 
@@ -27,6 +28,7 @@ service.proveBurn = (CL, CR, y, bTransfer, epoch, x, bDiff, callback) => {
         'CL': "0x" + CL[0].slice(2) + CL[1].slice(2),
         'CR': "0x" + CR[0].slice(2) + CR[1].slice(2),
         'y': "0x" + y[0].slice(2) + y[1].slice(2),
+        'bTransfer': bn128.toString(new BN(bTransfer)),
         'epoch': bn128.toString(new BN(epoch)),
         x,
         'bDiff': bn128.toString(new BN(bDiff)),

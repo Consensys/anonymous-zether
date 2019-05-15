@@ -1,5 +1,6 @@
 const maintenance = require('./utils/maintenance.js');
 const service = require('./utils/service.js');
+const BN = require('BN.js');
 
 function client(zsc) { // todo: how to ascertain the address(es) that the user wants to register against?
     if (zsc === undefined) {
@@ -8,6 +9,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
     var that = this;
 
     var home = "0xed9d02e382b34818e88b88a309c7fe71e65f419d";
+    web3.transactionConfirmationBlocks = 1; // due to a web3 bug...?
 
     zsc.events.TransferOccurred({}, (error, event) => {
         var accounts = that.accounts.showAccounts();
@@ -49,11 +51,10 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                     console.log("Initiating registration (txHash = \"" + hash + "\").");
                 })
                 .on('receipt', (receipt) => {
-                    if (receipt.status) {
-                        console.log("Registration of account " + number + " successful.");
-                    } else {
-                        console.log("Registration of account " + number + " failed! Do not use this account.");
-                    }
+                    console.log("Registration of account " + number + " successful.");
+                })
+                .on('error', (error) => {
+                    console.log("Registration of account " + number + " failed! Do not use this account.");
                 });
         }
 
@@ -89,15 +90,15 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var temp = new account();
             temp.keypair = keypair;
             var number = accounts.push(temp);
-            await register(keypair, number);
+            register(keypair, number);
             return "Account " + number + " added.";
         }
-        this.newAccount = async () => {
+        this.newAccount = () => {
             var keypair = maintenance.createAccount();
             var temp = new account();
             temp.keypair = keypair;
             var number = accounts.push(temp);
-            await register(keypair, number);
+            register(keypair, number);
             return "Account " + number + " generated."; // won't print it out for now.
         }
         this.showAccounts = () => {
@@ -131,18 +132,17 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             throw "Account " + number + " not available! Please add more.";
         }
         var account = accounts[number - 1];
-        zsc.methods.fund(account['y'], value).send({ from: home, gas: 5470000 })
+        zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
             .on('transactionHash', (hash) => {
                 console.log("Deposit submitted (txHash = \"" + hash + "\").");
             })
             .on('receipt', (receipt) => {
-                if (receipt.status) {
-                    account._state = account._simulateBalances(); // have to freshly call it
-                    account._state.pending += value;
-                    console.log("Deposit of " + value + " successful. Balance of account " + number + " is now " + (account._state.available + account._state.pending) + ".");
-                } else {
-                    console.log("Deposit failed (txHash = \"" + receipt.transactionHash + "\").");
-                }
+                account._state = account._simulateBalances(); // have to freshly call it
+                account._state.pending += value;
+                console.log("Deposit of " + value + " successful. Balance of account " + number + " is now " + (account._state.available + account._state.pending) + ".");
+            })
+            .on('error', (error) => {
+                console.log("Deposit failed (txHash = \"" + receipt.transactionHash + "\").");
             });
         return "Initiating deposit.";
     }
@@ -260,19 +260,18 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var u = maintenance.gEpoch(state.lastRollOver);
             service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
                 var throwaway = web3.eth.accounts.create(); // note: this will have to be signed locally!!! :(
-                zsc.methods.transfer(L, R, y, u, proof).send({ from: throwaway.address, gas: 2000000000 })
+                zsc.methods.transfer(L, R, y, u, proof.data).send({ from: throwaway.address, gas: 2000000000 })
                     .on('transactionHash', (hash) => {
                         console.log("Transfer submitted (txHash = \"" + hash + "\").");
                     })
                     .on('receipt', (receipt) => {
-                        if (receipt.status) {
-                            account._state = account._simulateBalances(); // have to freshly call it
-                            account._state.nonceUsed = true;
-                            account._state.pending -= value;
-                            console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
-                        } else {
-                            console.log("Transfer from account " + number + " failed (txHash = \"" + receipt.transactionHash + "\").");
-                        }
+                        account._state = account._simulateBalances(); // have to freshly call it
+                        account._state.nonceUsed = true;
+                        account._state.pending -= value;
+                        console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                    })
+                    .on('error', (error) => {
+                        console.log("Transfer from account " + number + " failed (txHash = \"" + receipt.transactionHash + "\").");
                     });
             });
         });
@@ -314,24 +313,22 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             return "Initiating withdrawal.";
         }
 
-        zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call({}, (error, result) => {
+        zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call().then((result) => {
             var simulated = result[0];
 
             var u = maintenance.gEpoch(state.lastRollOver);
-            var proof = service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value, (proof) => {
-                zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 })
+            service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value, (proof) => {
+                zsc.methods.burn(account.keypair['y'], value, u, proof.data).send({ from: home, gas: 547000000 })
                     .on('transactionHash', (hash) => {
                         console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
                     })
                     .on('receipt', (receipt) => {
-                        if (receipt.status) {
-                            account._state = account._simulateBalances(); // have to freshly call it
-                            account._state.nonceUsed = true;
-                            account._state.pending -= value;
-                            console.log("Withdrawal of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
-                        } else {
-                            console.log("Withdrawal from account " + number + " failed (txHash = \"" + hash + "\").");
-                        }
+                        account._state = account._simulateBalances(); // have to freshly call it
+                        account._state.nonceUsed = true;
+                        account._state.pending -= value;
+                        console.log("Withdrawal of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                    }).on('error', (error) => {
+                        console.log("Withdrawal from account " + number + " failed (txHash = \"" + hash + "\").");
                     });
             });
         });
