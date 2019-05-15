@@ -17,7 +17,7 @@ maintenance.readBalance = (gbyr, gr, x) => { // make sure this works
     var x_bn = new BN(x.slice(2), 16).toRed(bn128.groupReduction);
 
     // not handling the case of the 0 point... shouldn't be necessary. revisit.
-    let gb = gbyr.add(gr.mul(x_bn).neg());
+    let gb = gbyr_point.add(gr_point.mul(x_bn).neg());
 
     let accumulator = bn128.curve.g.mul(0);
     for (var i = 0; i < bn128.B_MAX; i++) {

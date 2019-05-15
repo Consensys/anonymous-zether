@@ -17,11 +17,17 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         return address[0] == candidate[0] && address[1] == candidate[1];
     }
 
+    this._transfers = new Set();
+
     zsc.events.TransferOccurred({}, (error, event) => {
+        if (that._transfers.has(event.transactionHash)) {
+            that._transfers.delete(event.transactionHash);
+            return;
+        }
         var accounts = that.accounts.showAccounts();
         event.returnValues['parties'].forEach((party, i) => {
             accounts.forEach((account, j) => { // warning: slow?
-                if (match(account.y, party)) {
+                if (match(account.keypair['y'], party)) {
                     var blockNumber = event.blockNumber;
                     web3.eth.getBlock(blockNumber).then((block) => {
                         account._state = account._simulateBalances(block.timestamp / 1000000); // divide by 1000000 for quorum...?
@@ -30,8 +36,8 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                         web3.eth.getTransaction(event.transactionHash).then((transaction) => {
                             var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
                             var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
-                            var value = maintenance.readBalance([parameters['L'][i], parameters['R']], account['x'])
-                            if (value) {
+                            var value = maintenance.readBalance(parameters['L'][i], parameters['R'], account.keypair['x'])
+                            if (value > 0) {
                                 account._state.pending += value;
                                 console.log("Transfer of " + value + " received! Balance of account " + j + " is " + (that._state.available + that._state.pending) + ".");
                             }
@@ -267,13 +273,14 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var R = bn128.canonicalRepresentation(bn128.curve.g.mul(r));
             var u = maintenance.u(state.lastRollOver, account.keypair['x']);
             service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
-                var throwaway = web3.eth.accounts.create(); // note: this will have to be signed locally!!! :(
+                var throwaway = web3.eth.accounts.create();
                 var encoded = zsc.methods.transfer(L, R, y, u, proof.data).encodeABI();
                 var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
 
                 web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                     web3.eth.sendSignedTransaction(signed.rawTransaction)
                         .on('transactionHash', (hash) => {
+                            that._transfers.add(hash);
                             console.log("Transfer submitted (txHash = \"" + hash + "\").");
                         })
                         .on('receipt', (receipt) => {
