@@ -1,14 +1,14 @@
 var version = require("../package.json").version;
-var Account = require("./account");
+var Client = require("./client");
 
 var AZ = function AZ() {
   this.version = version;
-  this.account = new Account(this);
+  this.client = new Client(this);
 };
 
 AZ.version = version;
 AZ.modules = {
-  Account: Account
+  Client: Client
 };
 
 module.exports = AZ;
