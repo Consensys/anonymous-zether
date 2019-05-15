@@ -1,0 +1,10 @@
+{
+  "name": "anonymous-zether",
+  "version": "0.1.0",
+  "description": "",
+  "main": "truffle-config.js",
+  "dependencies": {
+    "eslint": "^5.16.0",
+    "openzeppelin-solidity": "^2.2.0"
+  }
+}

@@ -1,4 +1,5 @@
 const maintenance = require('./utils/maintenance.js');
+const service = require('./utils/service.js');
 
 function client(zsc) { // todo: how to ascertain the address(es) that the user wants to register against?
     if (zsc === undefined) {
@@ -122,6 +123,8 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         return "Initiating deposit.";
     }
 
+
+
     this.withdraw = (value, number) => {
         number = number ? number : 1;
         var accounts = that.accounts.showAccounts();
@@ -158,8 +161,11 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
 
         zsc.methods.simulateAccounts([accounts[number - 1]['y']], this._getEpoch()).call({}, (error, result) => {
             var simulated = result[0];
-            var proof = zether.proveBurn(simulated[0], simulated[1], keypair['y'], value, state.lastRollOver, accounts[number - 1]['x'], state.available - value);
-            zsc.methods.burn(accounts[number - 1]['y'], value, proof['u'], proof['proof']).send({ from: home, gas: 547000000 }, (error, transactionHash) => {
+
+            var proof = service.proveBurn(simulated[0], simulated[1], accounts[number - 1]['y'], value, state.lastRollOver, accounts[number - 1]['x'], state.available - value);
+            var u = maintenance.gEpoch(state.lasRollOver);
+
+            zsc.methods.burn(accounts[number - 1]['y'], value, u, proof).send({ from: home, gas: 547000000 }, (error, transactionHash) => {
                 var timer = setTimeout(() => {
                     console.log("Withdrawal appears to be taking a while... Check the transaction hash \"" + transactionHash + "\".");
                 }, 5000);
@@ -172,10 +178,8 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                 }
             });
         });
-
         return "Initiating withdrawal.";
     }
-
 
     var estimate = (size, contract) => {
         // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size

@@ -18,7 +18,7 @@ bn128.curve = new EC.curve.short({
     g: ['77da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4', '1485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875'],
 });
 
-// BN.js reduction context for bn128 curve group's prime modulus
+bn128.fieldReduction = BN.red(bn128.curve.p);
 bn128.groupReduction = BN.red(bn128.curve.n);
 
 // Get a random BN in the bn128 curve group's reduction context
