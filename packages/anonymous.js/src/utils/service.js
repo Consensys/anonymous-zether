@@ -1,6 +1,6 @@
 const axios = require('axios');
 const baseURL = "http://localhost:8080"
-const bn128 = require('./utils/bn128.js');
+const bn128 = require('./bn128.js');
 
 const service = {};
 

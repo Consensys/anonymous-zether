@@ -81,7 +81,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         }
 
         var accounts = [];
-        this.addAccount = (keypair) => { // a dict of the form { 'x': x, 'y': y } plus state stuff.
+        this.addAccount = async (keypair) => { // a dict of the form { 'x': x, 'y': y } plus state stuff.
             // assuming that it is actually a proper keypair.
             if (keypair === undefined) {
                 throw "Please specify the keypair of the account you'd like to add.";
@@ -89,15 +89,15 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var temp = new account();
             temp.keypair = keypair;
             var number = accounts.push(temp);
-            register(keypair, number);
+            await register(keypair, number);
             return "Account " + number + " added.";
         }
-        this.newAccount = () => {
+        this.newAccount = async () => {
             var keypair = maintenance.createAccount();
             var temp = new account();
             temp.keypair = keypair;
             var number = accounts.push(temp);
-            register(keypair, number);
+            await register(keypair, number);
             return "Account " + number + " generated."; // won't print it out for now.
         }
         this.showAccounts = () => {
@@ -133,12 +133,16 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         var account = accounts[number - 1];
         zsc.methods.fund(account['y'], value).send({ from: home, gas: 5470000 })
             .on('transactionHash', (hash) => {
-                console.log("Initiating deposit (txHash = \"" + hash + "\").");
+                console.log("Deposit submitted (txHash = \"" + hash + "\").");
             })
             .on('receipt', (receipt) => {
-                account._state = account._simulateBalances(); // have to freshly call it
-                account._state.pending += value;
-                console.log("Deposit of " + value + " successful. Balance of account " + number + " is now " + (account._state.available + account._state.pending) + ".");
+                if (receipt.status) {
+                    account._state = account._simulateBalances(); // have to freshly call it
+                    account._state.pending += value;
+                    console.log("Deposit of " + value + " successful. Balance of account " + number + " is now " + (account._state.available + account._state.pending) + ".");
+                } else {
+                    console.log("Deposit failed (txHash = \"" + receipt.transactionHash + "\").");
+                }
             });
         return "Initiating deposit.";
     }
@@ -258,7 +262,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                 var throwaway = web3.eth.accounts.create(); // note: this will have to be signed locally!!! :(
                 zsc.methods.transfer(L, R, y, u, proof).send({ from: throwaway.address, gas: 2000000000 })
                     .on('transactionHash', (hash) => {
-                        console.log("Transfer initiated (txHash = \"" + hash + "\").");
+                        console.log("Transfer submitted (txHash = \"" + hash + "\").");
                     })
                     .on('receipt', (receipt) => {
                         if (receipt.status) {
@@ -315,18 +319,20 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
 
             var u = maintenance.gEpoch(state.lastRollOver);
             var proof = service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value, (proof) => {
-                zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 }, (error, transactionHash) => {
-                    var timer = setTimeout(() => {
-                        console.log("Withdrawal appears to be taking a while... Check the transaction hash \"" + transactionHash + "\".");
-                    }, 5000); // TODO: replace this timer (and all the others) with a proper "on-mined" success / failure situation.
-                    that._callbacks[transactionHash] = () => {
-                        clearTimeout(timer);
-                        account._state = account._simulateBalances(); // have to freshly call it
-                        account._state.nonceUsed = true;
-                        account._state.pending -= value;
-                        console.log("Withdrawal of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
-                    }
-                });
+                zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 })
+                    .on('transactionHash', (hash) => {
+                        console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
+                    })
+                    .on('receipt', (receipt) => {
+                        if (receipt.status) {
+                            account._state = account._simulateBalances(); // have to freshly call it
+                            account._state.nonceUsed = true;
+                            account._state.pending -= value;
+                            console.log("Withdrawal of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                        } else {
+                            console.log("Withdrawal from account " + number + " failed (txHash = \"" + hash + "\").");
+                        }
+                    });
             });
         });
         return "Initiating withdrawal.";
