@@ -4,6 +4,7 @@
   "description": "",
   "main": "truffle-config.js",
   "dependencies": {
+    "axios": "^0.18.0",
     "eslint": "^5.16.0",
     "openzeppelin-solidity": "^2.2.0"
   }

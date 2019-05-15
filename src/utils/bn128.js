@@ -22,8 +22,17 @@ bn128.fieldReduction = BN.red(bn128.curve.p);
 bn128.groupReduction = BN.red(bn128.curve.n);
 
 // Get a random BN in the bn128 curve group's reduction context
-bn128.randomGroupScalar = () => {
-    return "0x" + new BN(crypto.randomBytes(32), 16).toRed(bn128.groupReduction).toString(16);
+bn128.randomScalar = () => { // not padded...?
+    return new BN(crypto.randomBytes(32), 16).toRed(bn128.groupReduction);
+    // return "0x" + new BN(crypto.randomBytes(32), 16).toRed(bn128.groupReduction).toString(16).padStart(64, '0');
+}
+
+bn128.canonicalRepresentation = (p) => {
+    return ["0x" + p.getX().toString(16).padStart(64, '0'), "0x" + p.getY().toString(16).padStart(64, '0')];
+}
+
+bn128.toString = (x) => {
+    return "0x" + x.toString(16).padStart(64, '0')
 }
 
 bn128.B_MAX = B_MAX;
@@ -38,7 +47,7 @@ bn128.bn128Add = (p1, p2) => {
     p1 = bn128.curve.point(p1[0].slice(2), p1[1].slice(2))
     p2 = bn128.curve.point(p2[0].slice(2), p2[1].slice(2))
     var p = p1.add(p2)
-    return ["0x" + p.getX().toString(16).padStart(64, '0'), "0x" + p.getY().toString(16).padStart(64, '0')]
+    return bn128.canonicalRepresentation(p);
 }
 
 module.exports = bn128;

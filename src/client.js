@@ -20,22 +20,25 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                 accounts.forEach((account, j) => { // warning: slow?
                     if (account['y'][0] == party[0] && account['y'][1] == party[1]) {
                         var blockNumber = event.blockNumber;
-                        that._state = that._simulateBalances(eth.getBlock(blockNumber).timestamp / 1000000); // must make this async...
-                        var pending = that._state.pending;
+                        web3.eth.getBlock(blockNumber).then((block) => {
+                            account._state = account._simulateBalances(block.timestamp / 1000000); // divide by 1000000 for quorum...?
+                            var pending = account._state.pending;
 
-                        var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
-                        var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + eth.getTransaction(event.transactionHash).input.slice(10));
-                        var value = maintenance.readBalance([parameters['L'][i], parameters['R']], account['x'], 0, 4294967295)
-
-                        that._state.pending += value;
-                        if (value)
-                            console.log("Transfer of " + value + " received! Balance of account " + j + " is " + (that._state.available + that._state.pending) + ".");
-                        // break; // can't break anymore: i might have been multiple among the receipients. p.s. mention account in "received"?
+                            web3.eth.getTransaction(event.transactionHash).then((transaction) => {
+                                var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
+                                var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
+                                var value = maintenance.readBalance([parameters['L'][i], parameters['R']], account['x'])
+                                if (value) {
+                                    account._state.pending += value;
+                                    console.log("Transfer of " + value + " received! Balance of account " + j + " is " + (that._state.available + that._state.pending) + ".");
+                                }
+                            })
+                        });
                     }
                 });
             });
         }
-    }) // a sort of hack to respond to events.
+    })
 
     this._epochLength = undefined;
     zsc.methods.epochLength().call({}, (error, result) => {
@@ -251,25 +254,26 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                 CR.push(simulated[1]);
             });
 
-            // console.log("Generating proof...");
-            var proof = service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], value, state.available - value, index);
+            // console.log("Generating proof...");  var r = bn128.randomGroupScalar()
+            var r = bn128.randomScalar();
+            var L = y.map((party, i) => bn128.canonicalRepresentation(bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.curve.point(party[0].slice(2), party[1].slice(2)).mul(r))))
+            var R = bn128.canonicalRepresentation(bn128.curve.g.mul(r));
             var u = maintenance.gEpoch(state.lastRollOver);
-
-            var throwaway = web3.eth.accounts.create(); // note: this will have to be signed locally!!! :(
-            var L = undefined; // TODO
-            var R = undefined; // TODO
-            zsc.transfer(L, R, y, u, proof, { from: throwaway.address, gas: 2000000000 }, function(error, txHash) {
-                var timer = setTimeout(() => {
-                    console.log("Transfer appears to be taking a while... Check the transaction hash \"" + transactionHash + "\".");
-                    // can't, but don't actually need to, delete txHash from the table.
-                }, 5000 + estimated / 4);
-                that._callbacks[transactionHash] = () => {
-                    clearTimeout(timer);
-                    account._state = account._simulateBalances(); // have to freshly call it
-                    account._state.nonceUsed = true;
-                    account._state.pending -= value;
-                    console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
-                };
+            service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
+                var throwaway = web3.eth.accounts.create(); // note: this will have to be signed locally!!! :(
+                zsc.transfer(L, R, y, u, proof, { from: throwaway.address, gas: 2000000000 }, function(error, txHash) {
+                    var timer = setTimeout(() => {
+                        console.log("Transfer appears to be taking a while... Check the transaction hash \"" + transactionHash + "\".");
+                        // can't, but don't actually need to, delete txHash from the table.
+                    }, 5000 + estimated / 4);
+                    that._callbacks[transactionHash] = () => {
+                        clearTimeout(timer);
+                        account._state = account._simulateBalances(); // have to freshly call it
+                        account._state.nonceUsed = true;
+                        account._state.pending -= value;
+                        console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                    };
+                });
             });
         });
         return "Initiating transfer.";
@@ -285,7 +289,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
 
         var state = account._simulateBalances();
         if (value > state.available + state.pending)
-            throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
+            throw "Requested withdrawal amount of " + value + " exceeds account " + number + "'s balance of " + (state.available + state.pending) + ".";
 
         var wait = away();
         var seconds = Math.ceil(wait / 1000);
@@ -294,13 +298,13 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var timer = setTimeout(() => {
                 that.withdraw(value);
             }, wait);
-            return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
+            return "Withdrawal on account + " + number + " queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
         }
         if (state.nonceUsed) {
             var timer = setTimeout(() => {
                 that.withdraw(value);
             }, wait);
-            return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+            return "Withdrawal on account " + number + " queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
         if (2000 > wait) { // withdrawals will take <= 2 seconds (actually, more like 1)...
@@ -313,20 +317,22 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call({}, (error, result) => {
             var simulated = result[0];
 
-            var proof = service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value);
             var u = maintenance.gEpoch(state.lastRollOver);
-            zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 }, (error, transactionHash) => {
-                var timer = setTimeout(() => {
-                    console.log("Withdrawal appears to be taking a while... Check the transaction hash \"" + transactionHash + "\".");
-                }, 5000);
-                that._callbacks[transactionHash] = () => {
-                    clearTimeout(timer);
-                    account._state = account._simulateBalances(); // have to freshly call it
-                    account._state.nonceUsed = true;
-                    account._state.pending -= value;
-                    console.log("Withdrawal of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
-                }
+            var proof = service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value, (proof) => {
+                zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 }, (error, transactionHash) => {
+                    var timer = setTimeout(() => {
+                        console.log("Withdrawal appears to be taking a while... Check the transaction hash \"" + transactionHash + "\".");
+                    }, 5000); // TODO: replace this timer (and all the others) with a proper "on-mined" success / failure situation.
+                    that._callbacks[transactionHash] = () => {
+                        clearTimeout(timer);
+                        account._state = account._simulateBalances(); // have to freshly call it
+                        account._state.nonceUsed = true;
+                        account._state.pending -= value;
+                        console.log("Withdrawal of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                    }
+                });
             });
+
         });
         return "Initiating withdrawal.";
     }

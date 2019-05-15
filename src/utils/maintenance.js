@@ -4,9 +4,8 @@ const { soliditySha3 } = require('web3-utils');
 
 const maintenance = {}
 
-maintenance.determinePublicKey = (x) => {
-    let x_bn = new BN(x.slice(2), 16).toRed(bn128.groupReduction);
-    let y_point = bn128.curve.g.mul(x_bn);
+maintenance.determinePublicKey = (x) => { // x is already a BN
+    let y_point = bn128.curve.g.mul(x);
     return ["0x" + y_point.getX().toString(16).padStart(64, '0'), "0x" + y_point.getY().toString(16).padStart(64, '0')];
 }
 
@@ -30,9 +29,9 @@ maintenance.readBalance = (gbyr, gr, x) => { // make sure this works
 }
 
 maintenance.createAccount = () => {
-    let x = bn128.randomGroupScalar();
+    let x = bn128.randomScalar();
     let y = maintenance.determinePublicKey(x);
-    return { 'x': x, 'y': y };
+    return { 'x': bn128.toString(x), 'y': y };
 }
 
 maintenance.gEpoch = (epoch) => { // a 0x + hex string
