@@ -169,7 +169,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         // the 20-millisecond buffer is designed to give the callback time to fire (see below).
     }
 
-    var away = function() {
+    this.away = function() {
         current = (new Date).getTime();
         return Math.ceil(current / this._epochLength) * this._epochLength - current;
     }
@@ -188,7 +188,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         if (value > state.available + state.pending)
             throw "Requested transfer amount of " + value + " exceeds account " + number + "'s balance of " + (state.available + state.pending) + ".";
 
-        var wait = away();
+        var wait = this.away();
         var seconds = Math.ceil(wait / 1000);
         var plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
@@ -202,7 +202,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         }
         if (state.nonceUsed) {
             var timer = setTimeout(() => {
-                that.transfer(name, value, number);
+                that.transfer(name, value, decoys, number);
             }, wait);
             return "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
@@ -213,7 +213,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             throw "The size (" + size + ") you've requested might take longer than the epoch length " + this._epochLength + " ms to prove. Consider re-deploying, with an epoch at least " + estimate(size, true) + " ms.";
         if (estimated > wait) {
             var timer = setTimeout(() => {
-                that.transfer(name, value, number);
+                that.transfer(name, value, decoys, number);
             }, wait);
             return wait < 2000 ? "Initiating transfer." : "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
@@ -310,7 +310,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         if (value > state.available + state.pending)
             throw "Requested withdrawal amount of " + value + " exceeds account " + number + "'s balance of " + (state.available + state.pending) + ".";
 
-        var wait = away();
+        var wait = this.away();
         var seconds = Math.ceil(wait / 1000);
         var plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
