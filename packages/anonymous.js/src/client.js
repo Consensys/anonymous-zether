@@ -265,7 +265,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var r = bn128.randomScalar();
             var L = y.map((party, i) => bn128.canonicalRepresentation(bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.curve.point(party[0].slice(2), party[1].slice(2)).mul(r))))
             var R = bn128.canonicalRepresentation(bn128.curve.g.mul(r));
-            var u = maintenance.gEpoch(state.lastRollOver);
+            var u = maintenance.u(state.lastRollOver, account.keypair['x']);
             service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
                 var throwaway = web3.eth.accounts.create(); // note: this will have to be signed locally!!! :(
                 var encoded = zsc.methods.transfer(L, R, y, u, proof.data).encodeABI();
@@ -329,7 +329,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call().then((result) => {
             var simulated = result[0];
 
-            var u = maintenance.gEpoch(state.lastRollOver);
+            var u = maintenance.u(state.lastRollOver, account.keypair['x']);
             service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value, (proof) => {
                 zsc.methods.burn(account.keypair['y'], value, u, proof.data).send({ from: home, gas: 547000000 })
                     .on('transactionHash', (hash) => {

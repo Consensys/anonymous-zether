@@ -42,11 +42,14 @@ maintenance.gEpoch = (epoch) => { // a 0x + hex string
         var y_squared = seed_bn.redPow(new BN(3)).redAdd(new BN(3).toRed(bn128.fieldReduction));
         var y = y_squared.redPow(p_1_4);
         if (y.redPow(new BN(2)).eq(y_squared)) {
-            // let y_point = bn128.curve.point(seed_bn.toString(16), y.toString(16))
-            return ["0x" + seed_bn.toString(16), "0x" + y.toString(16)];
+            return bn128.curve.point(seed_bn.toString(16), y.toString(16));
         }
         seed_bn.redIAdd(new BN(1).toRed(bn128.fieldReduction));
     }
+}
+
+maintenance.u = (epoch, x) => {
+    return bn128.canonicalRepresentation(maintenance.gEpoch(epoch).mul(new BN(x.slice(2), 16)));
 }
 
 module.exports = maintenance;
