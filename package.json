@@ -2,10 +2,17 @@
   "name": "anonymous-zether",
   "version": "0.1.0",
   "description": "",
-  "main": "truffle-config.js",
+  "main": "src/index.js",
   "dependencies": {
     "axios": "^0.18.0",
+    "bn.js": "^4.11.8",
+    "crypto": "^1.0.1",
+    "elliptic": "^6.4.1",
+    "web3-utils": "^1.0.0-beta.55"
+  },
+  "devDependencies": {
     "eslint": "^5.16.0",
-    "openzeppelin-solidity": "^2.2.0"
+    "openzeppelin-solidity": "^2.2.0",
+    "lerna": "^3.14.0"
   }
 }
