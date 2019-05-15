@@ -1,6 +1,8 @@
+const BN = require('BN.js');
+
 const maintenance = require('./utils/maintenance.js');
 const service = require('./utils/service.js');
-const BN = require('BN.js');
+const bn128 = require('./utils/bn128.js');
 
 function client(zsc) { // todo: how to ascertain the address(es) that the user wants to register against?
     if (zsc === undefined) {
@@ -11,11 +13,15 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
     var home = "0xed9d02e382b34818e88b88a309c7fe71e65f419d";
     web3.transactionConfirmationBlocks = 1; // due to a web3 bug...?
 
+    var match = (address, candidate) => {
+        return address[0] == candidate[0] && address[1] == candidate[1];
+    }
+
     zsc.events.TransferOccurred({}, (error, event) => {
         var accounts = that.accounts.showAccounts();
         event.returnValues['parties'].forEach((party, i) => {
             accounts.forEach((account, j) => { // warning: slow?
-                if (account['y'][0] == party[0] && account['y'][1] == party[1]) {
+                if (match(account.y, party)) {
                     var blockNumber = event.blockNumber;
                     web3.eth.getBlock(blockNumber).then((block) => {
                         account._state = account._simulateBalances(block.timestamp / 1000000); // divide by 1000000 for quorum...?
@@ -142,7 +148,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                 console.log("Deposit of " + value + " successful. Balance of account " + number + " is now " + (account._state.available + account._state.pending) + ".");
             })
             .on('error', (error) => {
-                console.log("Deposit failed (txHash = \"" + receipt.transactionHash + "\").");
+                console.log("Deposit failed: " + error);
             });
         return "Initiating deposit.";
     }
@@ -164,6 +170,8 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
 
     this.transfer = (name, value, decoys, number) => {
         number = number ? number : 1;
+        decoys = decoys ? decoys : [];
+
         var accounts = that.accounts.showAccounts();
         if (accounts.length < number) {
             throw "Account " + number + " not available! Please add more.";
@@ -193,10 +201,10 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             return "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
-        var size = 2 + (decoys ? decoys.length : 0);
+        var size = 2 + decoys.length;
         var estimated = estimate(size, false); // see notes above
-        if (estimated > epochLength)
-            throw "The size (" + size + ") you've requested might take longer than the epoch length " + epochLength + " ms to prove. Consider re-deploying, with an epoch at least " + estimate(size, true) + " ms.";
+        if (estimated > this._epochLength)
+            throw "The size (" + size + ") you've requested might take longer than the epoch length " + this._epochLength + " ms to prove. Consider re-deploying, with an epoch at least " + estimate(size, true) + " ms.";
         if (estimated > wait) {
             var timer = setTimeout(() => {
                 that.transfer(name, value, number);
@@ -232,7 +240,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var temp = y[i];
             y[i] = y[m];
             y[m] = temp;
-            if (this.mine(temp))
+            if (match(temp, account.keypair['y']))
                 index[0] = m;
             else if (match(temp, friends[name]))
                 index[1] = m;
@@ -245,7 +253,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         } // make sure you and your friend have opposite parity
 
         // console.log("Gathering account state...")
-        zsc.simulateAccounts(y, this._getEpoch()).call({}, (error, result) => {
+        zsc.methods.simulateAccounts(y, this._getEpoch()).call({}, (error, result) => {
             var CL = [];
             var CR = [];
             result.forEach((simulated) => {
@@ -260,19 +268,24 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var u = maintenance.gEpoch(state.lastRollOver);
             service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
                 var throwaway = web3.eth.accounts.create(); // note: this will have to be signed locally!!! :(
-                zsc.methods.transfer(L, R, y, u, proof.data).send({ from: throwaway.address, gas: 2000000000 })
-                    .on('transactionHash', (hash) => {
-                        console.log("Transfer submitted (txHash = \"" + hash + "\").");
-                    })
-                    .on('receipt', (receipt) => {
-                        account._state = account._simulateBalances(); // have to freshly call it
-                        account._state.nonceUsed = true;
-                        account._state.pending -= value;
-                        console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
-                    })
-                    .on('error', (error) => {
-                        console.log("Transfer from account " + number + " failed (txHash = \"" + receipt.transactionHash + "\").");
-                    });
+                var encoded = zsc.methods.transfer(L, R, y, u, proof.data).encodeABI();
+                var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
+
+                web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
+                    web3.eth.sendSignedTransaction(signed.rawTransaction)
+                        .on('transactionHash', (hash) => {
+                            console.log("Transfer submitted (txHash = \"" + hash + "\").");
+                        })
+                        .on('receipt', (receipt) => {
+                            account._state = account._simulateBalances(); // have to freshly call it
+                            account._state.nonceUsed = true;
+                            account._state.pending -= value;
+                            console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                        })
+                        .on('error', (error) => {
+                            console.log("Transfer from account " + number + " failed: " + error);
+                        });
+                });
             });
         });
         return "Initiating transfer.";
@@ -328,7 +341,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                         account._state.pending -= value;
                         console.log("Withdrawal of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
                     }).on('error', (error) => {
-                        console.log("Withdrawal from account " + number + " failed (txHash = \"" + hash + "\").");
+                        console.log("Withdrawal from account " + number + " failed: " + error);
                     });
             });
         });
