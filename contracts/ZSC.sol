@@ -25,11 +25,8 @@ contract ZSC {
     uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated
     // not implementing account locking for now...revisit
 
-    event RegistrationOccurred(); // no more args: that the transaction occurred and was not modified (including replays)
-    event FundOccurred(); // can be determined on the basis of the transaction hash alone. (sig is included in hash)
     event TransferOccurred(bytes32[2][] parties); // all parties will be notified, client can determine whether it was real or not.
     // arg is still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
-    event BurnOccurred();
 
     constructor(address _coin, address _zether, address _burn, uint256 _epochLength) public {
         coin = ERC20Interface(_coin);
@@ -116,7 +113,6 @@ contract ZSC {
             // account of y is now [y, g] = ElG_y(e, 1). sentinel for having registered
         }
         acc[yHash] = scratch;
-        emit RegistrationOccurred(); // client must use this event callback to confirm.
     }
 
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
@@ -148,7 +144,6 @@ contract ZSC {
         // front-running here would be disadvantageous, but still prevent it here by using ethAddrs[yHash] instead of msg.sender
         // also adds flexibility: can later issue messages from arbitrary ethereum accounts.
         bTotal += bTransfer;
-        emit FundOccurred();
     }
 
     function transfer(bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, bytes32[2] memory u, bytes memory proof) public {
@@ -278,6 +273,5 @@ contract ZSC {
         // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".
         bTotal -= bTransfer;
         nonceSet.push(uHash);
-        emit BurnOccurred();
     }
 }

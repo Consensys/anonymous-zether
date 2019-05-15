@@ -9,35 +9,29 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
 
     var home = "0xed9d02e382b34818e88b88a309c7fe71e65f419d";
 
-    this._callbacks = {};
-    zsc.events.allEvents({}, (error, event) => {
-        if (event.transactionHash in that._callbacks) {
-            that._callbacks[event.transactionHash]();
-            delete that._callbacks[event.transactionHash];
-        } else if (event.event == 'TransferOccurred') {
-            var accounts = that.accounts.showAccounts();
-            event.returnValues['parties'].forEach((party, i) => {
-                accounts.forEach((account, j) => { // warning: slow?
-                    if (account['y'][0] == party[0] && account['y'][1] == party[1]) {
-                        var blockNumber = event.blockNumber;
-                        web3.eth.getBlock(blockNumber).then((block) => {
-                            account._state = account._simulateBalances(block.timestamp / 1000000); // divide by 1000000 for quorum...?
-                            var pending = account._state.pending;
+    zsc.events.TransferOccurred({}, (error, event) => {
+        var accounts = that.accounts.showAccounts();
+        event.returnValues['parties'].forEach((party, i) => {
+            accounts.forEach((account, j) => { // warning: slow?
+                if (account['y'][0] == party[0] && account['y'][1] == party[1]) {
+                    var blockNumber = event.blockNumber;
+                    web3.eth.getBlock(blockNumber).then((block) => {
+                        account._state = account._simulateBalances(block.timestamp / 1000000); // divide by 1000000 for quorum...?
+                        var pending = account._state.pending;
 
-                            web3.eth.getTransaction(event.transactionHash).then((transaction) => {
-                                var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
-                                var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
-                                var value = maintenance.readBalance([parameters['L'][i], parameters['R']], account['x'])
-                                if (value) {
-                                    account._state.pending += value;
-                                    console.log("Transfer of " + value + " received! Balance of account " + j + " is " + (that._state.available + that._state.pending) + ".");
-                                }
-                            })
-                        });
-                    }
-                });
+                        web3.eth.getTransaction(event.transactionHash).then((transaction) => {
+                            var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
+                            var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
+                            var value = maintenance.readBalance([parameters['L'][i], parameters['R']], account['x'])
+                            if (value) {
+                                account._state.pending += value;
+                                console.log("Transfer of " + value + " received! Balance of account " + j + " is " + (that._state.available + that._state.pending) + ".");
+                            }
+                        })
+                    });
+                }
             });
-        }
+        });
     })
 
     this._epochLength = undefined;
@@ -50,15 +44,17 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
 
     this.accounts = new function() { // strange construction but works, revisit
         var register = (keypair, number) => {
-            zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 }, (error, transactionHash) => {
-                var timer = setTimeout(() => {
-                    console.log("Registration of account " + number + " appears to be taking a while... Check the transaction hash \"" + transactionHash + "\". Do not use this account without registration!");
-                }, 5000);
-                that._callbacks[transactionHash] = () => {
-                    clearTimeout(timer);
-                    console.log("Registration of account " + number + " successful.");
-                };
-            });
+            zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 })
+                .on('transactionHash', (hash) => {
+                    console.log("Initiating registration (txHash = \"" + hash + "\").");
+                })
+                .on('receipt', (receipt) => {
+                    if (receipt.status) {
+                        console.log("Registration of account " + number + " successful.");
+                    } else {
+                        console.log("Registration of account " + number + " failed! Do not use this account.");
+                    }
+                });
         }
 
         function account() {
@@ -134,17 +130,16 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         if (accounts.length < number) {
             throw "Account " + number + " not available! Please add more.";
         }
-        zsc.methods.fund(accounts[number - 1]['y'], value).send({ from: home, gas: 5470000 }, (error, transactionHash) => {
-            var timer = setTimeout(() => {
-                console.log("Deposit appears to be taking a while... Check the transaction hash \"" + transactionHash + "\".");
-            }, 5000);
-            that._callbacks[transactionHash] = () => {
-                clearTimeout(timer);
-                that._state = that._simulateBalances(); // have to freshly call it
-                that._state.pending += value;
-                console.log("Deposit of " + value + " successful. Balance is now " + (that._state.available + that._state.pending) + ".");
-            }
-        });
+        var account = accounts[number - 1];
+        zsc.methods.fund(account['y'], value).send({ from: home, gas: 5470000 })
+            .on('transactionHash', (hash) => {
+                console.log("Initiating deposit (txHash = \"" + hash + "\").");
+            })
+            .on('receipt', (receipt) => {
+                account._state = account._simulateBalances(); // have to freshly call it
+                account._state.pending += value;
+                console.log("Deposit of " + value + " successful. Balance of account " + number + " is now " + (account._state.available + account._state.pending) + ".");
+            });
         return "Initiating deposit.";
     }
 
@@ -173,7 +168,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
 
         var state = account._simulateBalances();
         if (value > state.available + state.pending)
-            throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
+            throw "Requested transfer amount of " + value + " exceeds account " + number + "'s balance of " + (state.available + state.pending) + ".";
 
         var wait = away();
         var seconds = Math.ceil(wait / 1000);
@@ -261,19 +256,20 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var u = maintenance.gEpoch(state.lastRollOver);
             service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
                 var throwaway = web3.eth.accounts.create(); // note: this will have to be signed locally!!! :(
-                zsc.transfer(L, R, y, u, proof, { from: throwaway.address, gas: 2000000000 }, function(error, txHash) {
-                    var timer = setTimeout(() => {
-                        console.log("Transfer appears to be taking a while... Check the transaction hash \"" + transactionHash + "\".");
-                        // can't, but don't actually need to, delete txHash from the table.
-                    }, 5000 + estimated / 4);
-                    that._callbacks[transactionHash] = () => {
-                        clearTimeout(timer);
-                        account._state = account._simulateBalances(); // have to freshly call it
-                        account._state.nonceUsed = true;
-                        account._state.pending -= value;
-                        console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
-                    };
-                });
+                zsc.methods.transfer(L, R, y, u, proof).send({ from: throwaway.address, gas: 2000000000 })
+                    .on('transactionHash', (hash) => {
+                        console.log("Transfer initiated (txHash = \"" + hash + "\").");
+                    })
+                    .on('receipt', (receipt) => {
+                        if (receipt.status) {
+                            account._state = account._simulateBalances(); // have to freshly call it
+                            account._state.nonceUsed = true;
+                            account._state.pending -= value;
+                            console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                        } else {
+                            console.log("Transfer from account " + number + " failed (txHash = \"" + receipt.transactionHash + "\").");
+                        }
+                    });
             });
         });
         return "Initiating transfer.";
@@ -332,7 +328,6 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                     }
                 });
             });
-
         });
         return "Initiating withdrawal.";
     }
