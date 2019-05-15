@@ -31,7 +31,7 @@ maintenance.readBalance = (gbyr, gr, x) => { // make sure this works
 
 maintenance.createAccount = () => {
     let x = bn128.randomGroupScalar();
-    let y = bn128.determinePublicKey(x);
+    let y = maintenance.determinePublicKey(x);
     return { 'x': x, 'y': y };
 }
 
