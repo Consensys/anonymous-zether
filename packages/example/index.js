@@ -23,11 +23,9 @@ const sleep = () => new Promise(resolve => setTimeout(resolve, 5000));
 
   const account = await web3Socket.eth.getAccounts();
   const client = new Client(deployedZSC, account[0], web3Socket);
-  client.account.initizalize();
-  await sleep();
-  client.friends.addFriend("alice","BULeR8JyUWhiuuCMU/HLA0Q5pzkYT+cHII3ZKBey3Bo=");
+  await client.account.initialize();
+  client.friends.addFriend("alice",[ '0x0eaadaaa84784811271240ec2f03b464015082426aa13a46a99a56c964a5c7cc','0x173ce032ad098e9fcbf813696da92328257e58827f3600b259c42e52ff809433' ]);
   const friends = client.friends.showFriends();
-  console.log(friends);
   client.deposit(3000);
-  
+  client.withdraw(1000);
 })();

@@ -47,30 +47,6 @@ function client(zsc, home, web3, keypair) {
     })
 
     this._epochLength = undefined;
-    zsc.methods.epochLength().call({}, (error, result) => {
-        that._epochLength = result;
-
-        if (keypair === undefined) {
-            let keypair = maintenance.createAccount();
-            that.account.keypair = keypair;
-            zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 })
-                .on('transactionHash', (hash) => {
-                    console.log("Initiating registration (txHash = \"" + hash + "\").");
-                })
-                .on('receipt', (receipt) => {
-                    console.log("Registration successful.");
-                })
-                .on('error', (error) => {
-                    console.log("Registration failed! Create a new `client` (do not use this one).");
-                });
-        } else {
-            that.account.keypair = keypair;
-            zsc.methods.simulateAccounts([keypair['y']], that._getEpoch() + 1).call({}, (error, result) => {
-                var simulated = result[0];
-                that.account._state.available = maintenance.readBalance(simulated[0], simulated[1], keypair['x']);
-            })
-        }
-    }); // how to prevent use until this thing has been properly populated?
 
     this._getEpoch = function(timestamp) { // timestamp is in ms; so is epochLength.
         return Math.floor((timestamp === undefined ? (new Date).getTime() : timestamp) / this._epochLength);
@@ -81,30 +57,60 @@ function client(zsc, home, web3, keypair) {
         return Math.ceil(current / this._epochLength) * this._epochLength - current;
     }
 
-    this.account = new function() { // strange construction but works, revisit
-        this._state = new function() { // don't touch this...
-            this.available = 0;
-            this.pending = 0;
-            this.nonceUsed = 0;
-            this.lastRollOver = 0;
-        }
-        this._simulateBalances = (timestamp) => {
+    this.account = {
+        keypair: '',
+        _state: { // don't touch this...
+            available: 0,
+            pending: 0,
+            nonceUsed: 0,
+            lastRollOver: 0
+        },
+        _simulateBalances: (timestamp) => {
             var updated = {};
-            updated.available = this._state.available;
-            updated.pending = this._state.pending;
-            updated.nonceUsed = this._state.nonceUsed;
-            updated.lastRollOver = that._getEpoch(timestamp);
-            if (this._state.lastRollOver < updated.lastRollOver) {
+            updated.available = this.account._state.available;
+            updated.pending = this.account._state.pending;
+            updated.nonceUsed = this.account._state.nonceUsed;
+            updated.lastRollOver = this._getEpoch(timestamp);
+            if (this.account._state.lastRollOver < updated.lastRollOver) {
                 updated.available += updated.pending;
                 updated.pending = 0;
                 updated.nonceUsed = false;
             }
             return updated
-        }
-
-        this.balance = () => {
-            return this._state.available + this._state.pending;
-        }
+        },
+        balance: () => {
+            return this.account._state.available + this.account._state.pending;
+        },
+        initialize: async (keypair) => {
+            return new Promise((resolve, reject) => {
+                zsc.methods.epochLength().call({}, (error, result) => {
+                    that._epochLength = result;
+                    if (keypair === undefined) {
+                        let keypair = maintenance.createAccount();
+                        this.account.keypair = keypair;
+                        zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 })
+                            .on('transactionHash', (hash) => {
+                                console.log("Initiating registration (txHash = \"" + hash + "\").");
+                            })
+                            .on('receipt', (receipt) => {
+                                console.log("Registration successful.");
+                                resolve(receipt);
+                            })
+                            .on('error', (error) => {
+                                console.log("Registration failed! Create a new `client` (do not use this one).");
+                                reject(error);
+                            });
+                    } else {
+                        this.account.keypair = keypair;
+                        zsc.methods.simulateAccounts([keypair['y']], that._getEpoch() + 1).call({}, (error, result) => {
+                            var simulated = result[0];
+                            that.account._state.available = maintenance.readBalance(simulated[0], simulated[1], keypair['x']);
+                            resolve(result)
+                        })
+                    }
+                })
+            })
+        } // how to prevent use until this thing has been properly populated
     };
 
     this.friends = new function() {
