@@ -134,7 +134,8 @@ function client(zsc, home, web3, keypair) {
 
     this.deposit = (value) => {
         var account = this.account;
-        zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
+        return new Promise((resolve, reject) => {
+            zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
             .on('transactionHash', (hash) => {
                 console.log("Deposit submitted (txHash = \"" + hash + "\").");
             })
@@ -142,11 +143,13 @@ function client(zsc, home, web3, keypair) {
                 account._state = account._simulateBalances(); // have to freshly call it
                 account._state.pending += value;
                 console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                resolve(true)
             })
             .on('error', (error) => {
                 console.log("Deposit failed: " + error);
+                reject(error);
             });
-        return "Initiating deposit.";
+        })
     }
 
     var estimate = (size, contract) => {
@@ -278,29 +281,29 @@ function client(zsc, home, web3, keypair) {
     }
 
     this.withdraw = (value) => {
-        var account = this.account;
-        var state = account._simulateBalances();
+        let account = this.account;
+        let state = account._simulateBalances();
         if (value > state.available + state.pending)
             throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
 
-        var wait = this._away();
-        var seconds = Math.ceil(wait / 1000);
-        var plural = seconds == 1 ? "" : "s";
+        let wait = this._away();
+        let seconds = Math.ceil(wait / 1000);
+        let plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
-            var timer = setTimeout(() => {
+            let timer = setTimeout(() => {
                 that.withdraw(value);
             }, wait);
             return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
         }
         if (state.nonceUsed) {
-            var timer = setTimeout(() => {
+            let timer = setTimeout(() => {
                 that.withdraw(value);
             }, wait);
             return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
         if (2000 > wait) { // withdrawals will take <= 2 seconds (actually, more like 1)...
-            var timer = setTimeout(() => {
+            let timer = setTimeout(() => {
                 that.withdraw(value);
             }, wait);
             return "Initiating withdrawal.";
