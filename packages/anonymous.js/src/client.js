@@ -4,14 +4,14 @@ const maintenance = require('./utils/maintenance.js');
 const service = require('./utils/service.js');
 const bn128 = require('./utils/bn128.js');
 
-function client(zsc, keypair) {
+function client(zsc, home, web3, keypair) {
     if (zsc === undefined) {
         throw "Please provide an argument pointing to a deployed ZSC contract!";
     }
+    if (home === undefined) {
+        throw "Please provide an unlocked ethereum account";
+    }
     var that = this;
-
-    var home = "0xed9d02e382b34818e88b88a309c7fe71e65f419d";
-    web3.transactionConfirmationBlocks = 1; // due to a web3 bug...?
 
     var match = (address, candidate) => {
         return address[0] == candidate[0] && address[1] == candidate[1];
