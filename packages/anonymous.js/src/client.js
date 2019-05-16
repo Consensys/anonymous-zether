@@ -4,7 +4,7 @@ const maintenance = require('./utils/maintenance.js');
 const service = require('./utils/service.js');
 const bn128 = require('./utils/bn128.js');
 
-function client(zsc) { // todo: how to ascertain the address(es) that the user wants to register against?
+function client(zsc, keypair) {
     if (zsc === undefined) {
         throw "Please provide an argument pointing to a deployed ZSC contract!";
     }
@@ -24,27 +24,25 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             that._transfers.delete(event.transactionHash);
             return;
         }
-        var accounts = that.accounts.showAccounts();
+        var account = that.account;
         event.returnValues['parties'].forEach((party, i) => {
-            accounts.forEach((account, j) => { // warning: slow?
-                if (match(account.keypair['y'], party)) {
-                    var blockNumber = event.blockNumber;
-                    web3.eth.getBlock(blockNumber).then((block) => {
-                        account._state = account._simulateBalances(block.timestamp / 1000000); // divide by 1000000 for quorum...?
-                        var pending = account._state.pending;
+            if (match(account.keypair['y'], party)) {
+                var blockNumber = event.blockNumber;
+                web3.eth.getBlock(blockNumber).then((block) => {
+                    account._state = account._simulateBalances(block.timestamp / 1000000); // divide by 1000000 for quorum...?
+                    var pending = account._state.pending;
 
-                        web3.eth.getTransaction(event.transactionHash).then((transaction) => {
-                            var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
-                            var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
-                            var value = maintenance.readBalance(parameters['L'][i], parameters['R'], account.keypair['x'])
-                            if (value > 0) {
-                                account._state.pending += value;
-                                console.log("Transfer of " + value + " received! Balance of account " + (j + 1) + " is " + (account._state.available + account._state.pending) + ".");
-                            }
-                        })
-                    });
-                }
-            });
+                    web3.eth.getTransaction(event.transactionHash).then((transaction) => {
+                        var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
+                        var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
+                        var value = maintenance.readBalance(parameters['L'][i], parameters['R'], account.keypair['x'])
+                        if (value > 0) {
+                            account._state.pending += value;
+                            console.log("Transfer of " + value + " received! Balance now " + (account._state.available + account._state.pending) + ".");
+                        }
+                    })
+                });
+            }
         });
     })
 
@@ -56,65 +54,52 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         return Math.floor((timestamp === undefined ? (new Date).getTime() : timestamp) / this._epochLength);
     }
 
-    this.accounts = new function() { // strange construction but works, revisit
-        var register = (keypair, number) => {
+    this._away = function() {
+        current = (new Date).getTime();
+        return Math.ceil(current / this._epochLength) * this._epochLength - current;
+    }
+
+    this.account = new function() { // strange construction but works, revisit
+        this._state = new function() { // don't touch this...
+            this.available = 0;
+            this.pending = 0;
+            this.nonceUsed = 0;
+            this.lastRollOver = 0;
+        }
+        this._simulateBalances = (timestamp) => {
+            var updated = {};
+            updated.available = this._state.available;
+            updated.pending = this._state.pending;
+            updated.nonceUsed = this._state.nonceUsed;
+            updated.lastRollOver = that._getEpoch(timestamp);
+            if (this._state.lastRollOver < updated.lastRollOver) {
+                updated.available += updated.pending;
+                updated.pending = 0;
+                updated.nonceUsed = false;
+            }
+            return updated
+        }
+
+        if (keypair === undefined) {
+            var keypair = maintenance.createAccount();
+            this.keypair = keypair;
             zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 })
                 .on('transactionHash', (hash) => {
                     console.log("Initiating registration (txHash = \"" + hash + "\").");
                 })
                 .on('receipt', (receipt) => {
-                    console.log("Registration of account " + number + " successful.");
+                    console.log("Registration successful.");
                 })
                 .on('error', (error) => {
-                    console.log("Registration of account " + number + " failed! Do not use this account.");
+                    console.log("Registration failed! Create a new `client` (do not use this one).");
                 });
+        } else {
+            this.keypair = keypair;
+            /// MANAGE STATE NOW
         }
 
-        function account() {
-            this.keypair = undefined;
-            this._state = new function() { // don't touch this...
-                this.available = 0;
-                this.pending = 0;
-                this.nonceUsed = 0;
-                this.lastRollOver = 0;
-            }
-            this._simulateBalances = (timestamp) => {
-                var updated = {};
-                updated.available = this._state.available;
-                updated.pending = this._state.pending;
-                updated.nonceUsed = this._state.nonceUsed;
-                updated.lastRollOver = that._getEpoch(timestamp);
-                if (this._state.lastRollOver < updated.lastRollOver) {
-                    updated.available += updated.pending;
-                    updated.pending = 0;
-                    updated.nonceUsed = false;
-                }
-                return updated
-            }
-        }
-
-        var accounts = [];
-        this.addAccount = async (keypair) => { // a dict of the form { 'x': x, 'y': y } plus state stuff.
-            // assuming that it is actually a proper keypair.
-            if (keypair === undefined) {
-                throw "Please specify the keypair of the account you'd like to add.";
-            }
-            var temp = new account();
-            temp.keypair = keypair;
-            var number = accounts.push(temp);
-            register(keypair, number);
-            return "Account " + number + " added.";
-        }
-        this.newAccount = () => {
-            var keypair = maintenance.createAccount();
-            var temp = new account();
-            temp.keypair = keypair;
-            var number = accounts.push(temp);
-            register(keypair, number);
-            return "Account " + number + " generated."; // won't print it out for now.
-        }
-        this.showAccounts = () => {
-            return accounts;
+        this.balance = () => {
+            return this._state.available + this._state.pending;
         }
     }
 
@@ -137,13 +122,8 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         }
     }
 
-    this.deposit = (value, number) => {
-        number = number ? number : 1;
-        var accounts = that.accounts.showAccounts();
-        if (accounts.length < number) {
-            throw "Account " + number + " not available! Please add more.";
-        }
-        var account = accounts[number - 1];
+    this.deposit = (value) => {
+        var account = this.account;
         zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
             .on('transactionHash', (hash) => {
                 console.log("Deposit submitted (txHash = \"" + hash + "\").");
@@ -151,7 +131,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             .on('receipt', (receipt) => {
                 account._state = account._simulateBalances(); // have to freshly call it
                 account._state.pending += value;
-                console.log("Deposit of " + value + " successful. Balance of account " + number + " is now " + (account._state.available + account._state.pending) + ".");
+                console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
             })
             .on('error', (error) => {
                 console.log("Deposit failed: " + error);
@@ -169,42 +149,31 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         // the 20-millisecond buffer is designed to give the callback time to fire (see below).
     }
 
-    this._away = function() {
-        current = (new Date).getTime();
-        return Math.ceil(current / this._epochLength) * this._epochLength - current;
-    }
-
-    this.transfer = (name, value, decoys, number) => {
-        number = number ? number : 1;
+    this.transfer = (name, value, decoys) => {
         decoys = decoys ? decoys : [];
 
-        var accounts = that.accounts.showAccounts();
-        if (accounts.length < number) {
-            throw "Account " + number + " not available! Please add more.";
-        }
-        var account = accounts[number - 1];
-
+        var account = this.account;
         var state = account._simulateBalances();
         if (value > state.available + state.pending)
-            throw "Requested transfer amount of " + value + " exceeds account " + number + "'s balance of " + (state.available + state.pending) + ".";
+            throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
 
         var wait = this._away();
         var seconds = Math.ceil(wait / 1000);
         var plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
             var timer = setTimeout(() => {
-                that.transfer(name, value, decoys, number);
+                that.transfer(name, value, decoys);
             }, wait);
-            return "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
+            return "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
             // note: another option here would be to simply throw an error and abort.
             // the upside to doing that would be that the user might be willing to simply send a lower amount, and not have to wait.
             // the downside is of course if the user doesn't want that, then having to wait manually and then manually re-enter the transaction.
         }
         if (state.nonceUsed) {
             var timer = setTimeout(() => {
-                that.transfer(name, value, decoys, number);
+                that.transfer(name, value, decoys);
             }, wait);
-            return "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+            return "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
         var size = 2 + decoys.length;
@@ -213,9 +182,9 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             throw "The size (" + size + ") you've requested might take longer than the epoch length " + this._epochLength + " ms to prove. Consider re-deploying, with an epoch at least " + estimate(size, true) + " ms.";
         if (estimated > wait) {
             var timer = setTimeout(() => {
-                that.transfer(name, value, decoys, number);
+                that.transfer(name, value, decoys);
             }, wait);
-            return wait < 2000 ? "Initiating transfer." : "Your transaction has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+            return wait < 2000 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
         if (size & (size - 1)) {
@@ -287,10 +256,10 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                             account._state = account._simulateBalances(); // have to freshly call it
                             account._state.nonceUsed = true;
                             account._state.pending -= value;
-                            console.log("Transfer of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                            console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
                         })
                         .on('error', (error) => {
-                            console.log("Transfer from account " + number + " failed: " + error);
+                            console.log("Transfer failed: " + error);
                         });
                 });
             });
@@ -298,17 +267,11 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         return "Initiating transfer.";
     }
 
-    this.withdraw = (value, number) => {
-        number = number ? number : 1;
-        var accounts = that.accounts.showAccounts();
-        if (accounts.length < number) {
-            throw "Account " + number + " not available! Please add more.";
-        }
-        var account = accounts[number - 1];
-
+    this.withdraw = (value) => {
+        var account = this.account;
         var state = account._simulateBalances();
         if (value > state.available + state.pending)
-            throw "Requested withdrawal amount of " + value + " exceeds account " + number + "'s balance of " + (state.available + state.pending) + ".";
+            throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
 
         var wait = this._away();
         var seconds = Math.ceil(wait / 1000);
@@ -317,13 +280,13 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
             var timer = setTimeout(() => {
                 that.withdraw(value);
             }, wait);
-            return "Withdrawal on account + " + number + " queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
+            return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
         }
         if (state.nonceUsed) {
             var timer = setTimeout(() => {
                 that.withdraw(value);
             }, wait);
-            return "Withdrawal on account " + number + " queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+            return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
         if (2000 > wait) { // withdrawals will take <= 2 seconds (actually, more like 1)...
@@ -346,9 +309,9 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                         account._state = account._simulateBalances(); // have to freshly call it
                         account._state.nonceUsed = true;
                         account._state.pending -= value;
-                        console.log("Withdrawal of " + value + " was successful. Balance of account " + number + " now " + (account._state.available + account._state.pending) + ".");
+                        console.log("Withdrawal of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
                     }).on('error', (error) => {
-                        console.log("Withdrawal from account " + number + " failed: " + error);
+                        console.log("Withdrawal failed: " + error);
                     });
             });
         });
