@@ -11,9 +11,18 @@ maintenance.determinePublicKey = (x) => { // x is already a BN
 
 // Brute-force decrypt balance for [0, B_MAX]
 // not using a "start" parameter for now... revisit.
-maintenance.readBalance = (gbyr, gr, x) => { // make sure this works
-    var gr_point = bn128.curve.point(gr[0].slice(2), gr[1].slice(2));
-    var gbyr_point = bn128.curve.point(gbyr[0].slice(2), gbyr[1].slice(2));
+maintenance.readBalance = (gbyr, gr, x) => {
+    var gbyr_point, gr_point;
+    if (gbyr[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && gbyr[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
+        gbyr_point = bn128.curve.g.mul(0);
+    } else {
+        gbyr_point = bn128.curve.point(gbyr[0].slice(2), gbyr[1].slice(2));
+    }
+    if (gbyr[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && gbyr[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
+        gr_point = bn128.curve.point(gbyr[0].slice(2), gbyr[1].slice(2));
+    } else {
+        var gr_point = bn128.curve.point(gr[0].slice(2), gr[1].slice(2));
+    }
     var x_bn = new BN(x.slice(2), 16).toRed(bn128.groupReduction);
 
     // not handling the case of the 0 point... shouldn't be necessary. revisit.
