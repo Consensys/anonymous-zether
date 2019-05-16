@@ -39,7 +39,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
                             var value = maintenance.readBalance(parameters['L'][i], parameters['R'], account.keypair['x'])
                             if (value > 0) {
                                 account._state.pending += value;
-                                console.log("Transfer of " + value + " received! Balance of account " + j + " is " + (that._state.available + that._state.pending) + ".");
+                                console.log("Transfer of " + value + " received! Balance of account " + (j + 1) + " is " + (account._state.available + account._state.pending) + ".");
                             }
                         })
                     });
@@ -169,7 +169,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         // the 20-millisecond buffer is designed to give the callback time to fire (see below).
     }
 
-    this.away = function() {
+    this._away = function() {
         current = (new Date).getTime();
         return Math.ceil(current / this._epochLength) * this._epochLength - current;
     }
@@ -188,7 +188,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         if (value > state.available + state.pending)
             throw "Requested transfer amount of " + value + " exceeds account " + number + "'s balance of " + (state.available + state.pending) + ".";
 
-        var wait = this.away();
+        var wait = this._away();
         var seconds = Math.ceil(wait / 1000);
         var plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
@@ -310,7 +310,7 @@ function client(zsc) { // todo: how to ascertain the address(es) that the user w
         if (value > state.available + state.pending)
             throw "Requested withdrawal amount of " + value + " exceeds account " + number + "'s balance of " + (state.available + state.pending) + ".";
 
-        var wait = this.away();
+        var wait = this._away();
         var seconds = Math.ceil(wait / 1000);
         var plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
