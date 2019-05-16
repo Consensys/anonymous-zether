@@ -11,20 +11,38 @@ maintenance.determinePublicKey = (x) => { // x is already a BN
 
 // Brute-force decrypt balance for [0, B_MAX]
 // not using a "start" parameter for now... revisit.
-maintenance.readBalance = (gbyr, gr, x) => { // make sure this works
-    var gr_point = bn128.curve.point(gr[0].slice(2), gr[1].slice(2));
-    var gbyr_point = bn128.curve.point(gbyr[0].slice(2), gbyr[1].slice(2));
+maintenance.readBalance = (gbyr, gr, x) => {
+    var gbyr_point, gr_point;
+    if (gbyr[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && gbyr[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
+        gbyr_point = bn128.curve.g.mul(0);
+    } else {
+        gbyr_point = bn128.curve.point(gbyr[0].slice(2), gbyr[1].slice(2));
+    }
+    if (gbyr[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && gbyr[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
+        gr_point = bn128.curve.point(gbyr[0].slice(2), gbyr[1].slice(2));
+    } else {
+        var gr_point = bn128.curve.point(gr[0].slice(2), gr[1].slice(2));
+    }
     var x_bn = new BN(x.slice(2), 16).toRed(bn128.groupReduction);
 
     // not handling the case of the 0 point... shouldn't be necessary. revisit.
     let gb = gbyr_point.add(gr_point.mul(x_bn).neg());
 
-    let accumulator = bn128.curve.g.mul(0);
-    for (var i = 0; i < bn128.B_MAX; i++) {
-        if (accumulator.eq(gb)) {
-            return i;
+    var g = bn128.curve.g;
+    var neg_g = g.neg();
+    let up = bn128.curve.g.mul(0);
+    let down = neg_g;
+    var counter = 0;
+    while (true) { // danger...
+        if (up.eq(gb)) {
+            return counter;
         }
-        accumulator = accumulator.add(bn128.curve.g);
+        if (down.eq(gb)) {
+            return -1 - counter;
+        }
+        up = up.add(g);
+        down = down.add(neg_g);
+        counter++;
     }
 }
 
