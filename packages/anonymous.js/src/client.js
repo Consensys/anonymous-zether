@@ -9,7 +9,7 @@ function client(zsc, home, web3, keypair) {
         throw "Please provide an argument pointing to a deployed ZSC contract!";
     }
     if (home === undefined) {
-        throw "Please provide an unlocked ethereum account";
+        throw "Please specify an unlocked ethereum account.";
     }
     var that = this;
 
@@ -136,19 +136,19 @@ function client(zsc, home, web3, keypair) {
         var account = this.account;
         return new Promise((resolve, reject) => {
             zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
-            .on('transactionHash', (hash) => {
-                console.log("Deposit submitted (txHash = \"" + hash + "\").");
-            })
-            .on('receipt', (receipt) => {
-                account._state = account._simulateBalances(); // have to freshly call it
-                account._state.pending += value;
-                console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                resolve(true)
-            })
-            .on('error', (error) => {
-                console.log("Deposit failed: " + error);
-                reject(error);
-            });
+                .on('transactionHash', (hash) => {
+                    console.log("Deposit submitted (txHash = \"" + hash + "\").");
+                })
+                .on('receipt', (receipt) => {
+                    account._state = account._simulateBalances(); // have to freshly call it
+                    account._state.pending += value;
+                    console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                    resolve(true)
+                })
+                .on('error', (error) => {
+                    console.log("Deposit failed: " + error);
+                    reject(error);
+                });
         })
     }
 
