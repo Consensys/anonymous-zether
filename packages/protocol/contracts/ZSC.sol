@@ -2,15 +2,10 @@ pragma solidity 0.5.4;
 
 import './ZetherVerifier.sol';
 import './BurnVerifier.sol';
-
-contract ERC20Interface {
-  function transfer(address to, uint256 value) external returns (bool);
-
-  function transferFrom(address from, address to, uint256 value) public returns (bool);
-}
+import './CashToken.sol';
 
 contract ZSC {
-    ERC20Interface coin;
+    CashToken coin;
     ZetherVerifier zetherverifier;
     BurnVerifier burnverifier;
     uint256 public epochLength; // now in milliseconds.
@@ -29,7 +24,7 @@ contract ZSC {
     // arg is still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
 
     constructor(address _coin, address _zether, address _burn, uint256 _epochLength) public {
-        coin = ERC20Interface(_coin);
+        coin = CashToken(_coin);
         zetherverifier = ZetherVerifier(_zether);
         burnverifier = BurnVerifier(_burn);
         epochLength = _epochLength;
