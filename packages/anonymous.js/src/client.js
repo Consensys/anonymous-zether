@@ -49,7 +49,29 @@ function client(zsc, keypair) {
     this._epochLength = undefined;
     zsc.methods.epochLength().call({}, (error, result) => {
         that._epochLength = result;
+
+        if (keypair === undefined) {
+            let keypair = maintenance.createAccount();
+            that.account.keypair = keypair;
+            zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 })
+                .on('transactionHash', (hash) => {
+                    console.log("Initiating registration (txHash = \"" + hash + "\").");
+                })
+                .on('receipt', (receipt) => {
+                    console.log("Registration successful.");
+                })
+                .on('error', (error) => {
+                    console.log("Registration failed! Create a new `client` (do not use this one).");
+                });
+        } else {
+            that.account.keypair = keypair;
+            zsc.methods.simulateAccounts([keypair['y']], that._getEpoch() + 1).call({}, (error, result) => {
+                var simulated = result[0];
+                that.account._state.available = maintenance.readBalance(simulated[0], simulated[1], keypair['x']);
+            })
+        }
     }); // how to prevent use until this thing has been properly populated?
+
     this._getEpoch = function(timestamp) { // timestamp is in ms; so is epochLength.
         return Math.floor((timestamp === undefined ? (new Date).getTime() : timestamp) / this._epochLength);
     }
@@ -59,7 +81,7 @@ function client(zsc, keypair) {
         return Math.ceil(current / this._epochLength) * this._epochLength - current;
     }
 
-    this.account = new function(keypair) { // strange construction but works, revisit
+    this.account = new function() { // strange construction but works, revisit
         this._state = new function() { // don't touch this...
             this.available = 0;
             this.pending = 0;
@@ -80,33 +102,10 @@ function client(zsc, keypair) {
             return updated
         }
 
-        if (keypair === undefined) {
-            var keypair = maintenance.createAccount();
-            this.keypair = keypair;
-            zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 })
-                .on('transactionHash', (hash) => {
-                    console.log("Initiating registration (txHash = \"" + hash + "\").");
-                })
-                .on('receipt', (receipt) => {
-                    console.log("Registration successful.");
-                })
-                .on('error', (error) => {
-                    console.log("Registration failed! Create a new `client` (do not use this one).");
-                });
-        } else {
-            this.keypair = keypair;
-            zsc.methods.getAcc(keypair['y']).call().then((result) => {
-                that.account._state.available = maintenance.readBalance(result[0], result[1], keypair['x']);
-            });
-            zsc.methods.getpTransfers(keypair['y']).call().then((result) => {
-                that.account._state.pending = maintenance.readBalance(result[0], result[1], keypair['x']);
-            });
-        }
-
         this.balance = () => {
             return this._state.available + this._state.pending;
         }
-    }(keypair);
+    };
 
     this.friends = new function() {
         var friends = {};

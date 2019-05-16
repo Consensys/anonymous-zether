@@ -28,21 +28,12 @@ maintenance.readBalance = (gbyr, gr, x) => {
     // not handling the case of the 0 point... shouldn't be necessary. revisit.
     let gb = gbyr_point.add(gr_point.mul(x_bn).neg());
 
-    var g = bn128.curve.g;
-    var neg_g = g.neg();
-    let up = bn128.curve.g.mul(0);
-    let down = neg_g;
-    var counter = 0;
-    while (true) { // danger...
-        if (up.eq(gb)) {
-            return counter;
+    let accumulator = bn128.curve.g.mul(0);
+    for (var i = 0; i < bn128.B_MAX; i++) {
+        if (accumulator.eq(gb)) {
+            return i;
         }
-        if (down.eq(gb)) {
-            return -1 - counter;
-        }
-        up = up.add(g);
-        down = down.add(neg_g);
-        counter++;
+        accumulator = accumulator.add(bn128.curve.g);
     }
 }
 
