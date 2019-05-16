@@ -59,7 +59,7 @@ function client(zsc, home, web3, keypair) {
         return Math.ceil(current / this._epochLength) * this._epochLength - current;
     }
 
-    this.account = new function() { // strange construction but works, revisit
+    this.account = new function(keypair) { // strange construction but works, revisit
         this._state = new function() { // don't touch this...
             this.available = 0;
             this.pending = 0;
@@ -95,13 +95,18 @@ function client(zsc, home, web3, keypair) {
                 });
         } else {
             this.keypair = keypair;
-            /// MANAGE STATE NOW
+            zsc.methods.getAcc(keypair['y']).call().then((result) => {
+                that.account._state.available = maintenance.readBalance(result[0], result[1], keypair['x']);
+            });
+            zsc.methods.getpTransfers(keypair['y']).call().then((result) => {
+                that.account._state.pending = maintenance.readBalance(result[0], result[1], keypair['x']);
+            });
         }
 
         this.balance = () => {
             return this._state.available + this._state.pending;
         }
-    }
+    }(keypair);
 
     this.friends = new function() {
         var friends = {};

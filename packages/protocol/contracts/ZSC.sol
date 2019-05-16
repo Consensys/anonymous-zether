@@ -35,6 +35,14 @@ contract ZSC {
         epochLength = _epochLength;
     }
 
+    function getAcc(bytes32[2] calldata y) view external returns (bytes32[2][2] memory) {
+        return acc[keccak256(abi.encodePacked(y))];
+    }
+
+    function getpTransfers(bytes32[2] calldata y) view external returns (bytes32[2][2] memory) {
+        return pTransfers[keccak256(abi.encodePacked(y))];
+    }
+
     function simulateAccounts(bytes32[2][] calldata y, uint256 epoch) view external returns (bytes32[2][2][] memory accounts) {
         // all of this could be assembled locally by querying `acc` and `pTransfers` (and `lastRollOver`) and assembling things by hand
         // turns out this is extremely _slow_ though, because of the ~ 4 * N queries which must be made. turns out it's much faster
