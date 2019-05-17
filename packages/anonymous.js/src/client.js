@@ -4,6 +4,8 @@ const maintenance = require('./utils/maintenance.js');
 const service = require('./utils/service.js');
 const bn128 = require('./utils/bn128.js');
 
+var sleep = (wait) => new Promise((resolve) => setTimeout(resolve, wait));
+
 function client(zsc, home, web3, keypair) {
     if (zsc === undefined) {
         throw "Please provide an argument pointing to a deployed ZSC contract!";
@@ -134,18 +136,22 @@ function client(zsc, home, web3, keypair) {
 
     this.deposit = (value) => {
         var account = this.account;
-        zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
-            .on('transactionHash', (hash) => {
-                console.log("Deposit submitted (txHash = \"" + hash + "\").");
-            })
-            .on('receipt', (receipt) => {
-                account._state = account._simulateBalances(); // have to freshly call it
-                account._state.pending += value;
-                console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-            })
-            .on('error', (error) => {
-                console.log("Deposit failed: " + error);
-            });
+        return new Promise((resolve, reject) => {
+            zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
+                .on('transactionHash', (hash) => {
+                    console.log("Deposit submitted (txHash = \"" + hash + "\").");
+                })
+                .on('receipt', (receipt) => {
+                    account._state = account._simulateBalances(); // have to freshly call it
+                    account._state.pending += value;
+                    console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                    resolve()
+                })
+                .on('error', (error) => {
+                    console.log("Deposit failed: " + error);
+                    reject(error);
+                });
+        })
     }
 
     var estimate = (size, contract) => {
@@ -170,19 +176,13 @@ function client(zsc, home, web3, keypair) {
         var seconds = Math.ceil(wait / 1000);
         var plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
-            setTimeout(() => {
-                that.transfer(name, value, decoys);
-            }, wait);
-            return "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
-            // note: another option here would be to simply throw an error and abort.
-            // the upside to doing that would be that the user might be willing to simply send a lower amount, and not have to wait.
-            // the downside is of course if the user doesn't want that, then having to wait manually and then manually re-enter the transaction.
+            console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...");
+            return sleep(wait).then(() => this.transfer(name, value, decoys));
         }
         if (state.nonceUsed) {
-            setTimeout(() => {
-                that.transfer(name, value, decoys);
-            }, wait);
-            return "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+            console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
+            return sleep(wait).then(() => this.transfer(name, value, decoys));
+
         }
 
         var size = 2 + decoys.length;
@@ -190,10 +190,9 @@ function client(zsc, home, web3, keypair) {
         if (estimated > this._epochLength)
             throw "The size (" + size + ") you've requested might take longer than the epoch length " + this._epochLength + " ms to prove. Consider re-deploying, with an epoch at least " + estimate(size, true) + " ms.";
         if (estimated > wait) {
-            setTimeout(() => {
-                that.transfer(name, value, decoys);
-            }, wait);
-            return wait < 2000 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+            console.log(wait < 2000 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
+            return sleep(wait).then(() => this.transfer(name, value, decoys));
+
         }
 
         if (size & (size - 1)) {
@@ -236,44 +235,46 @@ function client(zsc, home, web3, keypair) {
             index[1] = index[1] + (index[1] % 2 == 0 ? 1 : -1);
         } // make sure you and your friend have opposite parity
 
-        // console.log("Gathering account state...")
-        zsc.methods.simulateAccounts(y, this._getEpoch()).call({}, (error, result) => {
-            var CL = [];
-            var CR = [];
-            result.forEach((simulated) => {
-                CL.push(simulated[0]);
-                CR.push(simulated[1]);
-            });
+        return new Promise((resolve, reject) => {
+            zsc.methods.simulateAccounts(y, this._getEpoch()).call({}, (error, result) => {
+                var CL = [];
+                var CR = [];
+                result.forEach((simulated) => {
+                    CL.push(simulated[0]);
+                    CR.push(simulated[1]);
+                });
 
-            // console.log("Generating proof...");  var r = bn128.randomGroupScalar()
-            var r = bn128.randomScalar();
-            var L = y.map((party, i) => bn128.canonicalRepresentation(bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.curve.point(party[0].slice(2), party[1].slice(2)).mul(r))))
-            var R = bn128.canonicalRepresentation(bn128.curve.g.mul(r));
-            var u = maintenance.u(state.lastRollOver, account.keypair['x']);
-            service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
-                var throwaway = web3.eth.accounts.create();
-                var encoded = zsc.methods.transfer(L, R, y, u, proof.data).encodeABI();
-                var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
+                // console.log("Generating proof...");  var r = bn128.randomGroupScalar()
+                var r = bn128.randomScalar();
+                var L = y.map((party, i) => bn128.canonicalRepresentation(bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.curve.point(party[0].slice(2), party[1].slice(2)).mul(r))))
+                var R = bn128.canonicalRepresentation(bn128.curve.g.mul(r));
+                var u = maintenance.u(state.lastRollOver, account.keypair['x']);
+                service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
+                    var throwaway = web3.eth.accounts.create();
+                    var encoded = zsc.methods.transfer(L, R, y, u, proof.data).encodeABI();
+                    var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
 
-                web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
-                    web3.eth.sendSignedTransaction(signed.rawTransaction)
-                        .on('transactionHash', (hash) => {
-                            that._transfers.add(hash);
-                            console.log("Transfer submitted (txHash = \"" + hash + "\").");
-                        })
-                        .on('receipt', (receipt) => {
-                            account._state = account._simulateBalances(); // have to freshly call it
-                            account._state.nonceUsed = true;
-                            account._state.pending -= value;
-                            console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                        })
-                        .on('error', (error) => {
-                            console.log("Transfer failed: " + error);
-                        });
+                    web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
+                        web3.eth.sendSignedTransaction(signed.rawTransaction)
+                            .on('transactionHash', (hash) => {
+                                that._transfers.add(hash);
+                                console.log("Transfer submitted (txHash = \"" + hash + "\").");
+                            })
+                            .on('receipt', (receipt) => {
+                                account._state = account._simulateBalances(); // have to freshly call it
+                                account._state.nonceUsed = true;
+                                account._state.pending -= value;
+                                console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                                resolve();
+                            })
+                            .on('error', (error) => {
+                                console.log("Transfer failed: " + error);
+                                reject(error);
+                            });
+                    });
                 });
             });
-        });
-        return "Initiating transfer.";
+        })
     }
 
     this.withdraw = (value) => {
@@ -286,45 +287,43 @@ function client(zsc, home, web3, keypair) {
         let seconds = Math.ceil(wait / 1000);
         let plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
-            setTimeout(() => {
-                that.withdraw(value);
-            }, wait);
-            return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
+            console.log("Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...");
+            return sleep(wait).then(() => this.withdraw(value));
+
         }
         if (state.nonceUsed) {
-            setTimeout(() => {
-                that.withdraw(value);
-            }, wait);
-            return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
+            console.log("Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
+            return sleep(wait).then(() => this.withdraw(value));
         }
 
         if (2000 > wait) { // withdrawals will take <= 2 seconds (actually, more like 1)...
-            setTimeout(() => {
-                that.withdraw(value);
-            }, wait);
-            return "Initiating withdrawal.";
+            console.log("Initiating withdrawal.");
+            return sleep(wait).then(() => this.withdraw(value));
         }
 
-        zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call().then((result) => {
-            var simulated = result[0];
+        return new Promise((resolve, reject) => {
+            zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call().then((result) => {
+                var simulated = result[0];
 
-            var u = maintenance.u(state.lastRollOver, account.keypair['x']);
-            service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value, (proof) => {
-                zsc.methods.burn(account.keypair['y'], value, u, proof.data).send({ from: home, gas: 547000000 })
-                    .on('transactionHash', (hash) => {
-                        console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
-                    })
-                    .on('receipt', (receipt) => {
-                        account._state = account._simulateBalances(); // have to freshly call it
-                        account._state.nonceUsed = true;
-                        account._state.pending -= value;
-                        console.log("Withdrawal of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                    }).on('error', (error) => {
-                        console.log("Withdrawal failed: " + error);
-                    });
+                var u = maintenance.u(state.lastRollOver, account.keypair['x']);
+                service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value, (proof) => {
+                    zsc.methods.burn(account.keypair['y'], value, u, proof.data).send({ from: home, gas: 547000000 })
+                        .on('transactionHash', (hash) => {
+                            console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
+                        })
+                        .on('receipt', (receipt) => {
+                            account._state = account._simulateBalances(); // have to freshly call it
+                            account._state.nonceUsed = true;
+                            account._state.pending -= value;
+                            console.log("Withdrawal of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                            resolve();
+                        }).on('error', (error) => {
+                            console.log("Withdrawal failed: " + error);
+                            reject(error);
+                        });
+                });
             });
         });
-        return "Initiating withdrawal.";
     }
 }
 

@@ -1,7 +1,7 @@
 const Web3 = require("web3");
 const ZV = require("../contract-artifacts/artifacts/ZetherVerifier.json");
 const BV = require("../contract-artifacts/artifacts/BurnVerifier.json");
-const ERC20 = require("../contract-artifacts/artifacts/CashToken.json");
+const CashToken = require("../contract-artifacts/artifacts/CashToken.json");
 const ZSC = require("../contract-artifacts/artifacts/ZSC.json");
 
 const web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:22000"));
@@ -24,8 +24,8 @@ module.exports = {
                 .on("error", err => {
                     reject(err);
                 })
-                .on("transactionHash", txHash => {
-                    console.log(txHash);
+                .on("transactionHash", (hash) => {
+                    console.log("Zether verifier mined (txHash = \"" + hash + "\").");
                 })
                 .on("receipt", receipt => {
                     resolve(receipt)
@@ -48,8 +48,8 @@ module.exports = {
                 .on("error", err => {
                     reject(err);
                 })
-                .on("transactionHash", txHash => {
-                    console.log(txHash);
+                .on("transactionHash", (hash) => {
+                    console.log("Burn verifier mined (txHash = \"" + hash + "\").");
                 })
                 .on("receipt", receipt => {
                     resolve(receipt)
@@ -57,8 +57,8 @@ module.exports = {
         })
     },
     DeployERC20: () => {
-        const abi = ERC20.abi;
-        const bytecode = ERC20.bytecode;
+        const abi = CashToken.abi;
+        const bytecode = CashToken.bytecode;
         const contract = new web3.eth.Contract(abi);
         return new Promise((resolve, reject) => {
             contract
@@ -72,8 +72,8 @@ module.exports = {
                 .on("error", err => {
                     reject(err);
                 })
-                .on("transactionHash", txHash => {
-                    console.log(txHash);
+                .on("transactionHash", (hash) => {
+                    console.log("ERC20 contact mined (txHash = \"" + hash + "\").");
                 })
                 .on("receipt", receipt => {
                     resolve(receipt);
@@ -81,7 +81,7 @@ module.exports = {
         })
     },
     MintERC20: contractAddress => {
-        const abi = ERC20.abi;
+        const abi = CashToken.abi;
         const ercContract = web3.eth.Contract(abi, contractAddress);
         return new Promise((resolve, reject) => {
             ercContract.methods.mint("0xed9d02e382b34818e88B88a309c7fe71E65f419d", 1000000000000)
@@ -92,19 +92,19 @@ module.exports = {
                 .on("error", err => {
                     reject(err);
                 })
-                .on("transactionHash", txHash => {
-                    console.log(txHash);
+                .on("transactionHash", (hash) => {
+                    console.log("ERC20 funds minted (txHash = \"" + hash + "\").");
                 })
                 .on("receipt", receipt => {
                     ercContract.methods.balanceOf("0xed9d02e382b34818e88B88a309c7fe71E65f419d").call().then(balance => {
-                        console.log("balance", balance);
+                        console.log("ERC20 balance:", balance);
                         resolve(receipt)
                     });
                 });
         });
     },
     ApproveERC20: (contractAddress, zscAddress) => {
-        const abi = ERC20.abi;
+        const abi = CashToken.abi;
         const ercContract = web3.eth.Contract(abi, contractAddress);
         return new Promise((resolve, reject) => {
             ercContract.methods.approve(zscAddress, 1000000000)
@@ -115,12 +115,12 @@ module.exports = {
                 .on("error", err => {
                     reject(err);
                 })
-                .on("transactionHash", txHash => {
-                    console.log(txHash);
+                .on("transactionHash", (hash) => {
+                    console.log("ERC funds approved for transfer to ZSC (txHash = \"" + hash + "\").");
                 })
                 .on("receipt", receipt => {
                     ercContract.methods.allowance("0xed9d02e382b34818e88B88a309c7fe71E65f419d", zscAddress).call().then(allowance => {
-                        console.log("allowance", allowance);
+                        console.log("ERC20 allowance:", allowance);
                         resolve(receipt)
                     });
                 });
@@ -148,8 +148,8 @@ module.exports = {
                 .on("error", err => {
                     reject(err);
                 })
-                .on("transactionHash", txHash => {
-                    console.log(txHash);
+                .on("transactionHash", (hash) => {
+                    console.log("ZSC main contract deployed (txHash = \"" + hash + "\").");
                 })
                 .on("receipt", receipt => {
                     resolve(receipt)
