@@ -563,7 +563,7 @@ contract ZetherVerifier {
         }
     }
 
-    function neg(G1Point memory p) internal view returns (G1Point memory) {
+    function neg(G1Point memory p) internal pure returns (G1Point memory) {
         return G1Point(p.x, FIELD_ORDER - (p.y % FIELD_ORDER)); // p.y should already be reduced mod P?
     }
 

@@ -1,11 +1,4 @@
-# Intellij
-.idea/
-*.iml
-*.iws
-
-# Mac
-.DS_Store
-
-# Maven
-log/
-target/
+build
+node_modules
+package-lock.json
+yarn-error.log

@@ -1,0 +1,12 @@
+{
+  "name": "@anonymous-zether/contract-artifacts",
+  "version": "0.1.0",
+  "description": "",
+  "main": "./lib",
+  "dependencies": {
+    "require-dir": "^1.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^5.16.0"
+  }
+}

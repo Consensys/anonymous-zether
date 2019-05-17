@@ -71,8 +71,6 @@ public class Prover {
         BigInteger x = new BigInteger(1, xBytes);
         int epoch = new BigInteger(1, epochBytes).intValue(); // radix 10 i guess.
         BN128Point gEpoch = group.mapInto(ProofUtils.paddedHash("Zether", epoch));
-        System.out.println(ProofUtils.paddedHash("Zether", epoch).toString(16));
-        System.out.println(gEpoch);
         BN128Point u = gEpoch.multiply(x);
 
         BurnStatement<BN128Point> burnStatement = new BurnStatement<>(balanceCommitNewL, balanceCommitNewR, y, bTransfer, epoch, u);
@@ -86,12 +84,4 @@ public class Prover {
         return burnProof.serialize();
 
     }
-
-    public byte[] gEpochGenerator(byte[] epochBytes) {
-        int epoch = new BigInteger(1, epochBytes).intValue();
-        BN128Group group = Params.getGroup();
-        BN128Point gEpoch = group.mapInto(ProofUtils.paddedHash("Zether", epoch));
-        return gEpoch.canonicalRepresentation();
-    }
 }
-

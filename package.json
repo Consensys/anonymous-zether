@@ -1,0 +1,13 @@
+{
+  "name": "anonymous-zether-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "",
+  "workspaces": [
+    "packages/**"
+  ],
+  "devDependencies": {
+    "eslint-import-resolver-lerna": "^1.1.0",
+    "lerna": "3.14.0"
+  }
+}

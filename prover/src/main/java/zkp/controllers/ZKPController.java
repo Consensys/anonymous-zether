@@ -8,6 +8,8 @@ import zkp.utilities.Util;
 import zkp.utilities.Verifier;
 
 import javax.annotation.PostConstruct;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.math.BigInteger;
 
 @RestController
@@ -18,9 +20,16 @@ public class ZKPController {
 
     @PostConstruct
     public void init() {
+        PrintStream originalStream = System.out;
+        PrintStream dummyStream = new PrintStream(new OutputStream() {
+            public void write(int b) {}
+        });
+        System.setOut(dummyStream);
+
         byte[][] empty = new byte[2][64];
         prover.proveTransfer(empty, empty, empty, new byte[32], new byte[32], new byte[32], new byte[32], new byte[32], empty);
         // horrific hack, to force classes to load...
+        System.setOut(originalStream); // make things a bit cleaner on the output.
     }
 
     @RequestMapping("/prove-transfer")
@@ -70,16 +79,6 @@ public class ZKPController {
         ));
         System.out.println("proof: " + proof);
         return proof;
-    }
-
-    @RequestMapping("/gEpoch")
-    String proveBurn(@RequestParam("epoch") String epoch) {
-        System.out.println("epoch: " + epoch);
-        String gEpoch = Util.bytesToHex(prover.gEpochGenerator(
-                Util.hexStringToByteArray(epoch) // let's pass this as a padded, 32-byte (hex) integer.
-        ));
-        System.out.println("gEpoch: " + gEpoch);
-        return gEpoch;
     }
 
     @RequestMapping("/verify-transfer")
