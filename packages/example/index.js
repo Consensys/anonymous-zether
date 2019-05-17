@@ -5,7 +5,7 @@ const getProvider = require("./provider");
 const methods = require('./contract');
 const net = require('net');
 
-const sleep = () => new Promise(resolve => setTimeout(resolve, 10000));
+const sleep = (time) => new Promise(resolve => setTimeout(resolve, time));
 
 (async () => {
     const provider = await getProvider(); // for websockets
@@ -16,7 +16,7 @@ const sleep = () => new Promise(resolve => setTimeout(resolve, 10000));
     const bvReceipt = await methods.DeployBV();
     const erc20Receipt = await methods.DeployERC20()
     await methods.MintERC20(erc20Receipt.contractAddress);
-    const zscReceipt = await methods.DeployZSC(erc20Receipt.contractAddress, zvReceipt.contractAddress, bvReceipt.contractAddress);
+    const zscReceipt = await methods.DeployZSC(erc20Receipt.contractAddress, zvReceipt.contractAddress, bvReceipt.contractAddress, 3000);
     await methods.ApproveERC20(erc20Receipt.contractAddress, zscReceipt.contractAddress)
     const deployedZSC = new web3.eth.Contract(
         ZSC.abi,
@@ -28,7 +28,9 @@ const sleep = () => new Promise(resolve => setTimeout(resolve, 10000));
     await client.account.initialize();
     client.friends.addFriend("Alice", ['0x0eaadaaa84784811271240ec2f03b464015082426aa13a46a99a56c964a5c7cc', '0x173ce032ad098e9fcbf813696da92328257e58827f3600b259c42e52ff809433']);
     client.friends.showFriends();
-    await client.deposit(10000);
-    await client.withdraw(1000);
-    await client.transfer('Alice', 1000)
+    client.deposit(10000);
+    await sleep(4000);
+    client.withdraw(1000);
+    await sleep(4000);
+    client.transfer('Alice', 1000)
 })();

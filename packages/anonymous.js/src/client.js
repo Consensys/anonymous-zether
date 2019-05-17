@@ -48,69 +48,69 @@ function client(zsc, home, web3, keypair) {
 
     this._epochLength = undefined;
 
-    this._getEpoch = function(timestamp) { // timestamp is in ms; so is epochLength.
+    this._getEpoch = (timestamp) => { // timestamp is in ms; so is epochLength.
         return Math.floor((timestamp === undefined ? (new Date).getTime() : timestamp) / this._epochLength);
     }
 
-    this._away = function() {
+    this._away = () => {
         current = (new Date).getTime();
         return Math.ceil(current / this._epochLength) * this._epochLength - current;
     }
 
-    this.account = {
-        keypair: '',
-        _state: { // don't touch this...
+    this.account = new function() {
+        this.keypair = undefined;
+        this._state = { // don't touch this...
             available: 0,
             pending: 0,
             nonceUsed: 0,
             lastRollOver: 0
-        },
-        _simulateBalances: (timestamp) => {
+        };
+        this._simulateBalances = (timestamp) => {
             var updated = {};
-            updated.available = this.account._state.available;
-            updated.pending = this.account._state.pending;
-            updated.nonceUsed = this.account._state.nonceUsed;
-            updated.lastRollOver = this._getEpoch(timestamp);
-            if (this.account._state.lastRollOver < updated.lastRollOver) {
+            updated.available = this._state.available;
+            updated.pending = this._state.pending;
+            updated.nonceUsed = this._state.nonceUsed;
+            updated.lastRollOver = that._getEpoch(timestamp);
+            if (this._state.lastRollOver < updated.lastRollOver) {
                 updated.available += updated.pending;
                 updated.pending = 0;
                 updated.nonceUsed = false;
             }
             return updated
-        },
-        balance: () => {
+        }
+        this.balance = () => {
             return this.account._state.available + this.account._state.pending;
-        },
-        initialize: async (keypair) => {
+        }
+        this.initialize = async (keypair) => {
             return new Promise((resolve, reject) => {
                 zsc.methods.epochLength().call({}, (error, result) => {
                     that._epochLength = result;
                     if (keypair === undefined) {
                         let keypair = maintenance.createAccount();
-                        this.account.keypair = keypair;
+                        that.account.keypair = keypair;
                         zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 })
                             .on('transactionHash', (hash) => {
                                 console.log("Initiating registration (txHash = \"" + hash + "\").");
                             })
                             .on('receipt', (receipt) => {
                                 console.log("Registration successful.");
-                                resolve(receipt);
+                                resolve();
                             })
                             .on('error', (error) => {
                                 console.log("Registration failed! Create a new `client` (do not use this one).");
                                 reject(error);
                             });
                     } else {
-                        this.account.keypair = keypair;
+                        that.account.keypair = keypair;
                         zsc.methods.simulateAccounts([keypair['y']], that._getEpoch() + 1).call({}, (error, result) => {
                             var simulated = result[0];
                             that.account._state.available = maintenance.readBalance(simulated[0], simulated[1], keypair['x']);
-                            resolve(result)
+                            resolve();
                         })
                     }
                 })
             })
-        } // how to prevent use until this thing has been properly populated
+        }
     };
 
     this.friends = new function() {
@@ -134,22 +134,18 @@ function client(zsc, home, web3, keypair) {
 
     this.deposit = (value) => {
         var account = this.account;
-        return new Promise((resolve, reject) => {
-            zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
-                .on('transactionHash', (hash) => {
-                    console.log("Deposit submitted (txHash = \"" + hash + "\").");
-                })
-                .on('receipt', (receipt) => {
-                    account._state = account._simulateBalances(); // have to freshly call it
-                    account._state.pending += value;
-                    console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                    resolve(true)
-                })
-                .on('error', (error) => {
-                    console.log("Deposit failed: " + error);
-                    reject(error);
-                });
-        })
+        zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
+            .on('transactionHash', (hash) => {
+                console.log("Deposit submitted (txHash = \"" + hash + "\").");
+            })
+            .on('receipt', (receipt) => {
+                account._state = account._simulateBalances(); // have to freshly call it
+                account._state.pending += value;
+                console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+            })
+            .on('error', (error) => {
+                console.log("Deposit failed: " + error);
+            });
     }
 
     var estimate = (size, contract) => {
@@ -174,7 +170,7 @@ function client(zsc, home, web3, keypair) {
         var seconds = Math.ceil(wait / 1000);
         var plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
-            var timer = setTimeout(() => {
+            setTimeout(() => {
                 that.transfer(name, value, decoys);
             }, wait);
             return "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
@@ -183,7 +179,7 @@ function client(zsc, home, web3, keypair) {
             // the downside is of course if the user doesn't want that, then having to wait manually and then manually re-enter the transaction.
         }
         if (state.nonceUsed) {
-            var timer = setTimeout(() => {
+            setTimeout(() => {
                 that.transfer(name, value, decoys);
             }, wait);
             return "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
@@ -194,7 +190,7 @@ function client(zsc, home, web3, keypair) {
         if (estimated > this._epochLength)
             throw "The size (" + size + ") you've requested might take longer than the epoch length " + this._epochLength + " ms to prove. Consider re-deploying, with an epoch at least " + estimate(size, true) + " ms.";
         if (estimated > wait) {
-            var timer = setTimeout(() => {
+            setTimeout(() => {
                 that.transfer(name, value, decoys);
             }, wait);
             return wait < 2000 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
@@ -290,20 +286,20 @@ function client(zsc, home, web3, keypair) {
         let seconds = Math.ceil(wait / 1000);
         let plural = seconds == 1 ? "" : "s";
         if (value > state.available) {
-            let timer = setTimeout(() => {
+            setTimeout(() => {
                 that.withdraw(value);
             }, wait);
             return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...";
         }
         if (state.nonceUsed) {
-            let timer = setTimeout(() => {
+            setTimeout(() => {
                 that.withdraw(value);
             }, wait);
             return "Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...";
         }
 
         if (2000 > wait) { // withdrawals will take <= 2 seconds (actually, more like 1)...
-            let timer = setTimeout(() => {
+            setTimeout(() => {
                 that.withdraw(value);
             }, wait);
             return "Initiating withdrawal.";

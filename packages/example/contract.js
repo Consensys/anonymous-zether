@@ -126,7 +126,7 @@ module.exports = {
                 });
         });
     },
-    DeployZSC: (erc20Address, zetherAddress, burnAddress) => {
+    DeployZSC: (erc20Address, zetherAddress, burnAddress, epochLength) => {
         const abi = ZSC.abi;
         const bytecode = ZSC.bytecode;
         const contract = new web3.eth.Contract(abi);
@@ -138,7 +138,7 @@ module.exports = {
                         erc20Address,
                         zetherAddress,
                         burnAddress,
-                        3000
+                        epochLength
                     ]
                 })
                 .send({
