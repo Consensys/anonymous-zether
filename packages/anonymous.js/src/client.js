@@ -6,7 +6,7 @@ const bn128 = require('./utils/bn128.js');
 
 var sleep = (wait) => new Promise((resolve) => setTimeout(resolve, wait));
 
-function client(zsc, home, web3, keypair) {
+function client(zsc, home, web3) {
     if (zsc === undefined) {
         throw "Please provide an argument pointing to a deployed ZSC contract!";
     }
@@ -83,14 +83,14 @@ function client(zsc, home, web3, keypair) {
         this.balance = () => {
             return this.account._state.available + this.account._state.pending;
         }
-        this.initialize = async (keypair) => {
+        this.initialize = async (secret) => {
             return new Promise((resolve, reject) => {
                 zsc.methods.epochLength().call({}, (error, result) => {
                     that._epochLength = result;
-                    if (keypair === undefined) {
-                        let keypair = maintenance.createAccount();
+                    if (secret === undefined) {
+                        var keypair = maintenance.createAccount();
                         that.account.keypair = keypair;
-                        zsc.methods.register(keypair['y']).send({ from: home, gas: 5470000 })
+                        zsc.methods.register(that.account.keypair['y']).send({ from: home, gas: 5470000 })
                             .on('transactionHash', (hash) => {
                                 console.log("Initiating registration (txHash = \"" + hash + "\").");
                             })
@@ -103,10 +103,11 @@ function client(zsc, home, web3, keypair) {
                                 reject(error);
                             });
                     } else {
-                        that.account.keypair = keypair;
-                        zsc.methods.simulateAccounts([keypair['y']], that._getEpoch() + 1).call({}, (error, result) => {
+                        that.account.keypair = { 'x': secret, 'y': maintenance.determinePublicKey(new BN(secret.slice(2), 16)) };
+                        zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call({}, (error, result) => {
                             var simulated = result[0];
-                            that.account._state.available = maintenance.readBalance(simulated[0], simulated[1], keypair['x']);
+                            that.account._state.available = maintenance.readBalance(simulated[0], simulated[1], that.account.keypair['x']);
+                            console.log("Account recovered successfully.");
                             resolve();
                         })
                     }
