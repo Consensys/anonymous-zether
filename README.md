@@ -29,7 +29,7 @@ while in the main directory.
 
 #### Detailed usage example
 
-Let's assume that `Client` has been imported and that all contracts have been deployed, as in https://github.com/QuorumEngineering/anonymous-zether/blob/master/packages/example/index.js#L14-L24. In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, call
+Let's assume that `Client` has been imported and that all contracts have been deployed, as in https://github.com/jpmorganchase/anonymous-zether/blob/master/packages/example/index.js#L14-L24. In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, call
 ```javascript
 web3.eth.getAccounts().then((accounts) => { console.log(accounts[accounts.length - 1]); })
 ```
