@@ -146,7 +146,7 @@ function client(zsc, home, web3) {
                     account._state = account._simulateBalances(); // have to freshly call it
                     account._state.pending += value;
                     console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                    resolve()
+                    resolve(receipt)
                 })
                 .on('error', (error) => {
                     console.log("Deposit failed: " + error);
@@ -266,7 +266,7 @@ function client(zsc, home, web3) {
                                 account._state.nonceUsed = true;
                                 account._state.pending -= value;
                                 console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                                resolve();
+                                resolve(receipt);
                             })
                             .on('error', (error) => {
                                 console.log("Transfer failed: " + error);
@@ -317,7 +317,7 @@ function client(zsc, home, web3) {
                             account._state.nonceUsed = true;
                             account._state.pending -= value;
                             console.log("Withdrawal of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                            resolve();
+                            resolve(receipt);
                         }).on('error', (error) => {
                             console.log("Withdrawal failed: " + error);
                             reject(error);
