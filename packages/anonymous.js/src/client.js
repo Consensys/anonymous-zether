@@ -159,9 +159,7 @@ function client(zsc, home, web3) {
     var estimate = (size, contract) => {
         // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size
         // this function should hopefully give you good epoch lengths also for 8, 16, 32, etc... if you have very heavy traffic, may need to bump it up (many verifications)
-        // note that this estimation includes not just raw proving time but also "data gathering" time, which takes a while unfortunately (under the current setup)
-        // batch requests are not available in this version of web3, and the performance is not good. hence the necessity of upgrading to a web3 1.0-based situation.
-        // notes on this are below. if you do, be sure to update this function so that it reflects (an upper bound of) the actual rate of growth.
+        // i calibrated this on _my machine_. if you are getting transfer failures, you might need to bump up the constants, recalibrate yourself, etc.
         return Math.ceil(size * Math.log(size) / Math.log(2) * 25 + 2000) + (contract ? 20 : 0);
         // the 20-millisecond buffer is designed to give the callback time to fire (see below).
     }
@@ -184,7 +182,6 @@ function client(zsc, home, web3) {
         if (state.nonceUsed) {
             console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
             return sleep(wait).then(() => this.transfer(name, value, decoys));
-
         }
 
         var size = 2 + decoys.length;
@@ -194,7 +191,6 @@ function client(zsc, home, web3) {
         if (estimated > wait) {
             console.log(wait < 2000 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
             return sleep(wait).then(() => this.transfer(name, value, decoys));
-
         }
 
         if (size & (size - 1)) {
@@ -246,7 +242,6 @@ function client(zsc, home, web3) {
                     CR.push(simulated[1]);
                 });
 
-                // console.log("Generating proof...");  var r = bn128.randomGroupScalar()
                 var r = bn128.randomScalar();
                 var L = y.map((party, i) => bn128.canonicalRepresentation(bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.curve.point(party[0].slice(2), party[1].slice(2)).mul(r))))
                 var R = bn128.canonicalRepresentation(bn128.curve.g.mul(r));
@@ -291,7 +286,6 @@ function client(zsc, home, web3) {
         if (value > state.available) {
             console.log("Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...");
             return sleep(wait).then(() => this.withdraw(value));
-
         }
         if (state.nonceUsed) {
             console.log("Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
