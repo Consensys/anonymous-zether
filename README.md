@@ -40,7 +40,7 @@ In the first window, Alice's let's say, execute
 > var alice = new Client(deployedZSC, home, web3);
 > alice.account.initialize();
 Promise { <pending> }
-Initiating registration (txHash = "0x3420c7ec482391ddaf349742bacc30ac26a5eba92dd1828f95499c5909c572b3").
+Registration submitted (txHash = "0x3420c7ec482391ddaf349742bacc30ac26a5eba92dd1828f95499c5909c572b3").
 Registration successful.
 ```
 and in Bob's,
@@ -53,6 +53,7 @@ Do something similar for the other two.
 The two methods `deposit` and `withdraw` take a single numerical parameter. For example, in Alice's window, type
 ```javascript
 > alice.deposit(100)
+Initiating deposit.
 Promise { <pending> }
 Deposit submitted (txHash = "0xa6e4c2d415dda9402c6b20a6b1f374939f847c00d7c0f206200142597ff5be7e").
 Deposit of 100 was successful. Balance now 100.

@@ -92,7 +92,7 @@ function client(zsc, home, web3) {
                         that.account.keypair = keypair;
                         zsc.methods.register(that.account.keypair['y']).send({ from: home, gas: 5470000 })
                             .on('transactionHash', (hash) => {
-                                console.log("Initiating registration (txHash = \"" + hash + "\").");
+                                console.log("Registration submitted (txHash = \"" + hash + "\").");
                             })
                             .on('receipt', (receipt) => {
                                 console.log("Registration successful.");
@@ -137,6 +137,7 @@ function client(zsc, home, web3) {
 
     this.deposit = (value) => {
         var account = this.account;
+        console.log("Initiating deposit.");
         return new Promise((resolve, reject) => {
             zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
                 .on('transactionHash', (hash) => {
