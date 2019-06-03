@@ -6,7 +6,7 @@ This is a private payment system, an _anonymous_ extension of Bünz, Agrawal, Za
 
 The outlines of an anonymous approach are sketched in the authors' original manuscript. We develop an explicit proof protocol for this extension, described in the technical note [AnonZether.pdf](docs/AnonZether.pdf). We also providge a full implementation of the anonymous protocol (including a proof generator, verification contracts, and a client / front-end).
 
-Thanks go to Benedikt Bünz for discussions around this, as well as for basic Zether. Also, Sergey Vasilyev's [range proof contracts](https://github.com/leanderdulac/BulletProofLib/blob/master/truffle/contracts/RangeProofVerifier.sol) served as a starting point for our [Zether verification contracts](packages/protocol/contracts).
+Thanks go to Benedikt Bünz for discussions around this, as well as for the original Zether work. Also, Sergey Vasilyev's [range proof contracts](https://github.com/leanderdulac/BulletProofLib/blob/master/truffle/contracts/RangeProofVerifier.sol) served as a starting point for our [Zether verification contracts](packages/protocol/contracts).
 
 ### Folders in this repo
 
@@ -37,16 +37,16 @@ to print the public key of an unlocked account. Assign this value to the variabl
 
 In the first window, Alice's let's say, execute
 ```javascript
-> var alice = new Client(deployedZSC, home, web3);
-> alice.account.initialize();
+> var alice = new Client(deployedZSC, home, web3)
+> alice.account.initialize()
 Promise { <pending> }
 Registration submitted (txHash = "0x3420c7ec482391ddaf349742bacc30ac26a5eba92dd1828f95499c5909c572b3").
 Registration successful.
 ```
 and in Bob's,
 ```javascript
-> var bob = new Client(deployedZSC, home, web3);
-> bob.account.initialize();
+> var bob = new Client(deployedZSC, home, web3)
+> bob.account.initialize()
 ```
 Do something similar for the other two.
 
