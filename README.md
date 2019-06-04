@@ -4,15 +4,27 @@
 
 This is a private payment system, an _anonymous_ extension of Bünz, Agrawal, Zamani and Boneh's [Zether protocol](https://crypto.stanford.edu/~buenz/papers/zether.pdf).
 
-The outlines of an anonymous approach are sketched in the authors' original manuscript. We develop an explicit proof protocol for this extension, described in the technical note [AnonZether.pdf](docs/AnonZether.pdf). We also providge a full implementation of the anonymous protocol (including a proof generator, verification contracts, and a client / front-end).
+The outlines of an anonymous approach are sketched in the authors' original manuscript. We develop an explicit proof protocol for this extension, described in the technical note [AnonZether.pdf](docs/AnonZether.pdf). We also provide a full implementation of the anonymous protocol (including a proof generator, verification contracts, and a client / front-end).
 
 Thanks go to Benedikt Bünz for discussions around this, as well as for the original Zether work. Also, Sergey Vasilyev's [range proof contracts](https://github.com/leanderdulac/BulletProofLib/blob/master/truffle/contracts/RangeProofVerifier.sol) served as a starting point for our [Zether verification contracts](packages/protocol/contracts).
+
+### High-level overview
+
+Anonymous Zether is an private value-tracking system, in which encrypted account balances are stored in Ethereum smart contracts. Each Zether Smart Contract (ZSC) must, upon deployment, be "attached" to some already-deployed ERC20 contract. After deployment, users may then transfer their ERC20 balances into (_deposit_) or out of (_withdraw_) special Zether accounts residing within the contract itself. Having credited funds to their Zether accounts, users may privately send these funds to other Zether accounts, _confidentially_ (transferred amounts are private) and _anonymously_ (identities of transactors are private). The obvious properties of course also hold: only the owner of each account's secret key can spend its funds, and overdraws are impossible.
+
+As explained in the [original Zether paper](https://crypto.stanford.edu/~buenz/papers/zether.pdf), each account balance is encrypted under its own public key and stored in the ZSC as an (ElGamal) ciphertext. To send funds, Alice publishes an ordered list of Zether public keys, which contains herself and the recipient, among other arbitrarily chosen parties; Alice further encrypts, under this same list of participants, the respective amounts by which she intends to alter each account's balance (0 for everyone except for -10 at her own index and 10 at Bob's, for example). The ZSC applies these differentials using the homomorphic property of ElGamal encryption. Alice finally publishes a zero-knowlegde proof that she knows her own secret key, that she only deducted funds from herself, that she owns enough to cover the deduction, and that she only credited funds to one person (and by the same amount she debited, no less); she of course also shows that all accounts other than hers and Bob's were not altered. This process is streamlined using our front-end client, and need _not_ be done directly by the user.
+
+To any outside observer, it will be impossible to discern which _differential_ ciphertexts encrypted nonzero amounts, and what these amounts were; as such, it will be impossible to determine who sent funds to whom and how much.
+
+Our theoretical contribution is a zero-knowledge proof protocol for the anonymous transfer statement (8) of [Bünz, et. al.](https://crypto.stanford.edu/~buenz/papers/zether.pdf), which moreover has appealing asymptotic performance characteristics; details on our techniques can be found in the [technical report](docs/AnonZether.pdf). We also of course provide this implementation.
+
+Anonymous Zether is not yet feasible for use in the Ethereum mainnet (see the [technical report](docs/AnonZether.pdf) for gas use details). However, after [Istanbul](https://eips.ethereum.org/EIPS/eip-1108), things will be much better.
 
 ### Folders in this repo
 
 [prover](prover) is a Maven project, which spins up a Java service capable of generating zero-knowledge proofs. This service uses [our fork of](https://github.com/jpmorganchase/BulletProofLib) [Benedikt Bünz's Bulletproofs library](https://github.com/bbuenz/BulletProofLib) as an external dependency.
 
-The [packages](packages) folder contains the ZSC (Zether Smart Contract) and auxiliary contracts, as well as scripts to interact with it from the `geth` console.
+The [packages](packages) folder contains the Zether Smart Contract and auxiliary contracts, as well as scripts to interact with it from the `geth` console.
 
 ### User Instructions
 
