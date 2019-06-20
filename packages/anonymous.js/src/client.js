@@ -69,7 +69,6 @@ class Client {
                 nonceUsed: 0,
                 lastRollOver: 0
             };
-
             this._simulateBalances = (timestamp) => {
                 var updated = {};
                 updated.available = this._state.available;
@@ -83,11 +82,12 @@ class Client {
                 }
                 return updated;
             };
-
             this.balance = () => {
                 return this.account._state.available + this.account._state.pending;
             };
-
+            this.secret = () => {
+                return "0x" + this.keypair['x'].toString(16).padStart(64, '0'); // error if not initialized
+            };
             this.initialize = async (secret) => {
                 return new Promise((resolve, reject) => {
                     zsc.methods.epochLength().call()
@@ -109,7 +109,8 @@ class Client {
                                         reject(error);
                                     });
                             } else {
-                                that.account.keypair = { 'x': secret, 'y': maintenance.determinePublicKey(new BN(secret.slice(2), 16)) };
+                                var x = new BN(secret, 16);
+                                that.account.keypair = { 'x': x, 'y': maintenance.determinePublicKey(x) };
                                 zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
                                     .then((result) => {
                                         var simulated = result[0];
@@ -240,9 +241,8 @@ class Client {
                         var R = bn128.curve.g.mul(r);
                         var CLn = result.map((simulated, i) => bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(L[i]));
                         var CRn = result.map((simulated) => bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)).add(R));
-                        var x = new BN(account.keypair['x'].slice(2), 16);
-                        var u = maintenance.u(state.lastRollOver, x); // a string
                         var proof = service.proveTransfer(CLn, CRn, L, R, yPoints, state.lastRollOver, x, r, value, state.available - value, index);
+                        var u = maintenance.u(state.lastRollOver, account.keypair['x']); // a string
                         var throwaway = web3.eth.accounts.create();
                         var encoded = zsc.methods.transfer(L.map(bn128.canonicalRepresentation), bn128.canonicalRepresentation(R), y, u, proof).encodeABI();
                         var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
@@ -294,9 +294,9 @@ class Client {
                         var simulated = result[0];
                         var CLn = bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(bn128.curve.g.mul(new BN(-value)));
                         var CRn = bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2));
-                        var x = new BN(account.keypair['x'].slice(2), 16);
-                        var u = maintenance.u(state.lastRollOver, x); // flattened
-                        var proof = service.proveBurn(CLn, CRn, bn128.curve.point(account.keypair['y'][0].slice(2), account.keypair['y'][1].slice(2)), value, state.lastRollOver, x, state.available - value);
+                        var yPoint = bn128.curve.point(account.keypair['y'][0].slice(2), account.keypair['y'][1].slice(2));
+                        var proof = service.proveBurn(CLn, CRn, yPoint, value, state.lastRollOver, x, state.available - value);
+                        var u = maintenance.u(state.lastRollOver, account.keypair['x']); // flattened
                         zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 })
                             .on('transactionHash', (hash) => {
                                 console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
