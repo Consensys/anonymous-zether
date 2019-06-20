@@ -20,68 +20,36 @@ Our theoretical contribution is a zero-knowledge proof protocol for the anonymou
 
 Anonymous Zether is not yet feasible for use in the Ethereum mainnet (see the [technical report](docs/AnonZether.pdf) for gas use details). However, after [Istanbul](https://eips.ethereum.org/EIPS/eip-1108), things will be much better.
 
-### Folders in this repo
+### Quickstart
 
-[prover](prover) is a Maven project, which spins up a Java service capable of generating zero-knowledge proofs. This service uses [our fork of](https://github.com/jpmorganchase/BulletProofLib) [Benedikt Bünz's Bulletproofs library](https://github.com/bbuenz/BulletProofLib) as an external dependency.
-
-The [packages](packages) folder contains the Zether Smart Contract and auxiliary contracts, as well as scripts to interact with it from the `geth` console.
-
-### Quickstart 
-
-Deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make some anonymous transfers.
+To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make some anonymous transfers...
 
 ## Install Prerequisites
-* [Java](https://www.java.com/en/download/help/download_options.xml) tested version 11.0.2
-* [mvn](https://maven.apache.org/install.html) tested with version 3.5.3             
 * [Yarn](https://yarnpkg.com/en/docs/install#mac-stable) tested with version 0.1.0
-* [nodejs](https://nodejs.org/en/download/) tested with version v10.15.3
+* [Node.js](https://nodejs.org/en/download/) tested with version v10.15.3
 
 ## Deploy a Quorum Network
 
 * Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)).
-* **note** for the nodejs example in this project to work, websockets need to be enabled when starting up geth/quorum:
-  websocket geth flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*`. 
+* **Note:** for the Node.js example in this project to work, websockets need to be enabled when starting up geth / Quorum (i.e., use the geth flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*`).
 
-## Run the Prover
+## Run the Node.js demo
 
-The prover is a Java Spring application located inside the [`prover`](prover) directory of this repo.
+The Node.js [example project](packages/example) in this repo will deploy the necessary contracts: [ZetherVerifier.sol](packages/protocol/contracts/ZetherVerifier.sol), [BurnVerifier.sol](packages/protocol/contracts/BurnVerifier.sol), [CashToken.sol](packages/protocol/contracts/CashToken.sol), and finally
+[ZCS.sol](packages/protocol/contracts/ZSC.sol) (which is dependent on the previous contracts).
 
-```
-# install yarn
-$> brew install yarn
-# note: tested with version
-$> yarn --version
-1.17.0
+Once the ZCS contract is deployed, the Node.js application will fund the account, add some 'friends', and make an anonymous transfer.
 
-$> cd anonymous-zether/prover
-# build the project
-$> yarn
-# start the prover
-$> mvn spring-boot:run
-```
-
-* The prover should now be up and running on http://localhost:8080.
-
-## Run the nodejs demo
-
-The nodejs [example project](packages/example) in this repo, will deploy the necessary contracts:  [ZetherVerifier.sol](packages/protocol/contracts/ZetherVerifier.sol), 
-[BurnVerifier.sol](packages/protocol/contracts/BurnVerifier.sol), [CashToken.sol](packages/protocol/contracts/CashToken.sol), and finally 
-[ZCS.sol](packages/protocol/contracts/ZSC.sol) which is dependent on the previous contracts. 
-
-Once the ZCS contract is deployed, the nodejs application will fund the account, add some 'friends',
-and make an anonymous transfer. 
-
-**Requires** that geth is started with `ws`, `--wsport 23000`, `--ws --wsorigins=*` flags.
+This **requires** that geth be started with `ws`, `--wsport 23000`, `--ws --wsorigins=*` flags.
 
 ```bash
 $> cd anonymous-zether
-# run node examples which will deploy the contracts 
-# and make some anon transfers.
+# run node examples which will deploy the contracts and make some anon transfers.
 $> node packages/example
 
 ```
 
-#### Detailed usage example
+## Detailed usage example
 
 Let's assume that `Client` has been imported and that all contracts have been deployed, as in https://github.com/jpmorganchase/anonymous-zether/blob/master/packages/example/index.js#L14-L24. In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, call
 ```javascript
@@ -91,7 +59,7 @@ to print the public key of an unlocked account. Assign this value to the variabl
 
 In the first window, Alice's let's say, execute
 ```javascript
-> var alice = new Client(deployedZSC, home, web3)
+> var alice = new Client(deployed, home, web3)
 > alice.account.initialize()
 Promise { <pending> }
 Registration submitted (txHash = "0x3420c7ec482391ddaf349742bacc30ac26a5eba92dd1828f95499c5909c572b3").
@@ -99,7 +67,7 @@ Registration successful.
 ```
 and in Bob's,
 ```javascript
-> var bob = new Client(deployedZSC, home, web3)
+> var bob = new Client(deployed, home, web3)
 > bob.account.initialize()
 ```
 Do something similar for the other two.
