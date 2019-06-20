@@ -1,7 +1,9 @@
-const burn = {};
+class BurnProver {
+    constructor() {
+        this.generateProof = (statement, witness) => {
 
-burn.generateProof = (statement, witness) => {
-
+        }
+    }
 }
 
-module.exports = burn;
+module.exports = BurnProver;

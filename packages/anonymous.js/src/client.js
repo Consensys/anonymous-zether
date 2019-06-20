@@ -1,7 +1,7 @@
 const BN = require('BN.js');
 
 const maintenance = require('./utils/maintenance.js');
-const service = require('./prover/service.js');
+const Service = require('./prover/service.js');
 const bn128 = require('./utils/bn128.js');
 
 var sleep = (wait) => new Promise((resolve) => setTimeout(resolve, wait));
@@ -18,6 +18,9 @@ class Client {
         var match = (address, candidate) => {
             return address[0] == candidate[0] && address[1] == candidate[1];
         };
+
+        var service = new Service();
+
         this._transfers = new Set();
         zsc.events.TransferOccurred({}) // i guess this will just filter for "from here on out."
             // an interesting prospect is whether balance recovery could be eliminated by looking at past events.
@@ -57,6 +60,7 @@ class Client {
             var current = (new Date).getTime();
             return Math.ceil(current / this._epochLength) * this._epochLength - current;
         };
+
         this.account = new function() {
             this.keypair = undefined;
             this._state = {
@@ -65,6 +69,7 @@ class Client {
                 nonceUsed: 0,
                 lastRollOver: 0
             };
+
             this._simulateBalances = (timestamp) => {
                 var updated = {};
                 updated.available = this._state.available;
@@ -78,9 +83,11 @@ class Client {
                 }
                 return updated;
             };
+
             this.balance = () => {
                 return this.account._state.available + this.account._state.pending;
             };
+
             this.initialize = async (secret) => {
                 return new Promise((resolve, reject) => {
                     zsc.methods.epochLength().call()
@@ -115,6 +122,7 @@ class Client {
                 })
             };
         };
+
         this.friends = new function() {
             var friends = {};
             this.addFriend = (name, pubkey) => {
@@ -133,6 +141,7 @@ class Client {
                 return "Friend deleted.";
             };
         };
+
         this.deposit = (value) => {
             var account = this.account;
             console.log("Initiating deposit.");
@@ -258,6 +267,7 @@ class Client {
                     });
             });
         };
+
         this.withdraw = (value) => {
             let account = this.account;
             let state = account._simulateBalances();

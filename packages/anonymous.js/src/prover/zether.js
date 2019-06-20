@@ -1,7 +1,9 @@
-const zether = {};
+class ZetherProver {
+    constructor() {
+        this.generateProof = (statement, witness) => {
 
-zether.generateProof = (statement, witness) => {
-
+        }
+    }
 }
 
-module.exports = zether;
+module.exports = ZetherProver;
