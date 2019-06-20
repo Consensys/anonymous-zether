@@ -1,7 +1,7 @@
 const BN = require('BN.js');
 
 const maintenance = require('./utils/maintenance.js');
-const service = require('./utils/service.js');
+const service = require('./prover/service.js');
 const bn128 = require('./utils/bn128.js');
 
 var sleep = (wait) => new Promise((resolve) => setTimeout(resolve, wait));
@@ -225,38 +225,35 @@ class Client {
             return new Promise((resolve, reject) => {
                 zsc.methods.simulateAccounts(y, this._getEpoch()).call()
                     .then((result) => {
-                        var CL = [];
-                        var CR = [];
-                        result.forEach((simulated) => {
-                            CL.push(simulated[0]);
-                            CR.push(simulated[1]);
-                        });
                         var r = bn128.randomScalar();
-                        var L = y.map((party, i) => bn128.canonicalRepresentation(bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.curve.point(party[0].slice(2), party[1].slice(2)).mul(r))));
-                        var R = bn128.canonicalRepresentation(bn128.curve.g.mul(r));
-                        var u = maintenance.u(state.lastRollOver, account.keypair['x']);
-                        service.proveTransfer(CL, CR, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index, (proof) => {
-                            var throwaway = web3.eth.accounts.create();
-                            var encoded = zsc.methods.transfer(L, R, y, u, proof.data).encodeABI();
-                            var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
-                            web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
-                                web3.eth.sendSignedTransaction(signed.rawTransaction)
-                                    .on('transactionHash', (hash) => {
-                                        that._transfers.add(hash);
-                                        console.log("Transfer submitted (txHash = \"" + hash + "\").");
-                                    })
-                                    .on('receipt', (receipt) => {
-                                        account._state = account._simulateBalances(); // have to freshly call it
-                                        account._state.nonceUsed = true;
-                                        account._state.pending -= value;
-                                        console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                                        resolve(receipt);
-                                    })
-                                    .on('error', (error) => {
-                                        console.log("Transfer failed: " + error);
-                                        reject(error);
-                                    });
-                            });
+                        var yPoints = y.map((party) => bn128.curve.point(party[0].slice(2), party[1].slice(2))); // "liven" y for use below.
+                        var L = yPoints.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(party.mul(r)));
+                        var R = bn128.curve.g.mul(r);
+                        var CLn = result.map((simulated, i) => bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(L[i]));
+                        var CRn = result.map((simulated) => bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)).add(R));
+                        var x = new BN(account.keypair['x'].slice(2), 16);
+                        var u = maintenance.u(state.lastRollOver, x); // a string
+                        var proof = service.proveTransfer(CLn, CRn, L, R, yPoints, state.lastRollOver, x, r, value, state.available - value, index);
+                        var throwaway = web3.eth.accounts.create();
+                        var encoded = zsc.methods.transfer(L.map(bn128.canonicalRepresentation), bn128.canonicalRepresentation(R), y, u, proof).encodeABI();
+                        var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
+                        web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
+                            web3.eth.sendSignedTransaction(signed.rawTransaction)
+                                .on('transactionHash', (hash) => {
+                                    that._transfers.add(hash);
+                                    console.log("Transfer submitted (txHash = \"" + hash + "\").");
+                                })
+                                .on('receipt', (receipt) => {
+                                    account._state = account._simulateBalances(); // have to freshly call it
+                                    account._state.nonceUsed = true;
+                                    account._state.pending -= value;
+                                    console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                                    resolve(receipt);
+                                })
+                                .on('error', (error) => {
+                                    console.log("Transfer failed: " + error);
+                                    reject(error);
+                                });
                         });
                     });
             });
@@ -285,23 +282,25 @@ class Client {
                 zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call()
                     .then((result) => {
                         var simulated = result[0];
-                        var u = maintenance.u(state.lastRollOver, account.keypair['x']);
-                        service.proveBurn(simulated[0], simulated[1], account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value, (proof) => {
-                            zsc.methods.burn(account.keypair['y'], value, u, proof.data).send({ from: home, gas: 547000000 })
-                                .on('transactionHash', (hash) => {
-                                    console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
-                                })
-                                .on('receipt', (receipt) => {
-                                    account._state = account._simulateBalances(); // have to freshly call it
-                                    account._state.nonceUsed = true;
-                                    account._state.pending -= value;
-                                    console.log("Withdrawal of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                                    resolve(receipt);
-                                }).on('error', (error) => {
-                                    console.log("Withdrawal failed: " + error);
-                                    reject(error);
-                                });
-                        });
+                        var CLn = bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(bn128.curve.g.mul(new BN(-value)));
+                        var CRn = bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2));
+                        var x = new BN(account.keypair['x'].slice(2), 16);
+                        var u = maintenance.u(state.lastRollOver, x); // flattened
+                        var proof = service.proveBurn(CLn, CRn, bn128.curve.point(account.keypair['y'][0].slice(2), account.keypair['y'][1].slice(2)), value, state.lastRollOver, x, state.available - value);
+                        zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 })
+                            .on('transactionHash', (hash) => {
+                                console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
+                            })
+                            .on('receipt', (receipt) => {
+                                account._state = account._simulateBalances(); // have to freshly call it
+                                account._state.nonceUsed = true;
+                                account._state.pending -= value;
+                                console.log("Withdrawal of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                                resolve(receipt);
+                            }).on('error', (error) => {
+                                console.log("Withdrawal failed: " + error);
+                                reject(error);
+                            });
                     });
             });
         };

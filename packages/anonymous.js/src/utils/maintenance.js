@@ -58,7 +58,7 @@ maintenance.gEpoch = (epoch) => { // a 0x + hex string
 }
 
 maintenance.u = (epoch, x) => {
-    return bn128.canonicalRepresentation(maintenance.gEpoch(epoch).mul(new BN(x.slice(2), 16)));
+    return bn128.canonicalRepresentation(maintenance.gEpoch(epoch).mul(x));
 }
 
 module.exports = maintenance;
