@@ -1,30 +1,23 @@
 const Web3 = require("web3");
 const Client = require("../anonymous.js/src/client");
 const ZSC = require("../contract-artifacts/artifacts/ZSC.json");
-const getProvider = require("./provider");
-const methods = require('./contract');
-const net = require('net');
-
-const sleep = (time) => new Promise(resolve => setTimeout(resolve, time));
+const Deployer = require('./deployer.js');
 
 (async () => {
-    const provider = await getProvider(); // for websockets
-    const web3 = new Web3(provider);
+    const web3 = new Web3(new Web3.providers.WebsocketProvider("ws://localhost:23000"));
+    var deployer = new Deployer(web3);
 
     web3.transactionConfirmationBlocks = 1;
-    const zvReceipt = await methods.DeployZV();
-    const bvReceipt = await methods.DeployBV();
-    const erc20Receipt = await methods.DeployERC20()
-    await methods.MintERC20(erc20Receipt.contractAddress);
-    const zscReceipt = await methods.DeployZSC(erc20Receipt.contractAddress, zvReceipt.contractAddress, bvReceipt.contractAddress, 2220);
-    await methods.ApproveERC20(erc20Receipt.contractAddress, zscReceipt.contractAddress)
-    const deployedZSC = new web3.eth.Contract(
-        ZSC.abi,
-        zscReceipt.contractAddress
-    );
+    const zether = await deployer.deployZetherVerifier().contractAddress;
+    const burn = await deployer.deployBurnVerifier().contractAddress;
+    const cash = await deployer.deployCashToken().contractAddress;
+    await deployer.mintCashToken(cash);
+    const zsc = await deployer.deployZSC(cash, zether, burn, 2220).contractAddress;
+    await deployer.approveCashToken(cash, zsc)
+    const deployed = new web3.eth.Contract(ZSC.abi, zsc);
 
     const accounts = await web3.eth.getAccounts();
-    const client = new Client(deployedZSC, accounts[0], web3);
+    const client = new Client(deployed, accounts[0], web3);
     await client.account.initialize();
     await client.deposit(10000);
     await client.withdraw(1000);
