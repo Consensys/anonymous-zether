@@ -1,6 +1,6 @@
 const BN = require('BN.js');
 
-const maintenance = require('./utils/maintenance.js');
+const utils = require('./utils/utils.js');
 const Service = require('./prover/service.js');
 const bn128 = require('./utils/bn128.js');
 
@@ -38,7 +38,7 @@ class Client {
                             web3.eth.getTransaction(event.transactionHash).then((transaction) => {
                                 var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
                                 var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
-                                var value = maintenance.readBalance(parameters['L'][i], parameters['R'], account.keypair['x']);
+                                var value = utils.readBalance(parameters['L'][i], parameters['R'], account.keypair['x']);
                                 if (value > 0) {
                                     account._state.pending += value;
                                     console.log("Transfer of " + value + " received! Balance now " + (account._state.available + account._state.pending) + ".");
@@ -94,7 +94,7 @@ class Client {
                         .then((result) => {
                             that._epochLength = result;
                             if (secret === undefined) {
-                                var keypair = maintenance.createAccount();
+                                var keypair = utils.createAccount();
                                 that.account.keypair = keypair;
                                 zsc.methods.register(that.account.keypair['y']).send({ from: home, gas: 5470000 })
                                     .on('transactionHash', (hash) => {
@@ -110,11 +110,11 @@ class Client {
                                     });
                             } else {
                                 var x = new BN(secret, 16);
-                                that.account.keypair = { 'x': x, 'y': maintenance.determinePublicKey(x) };
+                                that.account.keypair = { 'x': x, 'y': utils.determinePublicKey(x) };
                                 zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
                                     .then((result) => {
                                         var simulated = result[0];
-                                        that.account._state.available = maintenance.readBalance(simulated[0], simulated[1], that.account.keypair['x']);
+                                        that.account._state.available = utils.readBalance(simulated[0], simulated[1], that.account.keypair['x']);
                                         console.log("Account recovered successfully.");
                                         resolve(); // inconsistent that the above is resolved with a receipt and this not, but...
                                     })
@@ -163,6 +163,7 @@ class Client {
                     });
             });
         };
+
         var estimate = (size, contract) => {
             // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size
             // this function should hopefully give you good epoch lengths also for 8, 16, 32, etc... if you have very heavy traffic, may need to bump it up (many verifications)
@@ -170,6 +171,7 @@ class Client {
             return Math.ceil(size * Math.log(size) / Math.log(2) * 25 + 2000) + (contract ? 20 : 0);
             // the 20-millisecond buffer is designed to give the callback time to fire (see below).
         };
+
         this.transfer = (name, value, decoys) => {
             decoys = decoys ? decoys : [];
             var account = this.account;
@@ -242,7 +244,7 @@ class Client {
                         var CLn = result.map((simulated, i) => bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(L[i]));
                         var CRn = result.map((simulated) => bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)).add(R));
                         var proof = service.proveTransfer(CLn, CRn, L, R, yPoints, state.lastRollOver, x, r, value, state.available - value, index);
-                        var u = maintenance.u(state.lastRollOver, account.keypair['x']); // a string
+                        var u = utils.u(state.lastRollOver, account.keypair['x']); // a string
                         var throwaway = web3.eth.accounts.create();
                         var encoded = zsc.methods.transfer(L.map(bn128.canonicalRepresentation), bn128.canonicalRepresentation(R), y, u, proof).encodeABI();
                         var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
@@ -296,7 +298,7 @@ class Client {
                         var CRn = bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2));
                         var yPoint = bn128.curve.point(account.keypair['y'][0].slice(2), account.keypair['y'][1].slice(2));
                         var proof = service.proveBurn(CLn, CRn, yPoint, value, state.lastRollOver, x, state.available - value);
-                        var u = maintenance.u(state.lastRollOver, account.keypair['x']); // flattened
+                        var u = utils.u(state.lastRollOver, account.keypair['x']); // flattened
                         zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 })
                             .on('transactionHash', (hash) => {
                                 console.log("Withdrawal submitted (txHash = \"" + hash + "\").");

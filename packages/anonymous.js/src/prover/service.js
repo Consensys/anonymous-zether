@@ -1,3 +1,6 @@
+const ZetherProver = require('./zether.js');
+const BurnProver = require('./burn.js');
+
 class Service {
     constructor() {
         var zether = new ZetherProver();
@@ -18,11 +21,11 @@ class Service {
             var witness = {};
             witness['x'] = x;
             witness['r'] = r;
-            witness['bTransfer'] = bTransfer;
-            witness['bDiff'] = bDiff;
+            witness['bTransfer'] = new BN(bTransfer);
+            witness['bDiff'] = new BN(bDiff);
             witness['index'] = index;
 
-            return zether.generateProof(statement, witness);
+            return zether.generateProof(statement, witness); // where will it get serialized?
         }
 
         this.proveBurn = (CLn, CRn, y, bTransfer, epoch, x, bDiff) => {
@@ -35,7 +38,7 @@ class Service {
 
             var witness = {};
             witness['x'] = x;
-            witness['bDiff'] = bDiff;
+            witness['bDiff'] = new BN(bDiff);
 
             return burn.generateProof(statement, witness);
         }

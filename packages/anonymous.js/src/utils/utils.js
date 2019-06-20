@@ -2,15 +2,15 @@ const bn128 = require('./bn128.js')
 const BN = require('bn.js')
 const { soliditySha3 } = require('web3-utils');
 
-const maintenance = {}
+const utils = {};
 
-maintenance.determinePublicKey = (x) => {
+utils.determinePublicKey = (x) => {
     return bn128.canonicalRepresentation(bn128.curve.g.mul(x));
 }
 
 // no "start" parameter for now.
 // CL and CR are "flat", x is a BN.
-maintenance.readBalance = (CL, CR, x) => {
+utils.readBalance = (CL, CR, x) => {
     var CLPoint, CRPoint;
     if (CL[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && CL[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
         CLPoint = bn128.curve.g.mul(0);
@@ -32,16 +32,16 @@ maintenance.readBalance = (CL, CR, x) => {
         }
         accumulator = accumulator.add(bn128.curve.g);
     }
-}
+};
 
-maintenance.createAccount = () => {
-    let x = bn128.randomScalar();
-    let y = maintenance.determinePublicKey(x);
+utils.createAccount = () => {
+    var x = bn128.randomScalar();
+    var y = utils.determinePublicKey(x);
     return { 'x': x, 'y': y };
-}
+};
 
-maintenance.mapInto = (seed) => {
-    var seed_red = seed.toRed(bn128.fieldReduction);
+utils.mapInto = (seed) => {
+    var seed_red = new BN(seed.slice(2), 16).toRed(bn128.fieldReduction);
     var p_1_4 = bn128.curve.p.add(new BN(1)).div(new BN(4));
     while (true) {
         var y_squared = seed_red.redPow(new BN(3)).redAdd(new BN(3).toRed(bn128.fieldReduction));
@@ -51,14 +51,14 @@ maintenance.mapInto = (seed) => {
         }
         seed_red.redIAdd(new BN(1).toRed(bn128.fieldReduction));
     }
-}
+};
 
-maintenance.gEpoch = (epoch) => {
-    return maintenance.mapInto(new BN(soliditySha3("Zether", epoch).slice(2), 16));
-}
+utils.gEpoch = (epoch) => {
+    return utils.mapInto(soliditySha3("Zether", epoch));
+};
 
-maintenance.u = (epoch, x) => {
-    return bn128.canonicalRepresentation(maintenance.gEpoch(epoch).mul(x));
-}
+utils.u = (epoch, x) => {
+    return bn128.canonicalRepresentation(utils.gEpoch(epoch).mul(x));
+};
 
-module.exports = maintenance;
+module.exports = utils;
