@@ -6,8 +6,8 @@ class GeneratorParams {
     constructor(size) {
         var g = maintenance.mapInto(soliditySha3("G"));
         var h = maintenance.mapInto(soliditySha3("V"));
-        var gs = [...Array(size).keys()].map((i) => maintenance.mapInto(soliditySha3("G", i)));
-        var hs = [...Array(size).keys()].map((i) => maintenance.mapInto(soliditySha3("H", i)));
+        var gs = Array.from({ length: size }).map((_, i) => maintenance.mapInto(soliditySha3("G", i)));
+        var hs = Array.from({ length: size }).map((_, i) => maintenance.mapInto(soliditySha3("H", i)));
 
         this.commit = (gExp, hExp, blinding) => {
             var result = h.mul(blinding);
