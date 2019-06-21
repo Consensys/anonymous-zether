@@ -5,7 +5,7 @@ const { soliditySha3 } = require('web3-utils');
 const utils = {};
 
 utils.determinePublicKey = (x) => {
-    return bn128.serializePoint(bn128.curve.g.mul(x));
+    return bn128.serialize(bn128.curve.g.mul(x));
 }
 
 // no "start" parameter for now.
@@ -13,19 +13,19 @@ utils.determinePublicKey = (x) => {
 utils.readBalance = (CL, CR, x) => {
     var CLPoint, CRPoint;
     if (CL[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && CL[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
-        CLPoint = bn128.curve.g.mul(0);
+        CLPoint = bn128.zero;
     } else {
-        CLPoint = bn128.curve.point(CL[0].slice(2), CL[1].slice(2));
+        CLPoint = bn128.unserialize(CL);
     }
     if (CR[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && CR[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
-        CRPoint = bn128.curve.g.mul(0);
+        CRPoint = bn128.zero;
     } else {
-        CRPoint = bn128.curve.point(CR[0].slice(2), gr[1].slice(2));
+        CRPoint = bn128.unserialize(CR);
     }
 
     var gB = CLPoint.add(CRPoint.mul(x.neg()));
 
-    let accumulator = bn128.curve.g.mul(0);
+    var accumulator = bn128.zero;
     for (var i = 0; i < bn128.B_MAX; i++) {
         if (accumulator.eq(gB)) {
             return i;

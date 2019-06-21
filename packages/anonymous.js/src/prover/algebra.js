@@ -1,5 +1,6 @@
-const bn128 = require('./bn128.js')
-const BN = require('bn.js')
+const bn128 = require('../utils/bn128.js');
+const utils = require('../utils/utils.js');
+const BN = require('bn.js');
 const { soliditySha3 } = require('web3-utils');
 
 class GeneratorParams {
@@ -26,9 +27,7 @@ class GeneratorParams {
 
 class FieldVector {
     constructor(vector) {
-        this.getVector = () => {
-            return vector;
-        };
+        this.getVector = () => { return vector; };
 
         this.add = (other) => {
             var innards = other.getVector();
@@ -40,7 +39,7 @@ class FieldVector {
         };
 
         this.negate = () => {
-            return new FieldVector(vector.map((elem) => elem.neg()));
+            return new FieldVector(vector.map((elem) => elem.redNeg()));
         };
 
         this.subtract = (other) => {
@@ -54,13 +53,35 @@ class FieldVector {
 
         this.times = (constant) => {
             return new FieldVector(vector.map((elem) => elem.redMul(constant)));
-        }
+        };
 
         this.innerProduct = (other) => {
             var innards = other.getVector();
-            return vector.reduce((accum, cur, i) => {
-                return accum.redAdd(cur.redMul(innards[i]));
-            }, new BN(0).toRed(bn128.q));
+            return vector.reduce((accum, cur, i) => accum.redAdd(cur.redMul(innards[i])), new BN(0).toRed(bn128.q));
+        };
+    }
+}
+
+class GeneratorVector {
+    constructor(vector) {
+        this.getVector = () => { return vector; };
+
+        this.commit = (exponents) => {
+            return vector.reduce((accum, cur, i) => accum.add(cur.mul(exponents.getVector()[i])), bn128.zero);
+        };
+
+        this.extract = (parity) => {
+            return new GeneratorVector(vector.filter((_, i) => i % 2 == parity));
+        };
+
+        this.flip = () => {
+            var size = vector.length;
+            return new GeneratorVector(Array.from({ length: size }).map((_, i) => vector[(size - i) % size]));
+        };
+
+        this.shift = (n) => {
+            var size = vector.length;
+            return new GeneratorVector(Array.from({ length: size }).map((_, i) => vector[(i + size + n) % size]));
         }
     }
 }
@@ -105,7 +126,7 @@ class PedersenCommitment {
 
         this.add = (other) => {
             return new PedersenCommitment(params, x.redAdd(other.getX()), r.redAdd(other.getR()));
-        }
+        };
 
         this.times = (exponent) => {
             return new PedersenCommitment(params, x.redMul(exponent), r.redMul(exponent));
@@ -132,7 +153,7 @@ class PolyCommitment {
                 accumulator = accumulator.redMul(x);
             });
             return result;
-        }
+        };
     }
 }
 

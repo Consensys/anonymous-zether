@@ -9,5 +9,8 @@
   "devDependencies": {
     "eslint-import-resolver-lerna": "^1.1.0",
     "lerna": "3.14.0"
+  },
+  "dependencies": {
+    "bn.js": "^4.11.8"
   }
 }
