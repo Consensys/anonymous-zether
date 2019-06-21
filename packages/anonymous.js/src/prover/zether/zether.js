@@ -8,7 +8,7 @@ class ZetherProver {
         var params = new GeneratorParams(64);
         var abiCoder = new AbiCoder();
 
-        this.generateProof = (statement, witness) => {
+        this.generateProof = (statement, witness, salt) => { // salt probably won't be used
             var number = witness['bTransfer'].add(witness['bDiff'].shln(32));
             var aL = new FieldVector(number.toString(2, 64).split("").map((i) => new BN(i, 2).toRed(bn128.q)));
             var aR = new FieldVector(aL.map((i) => new BN(1).toRed(bn128.q).redSub(i)));
@@ -56,10 +56,10 @@ class ZetherProver {
             var size = statement['y'].length;
             var anonProver = new AnonProver();
             var anonWitness = { 'index': witness['index'], 'pi': bn128.randomScalar(), 'rho': bn128.randomScalar(), 'sigma': bn128.randomScalar() };
-            var anonProof = anonProver.generateProof(statement, anonWitness);
+            var anonProof = anonProver.generateProof(statement, anonWitness, x);
 
-            var challenge = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2][2][]', 'bytes32[2][2][]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(x), ]));
-        };
+            var challenge = anonProof['challenge'];
+        }
     }
 }
 

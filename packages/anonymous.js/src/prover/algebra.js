@@ -38,6 +38,10 @@ class FieldVector {
             return new FieldVector(vector.map((elem) => elem.redAdd(constant)));
         };
 
+        this.sum = () => {
+            return vector.reduce((accum, cur) => accum.redAdd(cur), new BN(0).toRed(bn128.q));
+        }
+
         this.negate = () => {
             return new FieldVector(vector.map((elem) => elem.redNeg()));
         };
