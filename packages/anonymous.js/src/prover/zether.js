@@ -18,16 +18,17 @@ class ZetherProver {
             var sL = Array.from({ length: 64 }).map(bn128.randomScalar);
             var sR = Array.from({ length: 64 }).map(bn128.randomScalar);
 
-            var rho = bn128.randomScalar();
+            var rho = bn128.randomScalar(); // already reduced
             var s = params.commit(sL, sR, rho);
 
-            var statementHash = soliditySha3(abiCoder.encodeParameters(['uint256', 'bytes32[2]', 'uint256[2][]', 'uint256[2][]', 'uint256[2][]', 'uint256[2][]'], [statement['epoch'], statement['R'], statement['CLn'], statement['CRn'], statement['L'], statement['y']]));
+            var statementHash = soliditySha3(abiCoder.encodeParameters(['uint256', 'bytes32[2]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]'], [statement['epoch'], statement['R'], statement['CLn'], statement['CRn'], statement['L'], statement['y']]));
             var y = new BN(soliditySha3(statementHash, bn128.canonicalRepresentation(a), bn128.canonicalRepresentation(s)).slice(2), 16).toRed(bn128.groupReduction);
-            var ys = [new BN(1), y];
-            for (var i = 2; i < 64; i++) { // it would be nice to have a nifty functional way of doing this.
-                ys[i] = ys[i - 1].mul(y);
+            var ys = [new BN(1).toRed(bn128.groupReduction)];
+            for (var i = 1; i < 64; i++) { // it would be nice to have a nifty functional way of doing this.
+                ys[i] = ys[i - 1].redMul(y);
             }
             var z = new BN(soliditySha("0x" + y.toString(16))).toRed(bn128.groupReduction);
+            var zs = [z.redPow(new BN(2)), z.redPow(new BN(3))];
         }
     }
 }

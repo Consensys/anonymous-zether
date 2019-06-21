@@ -5,6 +5,7 @@ class Service {
     constructor() {
         var zether = new ZetherProver();
         var burn = new BurnProver();
+        // this class is sort of useless? revisit it.
 
         this.proveTransfer = (CLn, CRn, L, R, y, epoch, x, r, bTransfer, bDiff, index) => { // no longer async.
             // CLn, CRn, Y, x are "live" (point, BN etc)
@@ -21,8 +22,8 @@ class Service {
             var witness = {};
             witness['x'] = x;
             witness['r'] = r;
-            witness['bTransfer'] = new BN(bTransfer);
-            witness['bDiff'] = new BN(bDiff);
+            witness['bTransfer'] = bTransfer;
+            witness['bDiff'] = bDiff;
             witness['index'] = index;
 
             return zether.generateProof(statement, witness); // where will it get serialized?
@@ -38,7 +39,7 @@ class Service {
 
             var witness = {};
             witness['x'] = x;
-            witness['bDiff'] = new BN(bDiff);
+            witness['bDiff'] = bDiff;
 
             return burn.generateProof(statement, witness);
         }
