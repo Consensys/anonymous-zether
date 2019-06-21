@@ -18,16 +18,20 @@ bn128.curve = new EC.curve.short({
     g: ['77da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4', '1485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875'],
 });
 
-bn128.fieldReduction = BN.red(bn128.curve.p);
-bn128.groupReduction = BN.red(bn128.curve.n);
+bn128.p = BN.red(bn128.curve.p);
+bn128.q = BN.red(bn128.curve.n);
 
 // Get a random BN in the bn128 curve group's reduction context
 bn128.randomScalar = () => {
-    return new BN(crypto.randomBytes(32), 16).toRed(bn128.groupReduction);
+    return new BN(crypto.randomBytes(32), 16).toRed(bn128.q);
 };
 
-bn128.canonicalRepresentation = (p) => {
-    return ["0x" + p.getX().toString(16).padStart(64, '0'), "0x" + p.getY().toString(16).padStart(64, '0')];
+bn128.serializeInt = (i) => {
+    return "0x" + i.toString(16, 64);
+}
+
+bn128.serializePoint = (p) => {
+    return [bn128.serializeInt(p.getX()), bn128.serializeInt(p.getY())];
 };
 
 bn128.B_MAX = B_MAX;

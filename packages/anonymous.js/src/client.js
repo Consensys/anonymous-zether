@@ -240,12 +240,12 @@ class Client {
                         var r = bn128.randomScalar();
                         var L = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.curve.point(party[0].slice(2), party[1].slice(2)).mul(r)));
                         var R = bn128.curve.g.mul(r);
-                        var CLn = result.map((simulated, i) => bn128.canonicalRepresentation(bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(L[i])));
-                        var CRn = result.map((simulated) => bn128.canonicalRepresentation(bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)).add(R)));
-                        L = L.map(bn128.canonicalRepresentation); // messy but this ends up being the best way, it would appear
-                        R = bn128.canonicalRepresentation(R); // for various reasons, it doesn't make sense to pass in "live objects" (except for x?)
+                        var CLn = result.map((simulated, i) => bn128.serializePoint(bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(L[i])));
+                        var CRn = result.map((simulated) => bn128.serializePoint(bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)).add(R)));
+                        L = L.map(bn128.serializePoint); // messy but this ends up being the best way, it would appear
+                        R = bn128.serializePoint(R); // for various reasons, it doesn't make sense to pass in "live objects" (except for x?)
                         var proof = service.proveTransfer(CLn, CRn, L, R, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
-                        var u = utils.u(state.lastRollOver, account.keypair['x']); // a string
+                        var u = bn128.serializePoint(utils.u(state.lastRollOver, account.keypair['x']));
                         var throwaway = web3.eth.accounts.create();
                         var encoded = zsc.methods.transfer(L, R, y, u, proof).encodeABI();
                         var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
@@ -295,10 +295,10 @@ class Client {
                 zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call()
                     .then((result) => {
                         var simulated = result[0];
-                        var CLn = bn128.canonicalRepresentation(bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(bn128.curve.g.mul(new BN(-value))));
-                        var CRn = bn128.canonicalRepresentation(bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)));
+                        var CLn = bn128.serializePoint(bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(bn128.curve.g.mul(new BN(-value))));
+                        var CRn = bn128.serializePoint(bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)));
                         var proof = service.proveBurn(CLn, CRn, account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value);
-                        var u = utils.u(state.lastRollOver, account.keypair['x']); // flattened
+                        var u = bn128.serializePoint(utils.u(state.lastRollOver, account.keypair['x']));
                         zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 })
                             .on('transactionHash', (hash) => {
                                 console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
