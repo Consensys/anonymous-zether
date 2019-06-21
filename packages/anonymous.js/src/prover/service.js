@@ -1,5 +1,5 @@
-const ZetherProver = require('./zether.js');
-const BurnProver = require('./burn.js');
+const ZetherProver = require('./zether/zether.js');
+const BurnProver = require('./burn/burn.js');
 
 class Service {
     constructor() {

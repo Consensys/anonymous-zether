@@ -52,6 +52,14 @@ class ZetherProver {
             var evalCommit = polyCommitment.evaluate(x);
             var t = evalCommit.getX();
             var mu = alpha.redAdd(rho.redMul(x));
+
+            var size = statement['y'].length;
+            var anonParams = new GeneratorParams(size);
+            var anonProver = new AnonProver();
+            var anonWitness = { 'index': witness['index'], 'pi': bn128.randomScalar(), 'rho': bn128.randomScalar(), 'sigma': bn128.randomScalar() };
+            var anonProof = anonProver.generateProof(statement, anonWitness);
+
+            var challenge = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2][2][]', 'bytes32[2][2][]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [bn128.serializeInt(x), ]));
         }
     }
 }
