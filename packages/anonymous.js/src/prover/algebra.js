@@ -28,6 +28,7 @@ class GeneratorParams {
 class FieldVector {
     constructor(vector) {
         this.getVector = () => { return vector; };
+        this.length = () => { return vector.length; };
 
         this.add = (other) => {
             var innards = other.getVector();
@@ -55,6 +56,14 @@ class FieldVector {
             return new FieldVector(vector.map((elem, i) => elem.redMul(innards[i])));
         };
 
+        this.extract = (parity) => {
+            return new FieldVector(vector.filter((_, i) => i % 2 == parity));
+        };
+
+        this.concat = (other) => {
+            return new FieldVector(vector.concat(other.getVector()));
+        };
+
         this.times = (constant) => {
             return new FieldVector(vector.map((elem) => elem.redMul(constant)));
         };
@@ -69,9 +78,29 @@ class FieldVector {
 class GeneratorVector {
     constructor(vector) {
         this.getVector = () => { return vector; };
+        this.length = () => { return vector.length; };
 
         this.commit = (exponents) => {
-            return vector.reduce((accum, cur, i) => accum.add(cur.mul(exponents.getVector()[i])), bn128.zero);
+            var innards = exponents.getVector();
+            return vector.reduce((accum, cur, i) => accum.add(cur.mul(innards[i])), bn128.zero);
+        };
+
+        this.add = (other) => {
+            var innards = other.getVector();
+            return new GeneratorVector(vector.map((elem, i) => elem.add(innards[i])));
+        };
+
+        this.hadamard = (exponents) => {
+            var innards = exponents.getVector();
+            return new GeneratorVector(vector.map((elem, i) => elem.mul(innards[i])));
+        };
+
+        this.negate = () => {
+            return new GeneratorVector(vector.map((elem) => elem.neg()));
+        };
+
+        this.times = (constant) => {
+            return new GeneratorVector(vector.map((elem) => elem.mul(constant)));
         };
 
         this.extract = (parity) => {
@@ -86,7 +115,11 @@ class GeneratorVector {
         this.shift = (n) => {
             var size = vector.length;
             return new GeneratorVector(Array.from({ length: size }).map((_, i) => vector[(i + size + n) % size]));
-        }
+        };
+
+        this.concat = (other) => {
+            return new GeneratorVector(vector.concat(other.getVector()));
+        };
     }
 }
 
@@ -161,4 +194,4 @@ class PolyCommitment {
     }
 }
 
-module.exports = { GeneratorParams, FieldVector, FieldVectorPolynomial, PolyCommitment };
+module.exports = { GeneratorParams, FieldVector, GeneratorVector, FieldVectorPolynomial, PolyCommitment };
