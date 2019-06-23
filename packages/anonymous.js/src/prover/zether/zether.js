@@ -21,6 +21,13 @@ class ZetherProver {
             var s = params.commit(sL, sR, rho);
 
             var statementHash = utils.hash(abiCoder.encodeParameters(['uint256', 'bytes32[2]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]'], [statement['epoch'], statement['R'], statement['CLn'], statement['CRn'], statement['L'], statement['y']]));
+            statement['CLn'] = new GeneratorVector(statement['CLn'].map((point) => bn128.unserialize(point)));
+            statement['CRn'] = new GeneratorVector(statement['CRn'].map((point) => bn128.unserialize(point)));
+            statement['L'] = new GeneratorVector(statement['L'].map((point) => bn128.unserialize(point)));
+            statement['R'] = bn128.unserialize(statement['R']);
+            statement['y'] = new GeneratorVector(statement['y'].map((point) => bn128.unserialize(point)));
+            // go ahead and "liven" these once and for all now that they have been hashed
+
             var y = utils.hash(bn128.bytes(statementHash), bn128.serialize(a), bn128.serialize(s));
             var ys = [new BN(1).toRed(bn128.q)];
             for (var i = 1; i < 64; i++) { // it would be nice to have a nifty functional way of doing this.
@@ -53,12 +60,26 @@ class ZetherProver {
             var t = evalCommit.getX();
             var mu = alpha.redAdd(rho.redMul(x));
 
-            var size = statement['y'].length;
             var anonProver = new AnonProver();
             var anonWitness = { 'index': witness['index'], 'pi': bn128.randomScalar(), 'rho': bn128.randomScalar(), 'sigma': bn128.randomScalar() };
             var anonProof = anonProver.generateProof(statement, anonWitness, x);
 
             var challenge = anonProof['challenge'];
+            var xInv = challenge.redInvm();
+            var piOverX = anonWitness['pi'].redMul(xInv);
+            var rhoOverX = anonWitness['rho'].redMul(xInv);
+            var sigmaOverX = anonWitness['sigma'].redMul(xInv);
+
+            var sigmaProver = new SigmaProver();
+            var sigmaStatement = {}; // only certain parts of the "statement" are actually used in proving.
+            sigmaStatement['inOutR'] = statement['R'].add(g.mul(rhoOverX).neg());
+            sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].add(params.getG().mul(piOverX).neg());
+            sigmaStatement['y'] = Array.from({ length: 2 }).map((_, i) => statement['y'].shift(witness['index'][i]).extract(0).flip().times(new BN(1).toRed(bn128.q).redSub(sigmaOverX)));
+            sigmaStatement['z'] = z;
+            sigmaStatement['gPrime'] = params.getG().mul(new BN(1).toRed(bn128.q).redSub(sigmaOveX));
+            sigmaStatement['epoch'] = statement['epoch'];
+            sigmaWitness = { 'x': witness['x'], 'r': witness['r'].redSub(rhoOverX).redMul(new BN(1).toRed(bn128.q).redSub(sigmaOverX).redInvm()) };
+            var sigmaProof = sigmaProver.generateProof(sigmaWitness, sigmaStatement, challenge);
         }
     }
 }

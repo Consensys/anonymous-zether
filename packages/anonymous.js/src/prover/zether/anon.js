@@ -1,8 +1,12 @@
+const { AbiCoder } = require('web3-eth-abi');
+
 const { GeneratorParams, FieldVector, Convolver } = require('./algebra.js');
 const bn128 = require('../../utils/bn128.js');
 
 class AnonProver {
     constructor() {
+        var abiCoder = new AbiCoder();
+
         this.generateProof = (statement, witness, salt) => {
             var size = statement['y'].length;
             var params = new GeneratorParams(size);
@@ -29,12 +33,6 @@ class AnonProver {
 
             proof['inOutG'] = params.getG().mul(witness['rho']);
             proof['gG'] = g.multiply(witness['sigma']);
-
-            statement['CLn'] = new GeneratorVector(statement['CLn'].map((point) => bn128.unserialize(point)));
-            statement['CRn'] = new GeneratorVector(statement['CRn'].map((point) => bn128.unserialize(point)));
-            statement['L'] = new GeneratorVector(statement['L'].map((point) => bn128.unserialize(point)));
-            statement['R'] = bn128.unserialize(statement['R']);
-            statement['y'] = new GeneratorVector(statement['y'].map((point) => bn128.unserialize(point)));
 
             proof['CLnG'] = statement['CLn'].commit(a[0]).add(statement['y'].getVector().get(witness['index'][0]).mul(witness['pi']));
             proof['CRnG'] = statement['CRn'].commit(a[0]).add(params.getG().mul(witness['pi']));
