@@ -123,6 +123,43 @@ class GeneratorVector {
     }
 }
 
+class Convolver {
+    constructor() {
+        var unity = new BN("14a3074b02521e3b1ed9852e5028452693e87be4e910500c7ba9bbddb2f46edd", 16).toRed(bn128.q);
+        // this can technically be "static" (as in the "module pattern", like bn128), but...
+
+        var fft = (input, inverse) => { // crazy... i guess this will work for both points and scalars?
+            var length = input.length();
+            if (length == 1) {
+                return input;
+            }
+            if (length % 2 != 0) {
+                throw "Input size must be a power of 2!";
+            }
+            var omega = unity.redPow(new BN(1).shln(28).div(new BN(length)));
+            if (inverse) {
+                omega = omega.redInvm();
+            }
+            var even = fft(input.extract(0), inverse);
+            var odd = fft(input.extract(1), inverse);
+            var omegas = [new BN(1).toRed(bn128.q)];
+            for (var i = 1; i < length / 2; i++) {
+                omegas.push(omegas[i - 1].redMul(omega));
+            }
+            omegas = new FieldVector(omegas);
+            var result = even.add(odd.hadamard(omegas)).concat(even.add(odd.hadamard(omegas).negate()));
+            if (inverse) {
+                result = result.times(new BN(2).toRed(bn128.q).redInvm());
+            }
+            return result;
+        };
+
+        this.convolution = (exponent, base) => {
+            return fft(fft(base.flip(), false).hadamard(fft(exponent, false)), true);
+        };
+    }
+}
+
 class FieldVectorPolynomial {
     constructor(...coefficients) {
         this.getCoefficients = () => {
@@ -194,4 +231,4 @@ class PolyCommitment {
     }
 }
 
-module.exports = { GeneratorParams, FieldVector, GeneratorVector, FieldVectorPolynomial, PolyCommitment };
+module.exports = { GeneratorParams, FieldVector, GeneratorVector, Convolver, FieldVectorPolynomial, PolyCommitment };

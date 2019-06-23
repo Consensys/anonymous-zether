@@ -1,4 +1,4 @@
-const { GeneratorParams, FieldVector } = require('./algebra.js');
+const { GeneratorParams, FieldVector, Convolver } = require('./algebra.js');
 const bn128 = require('../../utils/bn128.js');
 
 class AnonProver {
@@ -38,8 +38,9 @@ class AnonProver {
 
             proof['CLnG'] = statement['CLn'].commit(a[0]).add(statement['y'].getVector().get(witness['index'][0]).mul(witness['pi']));
             proof['CRnG'] = statement['CRn'].commit(a[0]).add(params.getG().mul(witness['pi']));
-            proof['LG'] = a.map((a_i, i) => bn128.circularConvolution(a_i, statement['L']).extract(0).add(statement['y'].shift(witness['index'][i]).flip().extract(0).times(witness['rho'])));
-            proof['yG'] = a.map((a_i, i) => bn128.circularConvolution(a_i, statement['y']).extract(0).add(statement['y'].shift(witness['index'][i]).flip().extract(0).times(witness['sigma'])));
+            var convolver = new Convolver();
+            proof['LG'] = a.map((a_i, i) => convolver.convolution(a_i, statement['L']).extract(0).add(statement['y'].shift(witness['index'][i]).flip().extract(0).times(witness['rho'])));
+            proof['yG'] = a.map((a_i, i) => convolver.convolution(a_i, statement['y']).extract(0).add(statement['y'].shift(witness['index'][i]).flip().extract(0).times(witness['sigma'])));
 
             var cycler = a.map((a_i) => new FieldVector(Array(size / 2).fill(Array.from({ length: 2 }).map((_, j) => a_i.extract(j).sum())).flat())); // test this
             var parityG0 = statement['y'].commit(cycler[0].hadamard(cycler[1]));
