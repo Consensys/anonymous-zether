@@ -8,7 +8,7 @@ The outlines of an anonymous approach are sketched in the authors' original manu
 
 Thanks go to Benedikt Bünz for discussions around this, as well as for the original Zether work. Also, Sergey Vasilyev's [range proof contracts](https://github.com/leanderdulac/BulletProofLib/blob/master/truffle/contracts/RangeProofVerifier.sol) served as a starting point for our [Zether verification contracts](packages/protocol/contracts).
 
-### High-level overview
+## High-level overview
 
 Anonymous Zether is an private value-tracking system, in which encrypted account balances are stored in Ethereum smart contracts. Each Zether Smart Contract (ZSC) must, upon deployment, be "attached" to some already-deployed ERC20 contract. After deployment, users may then transfer their ERC20 balances into (_deposit_) or out of (_withdraw_) special Zether accounts residing within the contract itself. Having credited funds to their Zether accounts, users may privately send these funds to other Zether accounts, _confidentially_ (transferred amounts are private) and _anonymously_ (identities of transactors are private). The obvious properties of course also hold: only the owner of each account's secret key can spend its funds, and overdraws are impossible.
 
@@ -20,20 +20,20 @@ Our theoretical contribution is a zero-knowledge proof protocol for the anonymou
 
 Anonymous Zether is not yet feasible for use in the Ethereum mainnet (see the [technical report](docs/AnonZether.pdf) for gas use details). However, after [Istanbul](https://eips.ethereum.org/EIPS/eip-1108), things will be much better.
 
-### Quickstart
+## Quickstart
 
 To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make some anonymous transfers...
 
-## Install Prerequisites
+### Install Prerequisites
 * [Yarn](https://yarnpkg.com/en/docs/install#mac-stable) tested with version 0.1.0
 * [Node.js](https://nodejs.org/en/download/) tested with version v10.15.3
 
-## Deploy a Quorum Network
+### Deploy a Quorum Network
 
 * Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)).
 * **Note:** for the Node.js example in this project to work, websockets need to be enabled when starting up geth / Quorum (i.e., use the geth flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*`).
 
-## Run the Node.js demo
+### Run the Node.js demo
 
 The Node.js [example project](packages/example) in this repo will deploy the necessary contracts: [ZetherVerifier.sol](packages/protocol/contracts/ZetherVerifier.sol), [BurnVerifier.sol](packages/protocol/contracts/BurnVerifier.sol), [CashToken.sol](packages/protocol/contracts/CashToken.sol), and finally
 [ZCS.sol](packages/protocol/contracts/ZSC.sol) (which is dependent on the previous contracts).
@@ -43,9 +43,9 @@ Once the ZCS contract is deployed, the Node.js application will fund the account
 This **requires** that geth be started with `ws`, `--wsport 23000`, `--ws --wsorigins=*` flags.
 
 ```bash
-$> cd anonymous-zether
+$ cd anonymous-zether
 # run node examples which will deploy the contracts and make some anon transfers.
-$> node packages/example
+$ node packages/example
 
 ```
 
