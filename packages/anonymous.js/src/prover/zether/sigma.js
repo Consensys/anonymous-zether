@@ -6,7 +6,11 @@ const bn128 = require('../../utils/bn128.js');
 class SigmaProof {
     constructor() {
         this.serialize = () => {
-
+            var result = "0x";
+            result += bn128.bytes(this.challenge).slice(2);
+            result += bn128.bytes(this.sX).slice(2);
+            result += bn128.bytes(this.sR).slice(2);
+            return result;
         };
     }
 }

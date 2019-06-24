@@ -69,6 +69,7 @@ class Client {
                 nonceUsed: 0,
                 lastRollOver: 0
             };
+
             this._simulateBalances = (timestamp) => {
                 var updated = {};
                 updated.available = this._state.available;
@@ -82,12 +83,15 @@ class Client {
                 }
                 return updated;
             };
+
             this.balance = () => {
                 return this.account._state.available + this.account._state.pending;
             };
+
             this.secret = () => {
-                return "0x" + this.keypair['x'].toString(16).padStart(64, '0'); // error if not initialized
+                return bn128.bytes(x);
             };
+
             this.initialize = async (secret) => {
                 return new Promise((resolve, reject) => {
                     zsc.methods.epochLength().call()
@@ -109,7 +113,7 @@ class Client {
                                         reject(error);
                                     });
                             } else {
-                                var x = new BN(secret, 16);
+                                var x = new BN(secret, 16).toRed(bn128.q);
                                 that.account.keypair = { 'x': x, 'y': utils.determinePublicKey(x) };
                                 zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
                                     .then((result) => {
@@ -117,7 +121,7 @@ class Client {
                                         that.account._state.available = utils.readBalance(simulated[0], simulated[1], that.account.keypair['x']);
                                         console.log("Account recovered successfully.");
                                         resolve(); // inconsistent that the above is resolved with a receipt and this not, but...
-                                    })
+                                    });
                             }
                         });
                 })
@@ -131,9 +135,11 @@ class Client {
                 friends[name] = pubkey;
                 return "Friend added.";
             };
+
             this.showFriends = () => {
                 return friends;
             };
+
             this.removeFriend = (name) => {
                 if (!(name in friends)) {
                     throw "Friend " + name + " not found in directory!";
@@ -242,9 +248,7 @@ class Client {
                         var R = bn128.curve.g.mul(r);
                         var CLn = result.map((simulated, i) => bn128.serialize(bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(L[i])));
                         var CRn = result.map((simulated) => bn128.serialize(bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)).add(R)));
-                        L = L.map(bn128.serialize); // messy but this ends up being the best way, it would appear
-                        R = bn128.serialize(R); // for various reasons, it doesn't make sense to pass in "live objects" (except for x?)
-                        var proof = service.proveTransfer(CLn, CRn, L, R, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
+                        var proof = service.proveTransfer(CLn, CRn, L.map(bn128.serialize), bn128.serialize(R), y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
                         var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
                         var throwaway = web3.eth.accounts.create();
                         var encoded = zsc.methods.transfer(L, R, y, u, proof).encodeABI();

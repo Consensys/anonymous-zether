@@ -32,13 +32,18 @@ bn128.bytes = (i) => { // i is a BN (red)
     return "0x" + i.toString(16, 64);
 };
 
-bn128.serialize = (p) => {
-    return [bn128.bytes(p.getX()), bn128.bytes(p.getY())];
+bn128.serialize = (point) => {
+    return [bn128.bytes(point.getX()), bn128.bytes(point.getY())];
 };
 
-bn128.unserialize = (representation) => {
-    return bn128.curve.point(representation[0].slice(2), representation[1].slice(2));
+bn128.unserialize = (serialization) => {
+    return bn128.curve.point(serialization[0].slice(2), serialization[1].slice(2));
 };
+
+bn128.representation = (point) => {
+    var temp = bn128.serialize(point);
+    return temp[0] + temp[1].slice(2);
+}
 
 bn128.B_MAX = B_MAX;
 

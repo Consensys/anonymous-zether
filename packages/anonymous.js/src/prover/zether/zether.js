@@ -6,7 +6,19 @@ const { GeneratorParams, FieldVector, FieldVectorPolynomial, PolyCommitment } = 
 class ZetherProof {
     constructor() {
         this.serialize = () => { // please initialize this before calling this method...
-
+            var result = "0x";
+            result += bn128.representation(this.a).slice(2);
+            result += bn128.representation(this.s).slice(2);
+            this.tCommits.forEach((commit) => {
+                result += bn128.representation(commit).slice(2);
+            });
+            result += bn128.bytes(this.t).slice(2);
+            result += bn128.bytes(this.tauX).slice(2);
+            result += bn128.bytes(this.mu).slice(2);
+            result += this.sigmaProof.serialize().slice(2);
+            result += this.ipProof.serialize().slice(2);
+            result == this.anonProof.serialize().slice(2);
+            return result;
         }
     };
 }
@@ -44,7 +56,7 @@ class ZetherProver {
             statement['y'] = new GeneratorVector(statement['y'].map((point) => bn128.unserialize(point)));
             // go ahead and "liven" these once and for all now that they have been hashed
 
-            var y = utils.hash(bn128.bytes(statementHash), bn128.serialize(a), bn128.serialize(s));
+            var y = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(statementHash), bn128.serialize(a), bn128.serialize(s)]));
             var ys = [new BN(1).toRed(bn128.q)];
             for (var i = 1; i < 64; i++) { // it would be nice to have a nifty functional way of doing this.
                 ys.push(ys[i - 1].redMul(y));

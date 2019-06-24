@@ -6,7 +6,16 @@ const bn128 = require('../../utils/bn128.js');
 class InnerProductProof {
     constructor() {
         this.serialize = () => {
-
+            result = "0x";
+            this.L.forEach((l) => {
+                result += bn128.representation(l).slice(2);
+            });
+            this.R.forEach((r) => {
+                result += bn128.representation(r).slice(2);
+            });
+            result += bn128.bytes(this.a).slice(2);
+            result += bn128.bytes(this.b).slice(2);
+            return result;
         };
     }
 }
@@ -55,7 +64,7 @@ class InnerProductProver {
             var basePrime = new GeneratorParams(gPrime, hPrime, u);
 
             return generateProof(basePrime, PPrime, aPrime, bPrime, ls, rs, x);
-        }
+        };
 
         this.generateProof = (statement, witness, salt) => {
             var size = statement['primeBase'].size();
