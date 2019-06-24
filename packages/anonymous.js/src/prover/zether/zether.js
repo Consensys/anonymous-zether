@@ -1,7 +1,10 @@
 const { AbiCoder } = require('web3-eth-abi');
 
 const bn128 = require('../../utils/bn128.js');
-const { GeneratorParams, FieldVector, FieldVectorPolynomial, PolyCommitment } = require('algebra.js');
+const { GeneratorParams, FieldVector, FieldVectorPolynomial, PolyCommitment } = require('./algebra.js');
+const { AnonProver } = require('./anon.js');
+const { SigmaProver } = require('./sigma.js');
+const { InnerProductProver } = require('../innerproduct.js');
 
 class ZetherProof {
     constructor() {
@@ -37,7 +40,7 @@ class ZetherProver {
         this.generateProof = (statement, witness, salt) => { // salt probably won't be used
             var proof = new ZetherProof();
 
-            var number = witness['bTransfer'].add(witness['bDiff'].shln(32));
+            var number = new BN(witness['bTransfer']).add(new BN(witness['bDiff']).shln(32));
             var aL = new FieldVector(number.toString(2, 64).split("").map((i) => new BN(i, 2).toRed(bn128.q)));
             var aR = new FieldVector(aL.map((i) => new BN(1).toRed(bn128.q).redSub(i)));
             var alpha = bn128.randomScalar();
@@ -107,9 +110,9 @@ class ZetherProver {
             sigmaStatement['gPrime'] = params.getG().mul(new BN(1).toRed(bn128.q).redSub(sigmaOveX));
             sigmaStatement['epoch'] = statement['epoch'];
             sigmaWitness = { 'x': witness['x'], 'r': witness['r'].redSub(rhoOverX).redMul(new BN(1).toRed(bn128.q).redSub(sigmaOverX).redInvm()) };
-            proof.sigmaProof = sigmaProver.generateProof(sigmaWitness, sigmaStatement, challenge);
+            proof.sigmaProof = sigmaProver.generateProof(sigmaStatement, sigmaWitness, challenge);
 
-            var uChallenge = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32', 'bytes32', 'bytes32'], [bn128.bytes(sigmaProof['challenge']), bn128.bytes(t), bn128.bytes(tauX), bn128.bytes(mu)]));
+            var uChallenge = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32', 'bytes32', 'bytes32'], [bn128.bytes(sigmaProof.challenge), bn128.bytes(t), bn128.bytes(tauX), bn128.bytes(mu)]));
             var u = params.getG().mul(uChallenge);
             var hPrimes = params.getHs().hadamard(ys.invert());
             var hExp = ys.times(z).add(twoTimesZs);
