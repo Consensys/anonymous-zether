@@ -47,7 +47,7 @@ utils.mapInto = (seed) => { // seed is flattened 0x + hex string
         var y_squared = seed_red.redPow(new BN(3)).redAdd(new BN(3).toRed(bn128.p));
         var y = y_squared.redPow(p_1_4);
         if (y.redPow(new BN(2)).eq(y_squared)) {
-            return bn128.curve.point(seed_red, y);
+            return bn128.curve.point(seed_red.fromRed(), y.fromRed());
         }
         seed_red.redIAdd(new BN(1).toRed(bn128.p));
     }

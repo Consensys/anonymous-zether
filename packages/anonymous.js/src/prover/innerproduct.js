@@ -2,11 +2,12 @@ const { AbiCoder } = require('web3-eth-abi');
 
 const { GeneratorParams, FieldVector } = require('./algebra.js');
 const bn128 = require('../utils/bn128.js');
+const utils = require('../utils/utils.js');
 
 class InnerProductProof {
     constructor() {
         this.serialize = () => {
-            result = "0x";
+            var result = "0x";
             this.L.forEach((l) => {
                 result += bn128.representation(l).slice(2);
             });
@@ -48,7 +49,7 @@ class InnerProductProver {
             var cR = asRight.innerProduct(bsLeft);
 
             var u = base.getH();
-            var L = gRight.commit(asLeft).add(hLeft.commit(bsRight)).add(u.mul(CL));
+            var L = gRight.commit(asLeft).add(hLeft.commit(bsRight)).add(u.mul(cL));
             var R = gLeft.commit(asRight).add(hRight.commit(bsLeft)).add(u.mul(cR));
             ls.push(L);
             rs.push(R);

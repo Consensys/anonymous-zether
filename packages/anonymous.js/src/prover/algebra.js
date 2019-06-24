@@ -6,39 +6,45 @@ const { soliditySha3 } = require('web3-utils');
 class GeneratorParams {
     constructor(gs, hs, h) { // doing double duty also as a "VectorBase". comes empty
         if (gs === undefined) {
-            gs = [];
+            gs = new GeneratorVector([]);
         }
         if (hs === undefined) {
-            hs = [];
+            hs = new GeneratorVector([]);
         }
         var g = utils.mapInto(soliditySha3("G"));
         if (h === undefined) {
             h = utils.mapInto(soliditySha3("V"));
         }
 
+        this.size = () => { return gs.getVector().length; };
         this.getG = () => { return g; };
         this.getH = () => { return h; };
         this.getGs = () => { return gs; };
         this.getHs = () => { return hs; };
 
         this.extend = (size) => {
+            var gsInnards = gs.getVector();
+            var hsInnards = hs.getVector();
             for (var i = this.size(); i < size; i++) {
-                gs.push(utils.mapInto(soliditySha3("G", i)));
-                hs.push(utils.mapInto(soliditySha3("H", i)));
+                gsInnards.push(utils.mapInto(soliditySha3("G", i)));
+                hsInnards.push(utils.mapInto(soliditySha3("H", i)));
             }
+            gs = new GeneratorVector(gsInnards);
+            hs = new GeneratorVector(hsInnards);
         };
 
         this.commit = (gExp, hExp, blinding) => {
             var result = h.mul(blinding);
-            gExp.getVector().forEach((exp, i) => {
-                result = result.add(g.mul(gs[i]));
+            var gExpVector = gExp.getVector();
+            var hExpVector = hExp.getVector();
+            gs.getVector().forEach((g, i) => {
+                result = result.add(g.mul(gExpVector[i]));
             });
-            hExp.getVector().forEach((exp, i) => { // swap the order and enclose this in an if (hExp) if block if you want it optional.
-                result = result.add(h.mul(hs[i]));
+            hs.getVector().forEach((h, i) => { // swap the order and enclose this in an if (hExp) if block if you want it optional.
+                result = result.add(h.mul(hExpVector[i]));
             });
+            return result;
         };
-
-        this.size = () => { return gs.length; };
     }
 }
 
@@ -61,7 +67,7 @@ class FieldVector {
 
         this.sum = () => {
             return vector.reduce((accum, cur) => accum.redAdd(cur), new BN(0).toRed(bn128.q));
-        }
+        };
 
         this.negate = () => {
             return new FieldVector(vector.map((elem) => elem.redNeg()));
@@ -78,7 +84,7 @@ class FieldVector {
 
         this.invert = () => {
             return new FieldVector(vector.map((elem) => elem.redInvm()));
-        }
+        };
 
         this.extract = (parity) => {
             return new FieldVector(vector.filter((_, i) => i % 2 == parity));
@@ -111,6 +117,10 @@ class GeneratorVector {
             var innards = exponents.getVector();
             return vector.reduce((accum, cur, i) => accum.add(cur.mul(innards[i])), bn128.zero);
         };
+
+        this.sum = () => {
+            return vector.reduce((accum, cur) => accum.add(cur), bn128.zero);
+        }
 
         this.add = (other) => {
             var innards = other.getVector();
@@ -217,7 +227,7 @@ class FieldVectorPolynomial {
 }
 
 class PedersenCommitment {
-    constuctor(params, x, r) {
+    constructor(params, x, r) {
         this.getX = () => { return x; };
         this.getR = () => { return r; };
 
@@ -243,14 +253,14 @@ class PolyCommitment {
         });
 
         this.getCommitments = () => { // ignore the first one
-            return coefficientCommitments.slice(1);
+            return coefficientCommitments.slice(1).map((commitment) => commitment.commit());
         };
 
         this.evaluate = (x) => {
             var result = coefficientCommitments[0];
             var accumulator = x; // slightly uncomfortable that this starts at 1, but... actutally faster.
             coefficientCommitments.slice(1).forEach((commitment) => {
-                result = result.add(commitment.times(accumlator));
+                result = result.add(commitment.times(accumulator));
                 accumulator = accumulator.redMul(x);
             });
             return result;
