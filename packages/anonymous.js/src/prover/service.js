@@ -26,7 +26,7 @@ class Service {
             witness['bDiff'] = bDiff;
             witness['index'] = index;
 
-            return zether.generateProof(statement, witness); // where will it get serialized?
+            return zether.generateProof(statement, witness).serialize();
         }
 
         this.proveBurn = (CLn, CRn, y, bTransfer, epoch, x, bDiff) => {
@@ -41,7 +41,7 @@ class Service {
             witness['x'] = x;
             witness['bDiff'] = bDiff;
 
-            return burn.generateProof(statement, witness);
+            return burn.generateProof(statement, witness).serialize();
         }
     }
 }

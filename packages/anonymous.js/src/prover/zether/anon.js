@@ -3,11 +3,19 @@ const { AbiCoder } = require('web3-eth-abi');
 const { GeneratorParams, FieldVector, Convolver } = require('./algebra.js');
 const bn128 = require('../../utils/bn128.js');
 
+class AnonProof {
+    constructor() {
+        this.serialize = () => {
+
+        };
+    }
+}
+
 class AnonProver {
     constructor() {
         var abiCoder = new AbiCoder(64);
 
-        var params = new GeneratorParams(0);
+        var params = new GeneratorParams();
 
         this.generateProof = (statement, witness, salt) => {
             var size = statement['y'].length;

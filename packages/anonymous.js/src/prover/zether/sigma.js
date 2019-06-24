@@ -3,6 +3,14 @@ const { AbiCoder } = require('web3-eth-abi');
 const { GeneratorParams, FieldVector } = require('./algebra.js');
 const bn128 = require('../../utils/bn128.js');
 
+class SigmaProof {
+    constructor() {
+        this.serialize = () => {
+
+        };
+    }
+}
+
 class SigmaProver {
     constructor() {
         var abiCoder = new AbiCoder();
@@ -24,8 +32,9 @@ class SigmaProver {
             var ADiff = y.add(yBar).mul(kR);
             var At = statement['CRn'].mul(zCubed).add(statement['inOutR'].mul(zSquared).neg()).mul(kX);
 
-            var proof = {};
-            proof['challenge'] = utils.hash(abiCoder.encodeParameters([
+            var proof = new SigmaProof();
+
+            proof.challenge = utils.hash(abiCoder.encodeParameters([
                 'bytes32',
                 'bytes32[2][2][]',
                 'bytes32[2]',
@@ -43,8 +52,8 @@ class SigmaProver {
                 bn128.serialize(At)
             ]));
 
-            proof['sX'] = kX.redAdd(proof['challenge'].redMul(witness['x']));
-            proof['sR'] = kR.redAdd(proof['challenge'].redMul(witness['r']));
+            proof.sX = kX.redAdd(proof['challenge'].redMul(witness['x']));
+            proof.sR = kR.redAdd(proof['challenge'].redMul(witness['r']));
 
             return proof;
         };

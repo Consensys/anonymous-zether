@@ -4,33 +4,41 @@ const BN = require('bn.js');
 const { soliditySha3 } = require('web3-utils');
 
 class GeneratorParams {
-    constructor(size) {
+    constructor(gs, hs, h) { // doing double duty also as a "VectorBase". comes empty
+        if (gs === undefined) {
+            gs = [];
+        }
+        if (hs === undefined) {
+            hs = [];
+        }
         var g = utils.mapInto(soliditySha3("G"));
-        var h = utils.mapInto(soliditySha3("V"));
-        var gs = Array.from({ length: size }).map((_, i) => utils.mapInto(soliditySha3("G", i)));
-        var hs = Array.from({ length: size }).map((_, i) => utils.mapInto(soliditySha3("H", i)));
+        if (h === undefined) {
+            h = utils.mapInto(soliditySha3("V"));
+        }
 
         this.getG = () => { return g; };
         this.getH = () => { return h; };
+        this.getGs = () => { return gs; };
+        this.getHs = () => { return hs; };
 
         this.commit = (gExp, hExp, blinding) => {
             var result = h.mul(blinding);
             gExp.getVector().forEach((exp, i) => {
                 result = result.add(g.mul(gs[i]));
-            })
+            });
             hExp.getVector().forEach((exp, i) => { // swap the order and enclose this in an if (hExp) if block if you want it optional.
                 result = result.add(h.mul(hs[i]));
-            })
+            });
         };
 
         this.size = () => { return gs.length; };
 
         this.extend = (size) => {
             for (var i = this.size(); i < size; i++) {
-                this.gs.push(utils.mapInto(soliditySha3("G", i)));
-                this.hs.push(utils.mapInto(soliditySha3("V", i)));
+                gs.push(utils.mapInto(soliditySha3("G", i)));
+                hs.push(utils.mapInto(soliditySha3("H", i)));
             }
-        }
+        };
     }
 }
 
@@ -38,6 +46,9 @@ class FieldVector {
     constructor(vector) {
         this.getVector = () => { return vector; };
         this.length = () => { return vector.length; };
+        this.slice = (begin, end) => {
+            return new FieldVector(vector.slice(begin, end));
+        };
 
         this.add = (other) => {
             var innards = other.getVector();
@@ -65,6 +76,10 @@ class FieldVector {
             return new FieldVector(vector.map((elem, i) => elem.redMul(innards[i])));
         };
 
+        this.invert = () => {
+            return new FieldVector(vector.map((elem) => elem.redInvm()));
+        }
+
         this.extract = (parity) => {
             return new FieldVector(vector.filter((_, i) => i % 2 == parity));
         };
@@ -88,6 +103,9 @@ class GeneratorVector {
     constructor(vector) {
         this.getVector = () => { return vector; };
         this.length = () => { return vector.length; };
+        this.slice = (begin, end) => {
+            return new GeneratorVector(vector.slice(begin, end));
+        };
 
         this.commit = (exponents) => {
             var innards = exponents.getVector();

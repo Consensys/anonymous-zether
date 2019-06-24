@@ -3,27 +3,38 @@ const { AbiCoder } = require('web3-eth-abi');
 const bn128 = require('../../utils/bn128.js');
 const { GeneratorParams, FieldVector, FieldVectorPolynomial, PolyCommitment } = require('algebra.js');
 
+class ZetherProof {
+    constructor() {
+        this.serialize = () => { // please initialize this before calling this method...
+
+        }
+    };
+}
+
 class ZetherProver {
     constructor() {
         var abiCoder = new AbiCoder();
 
-        var params = new GeneratorParams(64);
+        var params = new GeneratorParams();
+        params.extend(64);
 
         var anonProver = new AnonProver();
         var sigmaProver = new SigmaProver();
         var ipProver = new ipProver();
 
         this.generateProof = (statement, witness, salt) => { // salt probably won't be used
+            var proof = new ZetherProof();
+
             var number = witness['bTransfer'].add(witness['bDiff'].shln(32));
             var aL = new FieldVector(number.toString(2, 64).split("").map((i) => new BN(i, 2).toRed(bn128.q)));
             var aR = new FieldVector(aL.map((i) => new BN(1).toRed(bn128.q).redSub(i)));
             var alpha = bn128.randomScalar();
-            var a = params.commit(aL, aR, alpha);
+            proof.a = params.commit(aL, aR, alpha);
             var sL = new FieldVector(Array.from({ length: 64 }).map(bn128.randomScalar));
             var sR = new FieldVector(Array.from({ length: 64 }).map(bn128.randomScalar));
 
             var rho = bn128.randomScalar(); // already reduced
-            var s = params.commit(sL, sR, rho);
+            proof.s = params.commit(sL, sR, rho);
 
             var statementHash = utils.hash(abiCoder.encodeParameters(['uint256', 'bytes32[2]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]'], [statement['epoch'], statement['R'], statement['CLn'], statement['CRn'], statement['L'], statement['y']]));
             statement['CLn'] = new GeneratorVector(statement['CLn'].map((point) => bn128.unserialize(point)));
@@ -62,11 +73,13 @@ class ZetherProver {
             var polyCommitment = new PolyCommitment(params, tPolyCoefficients);
             var x = utils.hash(bn128.bytes(z), ...polyCommitment.getCommitments());
             var evalCommit = polyCommitment.evaluate(x);
-            var t = evalCommit.getX();
-            var mu = alpha.redAdd(rho.redMul(x));
+            proof.tCommits = new GeneratorVector(polyCommitment.getCommitments()); // just 2 of them?
+            proof.t = evalCommit.getX();
+            proof.tauX = evalCommit.getR();
+            proof.mu = alpha.redAdd(rho.redMul(x));
 
             var anonWitness = { 'index': witness['index'], 'pi': bn128.randomScalar(), 'rho': bn128.randomScalar(), 'sigma': bn128.randomScalar() };
-            var anonProof = anonProver.generateProof(statement, anonWitness, x);
+            proof.anonProof = anonProver.generateProof(statement, anonWitness, x);
 
             var challenge = anonProof['challenge'];
             var xInv = challenge.redInvm();
@@ -82,7 +95,19 @@ class ZetherProver {
             sigmaStatement['gPrime'] = params.getG().mul(new BN(1).toRed(bn128.q).redSub(sigmaOveX));
             sigmaStatement['epoch'] = statement['epoch'];
             sigmaWitness = { 'x': witness['x'], 'r': witness['r'].redSub(rhoOverX).redMul(new BN(1).toRed(bn128.q).redSub(sigmaOverX).redInvm()) };
-            var sigmaProof = sigmaProver.generateProof(sigmaWitness, sigmaStatement, challenge);
+            proof.sigmaProof = sigmaProver.generateProof(sigmaWitness, sigmaStatement, challenge);
+
+            var uChallenge = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32', 'bytes32', 'bytes32'], [bn128.bytes(sigmaProof['challenge']), bn128.bytes(t), bn128.bytes(tauX), bn128.bytes(mu)]));
+            var u = params.getG().mul(uChallenge);
+            var hPrimes = params.getHs().hadamard(ys.invert());
+            var hExp = ys.times(z).add(twoTimesZs);
+            var P = a.add(s.mul(x)).add(gs.sum().mul(z.redNeg())).add(hPrimes.commit(hExp)).add(u.mul(t)).add(params.getH().mul(mu).neg());
+            var primeBase = new GeneratorParams(params.getGs(), hPrimes, u);
+            var ipStatement = { 'primeBase': primeBase, 'P': P }; // "cheating" by including primeBase in the statement while in reality it's "params"
+            var ipWitness = { 'l': lPoly.evaluate(x), 'r': rPoly.evaluate(x) };
+            proof.ipProof = ipProver.generateProof(ipStatement, ipWitness, uChallenge);
+
+            return proof;
         }
     }
 }
