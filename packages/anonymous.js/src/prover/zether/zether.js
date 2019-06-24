@@ -5,8 +5,13 @@ const { GeneratorParams, FieldVector, FieldVectorPolynomial, PolyCommitment } = 
 
 class ZetherProver {
     constructor() {
-        var params = new GeneratorParams(64);
         var abiCoder = new AbiCoder();
+
+        var params = new GeneratorParams(64);
+
+        var anonProver = new AnonProver();
+        var sigmaProver = new SigmaProver();
+        var ipProver = new ipProver();
 
         this.generateProof = (statement, witness, salt) => { // salt probably won't be used
             var number = witness['bTransfer'].add(witness['bDiff'].shln(32));
@@ -60,7 +65,6 @@ class ZetherProver {
             var t = evalCommit.getX();
             var mu = alpha.redAdd(rho.redMul(x));
 
-            var anonProver = new AnonProver();
             var anonWitness = { 'index': witness['index'], 'pi': bn128.randomScalar(), 'rho': bn128.randomScalar(), 'sigma': bn128.randomScalar() };
             var anonProof = anonProver.generateProof(statement, anonWitness, x);
 
@@ -70,7 +74,6 @@ class ZetherProver {
             var rhoOverX = anonWitness['rho'].redMul(xInv);
             var sigmaOverX = anonWitness['sigma'].redMul(xInv);
 
-            var sigmaProver = new SigmaProver();
             var sigmaStatement = {}; // only certain parts of the "statement" are actually used in proving.
             sigmaStatement['inOutR'] = statement['R'].add(g.mul(rhoOverX).neg());
             sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].add(params.getG().mul(piOverX).neg());

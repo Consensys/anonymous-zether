@@ -5,11 +5,15 @@ const bn128 = require('../../utils/bn128.js');
 
 class AnonProver {
     constructor() {
-        var abiCoder = new AbiCoder();
+        var abiCoder = new AbiCoder(64);
+
+        var params = new GeneratorParams(0);
 
         this.generateProof = (statement, witness, salt) => {
             var size = statement['y'].length;
-            var params = new GeneratorParams(size);
+            if (params.size() < size) {
+                params.extend(size);
+            } // one-off cost when a "new record" size is used.
 
             var rA = bn128.randomScalar();
             var rB = bn128.randomScalar();

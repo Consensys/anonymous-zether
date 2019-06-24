@@ -22,6 +22,15 @@ class GeneratorParams {
                 result = result.add(h.mul(hs[i]));
             })
         };
+
+        this.size = () => { return gs.length; };
+
+        this.extend = (size) => {
+            for (var i = this.size(); i < size; i++) {
+                this.gs.push(utils.mapInto(soliditySha3("G", i)));
+                this.hs.push(utils.mapInto(soliditySha3("V", i)));
+            }
+        }
     }
 }
 
