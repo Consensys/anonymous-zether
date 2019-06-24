@@ -1,10 +1,11 @@
 const { AbiCoder } = require('web3-eth-abi');
+const BN = require('BN.js');
 
 const bn128 = require('../../utils/bn128.js');
-const { GeneratorParams, FieldVector, FieldVectorPolynomial, PolyCommitment } = require('./algebra.js');
-const { AnonProver } = require('./anon.js');
-const { SigmaProver } = require('./sigma.js');
-const { InnerProductProver } = require('../innerproduct.js');
+const { GeneratorParams, FieldVector, FieldVectorPolynomial, PolyCommitment } = require('../algebra.js');
+const AnonProver = require('./anon.js');
+const SigmaProver = require('./sigma.js');
+const InnerProductProver = require('../innerproduct.js');
 
 class ZetherProof {
     constructor() {
@@ -35,14 +36,14 @@ class ZetherProver {
 
         var anonProver = new AnonProver();
         var sigmaProver = new SigmaProver();
-        var ipProver = new ipProver();
+        var ipProver = new InnerProductProver();
 
         this.generateProof = (statement, witness, salt) => { // salt probably won't be used
             var proof = new ZetherProof();
 
             var number = new BN(witness['bTransfer']).add(new BN(witness['bDiff']).shln(32));
             var aL = new FieldVector(number.toString(2, 64).split("").map((i) => new BN(i, 2).toRed(bn128.q)));
-            var aR = new FieldVector(aL.map((i) => new BN(1).toRed(bn128.q).redSub(i)));
+            var aR = new FieldVector(aL.getVector().map((i) => new BN(1).toRed(bn128.q).redSub(i)));
             var alpha = bn128.randomScalar();
             proof.a = params.commit(aL, aR, alpha);
             var sL = new FieldVector(Array.from({ length: 64 }).map(bn128.randomScalar));

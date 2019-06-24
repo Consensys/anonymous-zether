@@ -1,6 +1,6 @@
 const { AbiCoder } = require('web3-eth-abi');
 
-const { GeneratorParams, FieldVector } = require('./algebra.js');
+const { GeneratorParams, FieldVector } = require('../algebra.js');
 const bn128 = require('../../utils/bn128.js');
 
 class SigmaProof {
@@ -63,3 +63,5 @@ class SigmaProver {
         };
     }
 }
+
+module.exports = SigmaProver;

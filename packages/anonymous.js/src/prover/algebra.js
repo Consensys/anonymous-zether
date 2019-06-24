@@ -21,6 +21,13 @@ class GeneratorParams {
         this.getGs = () => { return gs; };
         this.getHs = () => { return hs; };
 
+        this.extend = (size) => {
+            for (var i = this.size(); i < size; i++) {
+                gs.push(utils.mapInto(soliditySha3("G", i)));
+                hs.push(utils.mapInto(soliditySha3("H", i)));
+            }
+        };
+
         this.commit = (gExp, hExp, blinding) => {
             var result = h.mul(blinding);
             gExp.getVector().forEach((exp, i) => {
@@ -32,13 +39,6 @@ class GeneratorParams {
         };
 
         this.size = () => { return gs.length; };
-
-        this.extend = (size) => {
-            for (var i = this.size(); i < size; i++) {
-                gs.push(utils.mapInto(soliditySha3("G", i)));
-                hs.push(utils.mapInto(soliditySha3("H", i)));
-            }
-        };
     }
 }
 
