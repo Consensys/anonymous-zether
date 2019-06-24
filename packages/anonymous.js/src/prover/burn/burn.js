@@ -39,8 +39,8 @@ class BurnProver {
         this.generateProof = (statement, witness, salt) => { // salt probably won't be used
             var proof = new BurnProof();
 
-            var aL = new FieldVector(new BN(witness['bDiff']).toString(2, 32).split("").map((i) => new BN(i, 2).toRed(bn128.q)));
-            var aR = new FieldVector(aL.getVector().map((i) => new BN(1).toRed(bn128.q).redSub(i)));
+            var aL = new FieldVector(new BN(witness['bDiff']).toString(2, 32).split("").reverse().map((i) => new BN(i, 2).toRed(bn128.q)));
+            var aR = new FieldVector(aL.getVector().map((i) => i.redSub(new BN(1).toRed(bn128.q))));
             var alpha = bn128.randomScalar();
             proof.a = params.commit(aL, aR, alpha);
             var sL = new FieldVector(Array.from({ length: 32 }).map(bn128.randomScalar));
