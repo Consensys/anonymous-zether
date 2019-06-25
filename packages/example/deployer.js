@@ -4,11 +4,8 @@ const BurnVerifier = require("../contract-artifacts/artifacts/BurnVerifier.json"
 const CashToken = require("../contract-artifacts/artifacts/CashToken.json");
 const ZSC = require("../contract-artifacts/artifacts/ZSC.json");
 
-
 class Deployer {
-    constructor(web3) {
-        web3.transactionConfirmationBlocks = 1;
-
+    constructor(web3) { // the only point of this being a "class" is to pass in web3.
         this.deployZetherVerifier = () => {
             const abi = ZetherVerifier.abi;
             const bytecode = ZetherVerifier.bytecode;
@@ -22,14 +19,14 @@ class Deployer {
                         from: "0xed9d02e382b34818e88b88a309c7fe71e65f419d",
                         gas: 470000000
                     })
-                    .on("error", err => {
+                    .on("error", (err) => {
                         reject(err);
                     })
-                    .on("receipt", receipt => {
+                    .on("receipt", (receipt) => {
                         console.log("Zether verifier mined (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);
-                    })
-            })
+                    });
+            });
         };
 
         this.deployBurnVerifier = () => {
@@ -50,8 +47,8 @@ class Deployer {
                     .on("receipt", (receipt) => {
                         console.log("Burn verifier mined (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);
-                    })
-            })
+                    });
+            });
         };
 
         this.deployCashToken = () => {
@@ -73,8 +70,8 @@ class Deployer {
                     .on("receipt", (receipt) => {
                         console.log("ERC20 contact mined (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);
-                    })
-            })
+                    });
+            });
         };
 
         this.mintCashToken = (contractAddress) => {
@@ -141,8 +138,8 @@ class Deployer {
                     .on("receipt", (receipt) => {
                         console.log("ZSC main contract deployed (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);
-                    })
-            })
+                    });
+            });
         };
     }
 }
