@@ -178,7 +178,7 @@ class Client {
             // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size
             // this function should hopefully give you good epoch lengths also for 8, 16, 32, etc... if you have very heavy traffic, may need to bump it up (many verifications)
             // i calibrated this on _my machine_. if you are getting transfer failures, you might need to bump up the constants, recalibrate yourself, etc.
-            return Math.ceil(size * Math.log(size) / Math.log(2) * 25 + 2000) + (contract ? 20 : 0);
+            return Math.ceil(size * Math.log(size) / Math.log(2) * 28 + 2400) + (contract ? 20 : 0);
             // the 20-millisecond buffer is designed to give the callback time to fire (see below).
         };
 
@@ -202,7 +202,7 @@ class Client {
             var size = 2 + decoys.length;
             var estimated = estimate(size, false); // see notes above
             if (estimated > this._epochLength)
-                throw "The size (" + size + ") you've requested might take longer than the epoch length " + this._epochLength + " ms to prove. Consider re-deploying, with an epoch at least " + estimate(size, true) + " ms.";
+                throw "The size (" + size + ") you've requested might take longer than the epoch length (" + this._epochLength + " ms) to prove. Consider re-deploying, with an epoch length at least " + estimate(size, true) + " ms.";
             if (estimated > wait) {
                 console.log(wait < 2000 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
                 return sleep(wait).then(() => this.transfer(name, value, decoys));
