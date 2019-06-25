@@ -11,19 +11,10 @@ utils.determinePublicKey = (x) => {
 // no "start" parameter for now.
 // CL and CR are "flat", x is a BN.
 utils.readBalance = (CL, CR, x) => {
-    var CLPoint, CRPoint;
-    if (CL[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && CL[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
-        CLPoint = bn128.zero;
-    } else {
-        CLPoint = bn128.unserialize(CL);
-    }
-    if (CR[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && CR[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
-        CRPoint = bn128.zero;
-    } else {
-        CRPoint = bn128.unserialize(CR);
-    }
+    CL = bn128.unserialize(CL);
+    CR = bn128.unserialize(CR);
 
-    var gB = CLPoint.add(CRPoint.mul(x.neg()));
+    var gB = CL.add(CR.mul(x.neg()));
 
     var accumulator = bn128.zero;
     for (var i = 0; i < bn128.B_MAX; i++) {

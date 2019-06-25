@@ -244,10 +244,10 @@ class Client {
                 zsc.methods.simulateAccounts(y, this._getEpoch()).call()
                     .then((result) => {
                         var r = bn128.randomScalar();
-                        var L = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.curve.point(party[0].slice(2), party[1].slice(2)).mul(r)));
+                        var L = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.unserialize(party).mul(r)));
                         var R = bn128.curve.g.mul(r);
-                        var CLn = result.map((simulated, i) => bn128.serialize(bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(L[i])));
-                        var CRn = result.map((simulated) => bn128.serialize(bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)).add(R)));
+                        var CLn = result.map((simulated, i) => bn128.serialize(bn128.unserialize(simulated[0]).add(L[i])));
+                        var CRn = result.map((simulated) => bn128.serialize(bn128.unserialize(simulated[1]).add(R)));
                         L = L.map(bn128.serialize);
                         R = bn128.serialize(R);
                         var proof = service.proveTransfer(CLn, CRn, L, R, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);

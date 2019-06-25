@@ -37,7 +37,10 @@ bn128.serialize = (point) => {
 };
 
 bn128.unserialize = (serialization) => {
-    return bn128.curve.point(serialization[0].slice(2), serialization[1].slice(2));
+    if (serialization[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && serialization[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
+        return bn128.zero;
+    }
+    return bn128.curve.point(serialization[0].slice(2), serialization[1].slice(2)); // no check if valid curve point?
 };
 
 bn128.representation = (point) => {
