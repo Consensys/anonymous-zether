@@ -101,8 +101,8 @@ class AnonProver {
                 'bytes32[2]'
             ], [
                 bn128.bytes(salt),
-                proof.LG.map((LG_i) => LG_i.getVector().map(bn128.serialize)),
-                proof.yG.map((yG_i) => yG_i.getVector().map(bn128.serialize)),
+                proof.LG[0].getVector().map((point, i) => [point, proof.LG[1].getVector()[i]].map(bn128.serialize)),
+                proof.yG[0].getVector().map((point, i) => [point, proof.yG[1].getVector()[i]].map(bn128.serialize)),
                 bn128.serialize(proof.A),
                 bn128.serialize(proof.B),
                 bn128.serialize(proof.C),

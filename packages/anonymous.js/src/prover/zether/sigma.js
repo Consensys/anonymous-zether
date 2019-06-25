@@ -49,7 +49,7 @@ class SigmaProver {
                 'bytes32[2]'
             ], [
                 bn128.bytes(salt),
-                AL.map((AL_i) => AL_i.getVector().map(bn128.serialize)),
+                AL[0].getVector().map((point, i) => [point, AL[1].getVector()[i]].map(bn128.serialize)), // unusual---have to transpose
                 bn128.serialize(Ay),
                 bn128.serialize(AD),
                 bn128.serialize(Au),
