@@ -44,7 +44,7 @@ class ZetherProver {
 
             var number = new BN(witness['bTransfer']).add(new BN(witness['bDiff']).shln(32));
             var aL = new FieldVector(number.toString(2, 64).split("").reverse().map((i) => new BN(i, 2).toRed(bn128.q)));
-            var aR = new FieldVector(aL.getVector().map((i) => i.redSub(new BN(1).toRed(bn128.q))));
+            var aR = aL.negate().plus(new BN(1).toRed(bn128.q).redNeg());
             var alpha = bn128.randomScalar();
             proof.a = params.commit(aL, aR, alpha);
             var sL = new FieldVector(Array.from({ length: 64 }).map(bn128.randomScalar));
@@ -98,20 +98,20 @@ class ZetherProver {
             var anonWitness = { 'index': witness['index'], 'pi': bn128.randomScalar(), 'rho': bn128.randomScalar(), 'sigma': bn128.randomScalar() };
             proof.anonProof = anonProver.generateProof(statement, anonWitness, x);
 
-            var challenge = anonProof['challenge'];
+            var challenge = proof.anonProof.challenge;
             var xInv = challenge.redInvm();
             var piOverX = anonWitness['pi'].redMul(xInv);
             var rhoOverX = anonWitness['rho'].redMul(xInv);
             var sigmaOverX = anonWitness['sigma'].redMul(xInv);
 
             var sigmaStatement = {}; // only certain parts of the "statement" are actually used in proving.
-            sigmaStatement['inOutR'] = statement['R'].add(g.mul(rhoOverX).neg());
+            sigmaStatement['inOutR'] = statement['R'].add(params.getG().mul(rhoOverX).neg());
             sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].add(params.getG().mul(piOverX).neg());
             sigmaStatement['y'] = Array.from({ length: 2 }).map((_, i) => statement['y'].shift(witness['index'][i]).extract(0).flip().times(new BN(1).toRed(bn128.q).redSub(sigmaOverX)));
             sigmaStatement['z'] = z;
-            sigmaStatement['gPrime'] = params.getG().mul(new BN(1).toRed(bn128.q).redSub(sigmaOveX));
+            sigmaStatement['gPrime'] = params.getG().mul(new BN(1).toRed(bn128.q).redSub(sigmaOverX));
             sigmaStatement['epoch'] = statement['epoch'];
-            sigmaWitness = { 'x': witness['x'], 'r': witness['r'].redSub(rhoOverX).redMul(new BN(1).toRed(bn128.q).redSub(sigmaOverX).redInvm()) };
+            var sigmaWitness = { 'x': witness['x'], 'r': witness['r'].redSub(rhoOverX).redMul(new BN(1).toRed(bn128.q).redSub(sigmaOverX).redInvm()) };
             proof.sigmaProof = sigmaProver.generateProof(sigmaStatement, sigmaWitness, challenge);
 
             var uChallenge = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32', 'bytes32', 'bytes32'], [bn128.bytes(proof.sigmaProof.challenge), bn128.bytes(proof.t), bn128.bytes(proof.tauX), bn128.bytes(proof.mu)]));

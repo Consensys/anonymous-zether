@@ -1,7 +1,8 @@
 const { AbiCoder } = require('web3-eth-abi');
 
-const { GeneratorParams, FieldVector } = require('../algebra.js');
+const { GeneratorParams, GeneratorVector, FieldVector } = require('../algebra.js');
 const bn128 = require('../../utils/bn128.js');
+const utils = require('../../utils/utils.js');
 
 class SigmaProof {
     constructor() {
@@ -30,7 +31,7 @@ class SigmaProver {
             var kX = bn128.randomScalar();
 
             var Ay = statement['gPrime'].mul(kX);
-            var AD = statement['gRrime'].mul(kR);
+            var AD = statement['gPrime'].mul(kR);
             var AL = statement['y'].map((y_i) => new GeneratorVector(y_i.times(kR).getVector().slice(1)));
             var Au = utils.gEpoch(statement['epoch']).mul(kX);
             var ADiff = y.add(yBar).mul(kR);
@@ -45,10 +46,10 @@ class SigmaProver {
                 'bytes32[2]',
                 'bytes32[2]',
                 'bytes32[2]',
-                'bytes32[2]',
+                'bytes32[2]'
             ], [
                 bn128.bytes(salt),
-                proof['AL'].map((AL_i) => AL_i.map(bn128.serialize)),
+                AL.map((AL_i) => AL_i.getVector().map(bn128.serialize)),
                 bn128.serialize(Ay),
                 bn128.serialize(AD),
                 bn128.serialize(Au),
@@ -56,8 +57,8 @@ class SigmaProver {
                 bn128.serialize(At)
             ]));
 
-            proof.sX = kX.redAdd(proof['challenge'].redMul(witness['x']));
-            proof.sR = kR.redAdd(proof['challenge'].redMul(witness['r']));
+            proof.sX = kX.redAdd(proof.challenge.redMul(witness['x']));
+            proof.sR = kR.redAdd(proof.challenge.redMul(witness['r']));
 
             return proof;
         };

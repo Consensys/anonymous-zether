@@ -39,7 +39,7 @@ class SigmaProver {
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
-                'bytes32[2]',
+                'bytes32[2]'
             ], [
                 bn128.bytes(salt),
                 bn128.serialize(Ay),
