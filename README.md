@@ -31,32 +31,30 @@ To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make s
 ### Deploy a Quorum Network
 
 * Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)).
-* **Note:** for the Node.js example in this project to work, websockets need to be enabled when starting up geth / Quorum (i.e., use the geth flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*`).
+* **Note:** for the Node.js example in this project to work, websockets need to be enabled when starting up geth / Quorum (use the geth flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*`).
 
 ### Run the Node.js demo
 
-The Node.js [example project](packages/example) in this repo will deploy the necessary contracts: [ZetherVerifier.sol](packages/protocol/contracts/ZetherVerifier.sol), [BurnVerifier.sol](packages/protocol/contracts/BurnVerifier.sol), [CashToken.sol](packages/protocol/contracts/CashToken.sol), and finally
+The Node.js [example project](packages/example) in this repo will first deploy the necessary contracts: [ZetherVerifier.sol](packages/protocol/contracts/ZetherVerifier.sol), [BurnVerifier.sol](packages/protocol/contracts/BurnVerifier.sol), [CashToken.sol](packages/protocol/contracts/CashToken.sol), and finally
 [ZCS.sol](packages/protocol/contracts/ZSC.sol) (which is dependent on the previous contracts).
 
-Once the ZCS contract is deployed, the Node.js application will fund the account, add some 'friends', and make an anonymous transfer.
+Having done this, the Node.js application will fund an account, add some 'friends' and make an anonymous transfer.
 
 This **requires** that geth be started with `ws`, `--wsport 23000`, `--ws --wsorigins=*` flags.
 
 ```bash
 $ cd anonymous-zether
-# run node examples which will deploy the contracts and make some anon transfers.
 $ node packages/example
-
 ```
 
 ## Detailed usage example
 
-Let's assume that `Client` has been imported and that all contracts have been deployed, as in https://github.com/jpmorganchase/anonymous-zether/blob/master/packages/example/index.js#L14-L24. In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, call
+Let's assume that `Client` has been imported and that all contracts have been deployed, as in https://github.com/jpmorganchase/anonymous-zether/blob/master/packages/example/index.js#L12-L19. In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, execute
 ```javascript
 > var home
 > web3.eth.getAccounts().then((accounts) => { home = accounts[accounts.length - 1]; })
 ```
-to print the public key of an unlocked account. Assign this value to the variable `home`.
+to assign the address of an unlocked account to the variable `home`.
 
 In the first window, Alice's let's say, execute
 ```javascript
