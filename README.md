@@ -53,7 +53,8 @@ $ node packages/example
 
 Let's assume that `Client` has been imported and that all contracts have been deployed, as in https://github.com/jpmorganchase/anonymous-zether/blob/master/packages/example/index.js#L14-L24. In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, call
 ```javascript
-web3.eth.getAccounts().then((accounts) => { console.log(accounts[accounts.length - 1]); })
+> var home
+> web3.eth.getAccounts().then((accounts) => { home = accounts[accounts.length - 1]; })
 ```
 to print the public key of an unlocked account. Assign this value to the variable `home`.
 
@@ -92,7 +93,7 @@ Withdrawal of 10 was successful. Balance now 90.
 ```
 In Bob's window, use
 ```javascript
-> bob.account.keypair['y']
+> bob.account.public()
 [
   '0x17f5f0daab7218a462dea5f04d47c9db95497833381f502560486d4019aec495',
   '0x0957b7a0ec24a779f991ea645366b27fe3e93e996f3e7936bdcfb7b18d41a945'
@@ -100,7 +101,7 @@ In Bob's window, use
 ```
 to retrieve his public key and add Bob as a "friend" of Alice, i.e.
 ```javascript
-> alice.friends.addFriend("Bob", ['0x17f5f0daab7218a462dea5f04d47c9db95497833381f502560486d4019aec495', '0x0957b7a0ec24a779f991ea645366b27fe3e93e996f3e7936bdcfb7b18d41a945'])
+> alice.friends.add("Bob", ['0x17f5f0daab7218a462dea5f04d47c9db95497833381f502560486d4019aec495', '0x0957b7a0ec24a779f991ea645366b27fe3e93e996f3e7936bdcfb7b18d41a945'])
 'Friend added.'
 ```
 You can now do

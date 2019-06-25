@@ -34,7 +34,7 @@ class Client {
                     if (match(account.keypair['y'], party)) {
                         var blockNumber = event.blockNumber;
                         web3.eth.getBlock(blockNumber).then((block) => {
-                            account._state = account._simulateBalances(block.timestamp / 1000000); // divide by 1000000 for quorum...?
+                            account._state = account._simulate(block.timestamp / 1000000); // divide by 1000000 for quorum...?
                             web3.eth.getTransaction(event.transactionHash).then((transaction) => {
                                 var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
                                 var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
@@ -70,7 +70,7 @@ class Client {
                 lastRollOver: 0
             };
 
-            this._simulateBalances = (timestamp) => {
+            this._simulate = (timestamp) => {
                 var updated = {};
                 updated.available = this._state.available;
                 updated.pending = this._state.pending;
@@ -85,11 +85,15 @@ class Client {
             };
 
             this.balance = () => {
-                return this.account._state.available + this.account._state.pending;
+                return this._state.available + this._state.pending;
+            };
+
+            this.public = () => {
+                return this.keypair['y'];
             };
 
             this.secret = () => {
-                return bn128.bytes(x);
+                return bn128.bytes(this.keypair['x']);
             };
 
             this.initialize = async (secret) => {
@@ -109,7 +113,7 @@ class Client {
                                         resolve(receipt);
                                     })
                                     .on('error', (error) => {
-                                        console.log("Registration failed! Create a new `client` (do not use this one).");
+                                        console.log("Registration failed! Create a new `Client` (do not use this one).");
                                         reject(error);
                                     });
                             } else {
@@ -124,23 +128,23 @@ class Client {
                                     });
                             }
                         });
-                })
+                });
             };
         };
 
         this.friends = new function() {
             var friends = {};
-            this.addFriend = (name, pubkey) => {
+            this.add = (name, pubkey) => {
                 // todo: checks that these are properly formed, of the right types, etc...
                 friends[name] = pubkey;
                 return "Friend added.";
             };
 
-            this.showFriends = () => {
+            this.show = () => {
                 return friends;
             };
 
-            this.removeFriend = (name) => {
+            this.remove = (name) => {
                 if (!(name in friends)) {
                     throw "Friend " + name + " not found in directory!";
                 }
@@ -158,7 +162,7 @@ class Client {
                         console.log("Deposit submitted (txHash = \"" + hash + "\").");
                     })
                     .on('receipt', (receipt) => {
-                        account._state = account._simulateBalances(); // have to freshly call it
+                        account._state = account._simulate(); // have to freshly call it
                         account._state.pending += value;
                         console.log("Deposit of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
                         resolve(receipt);
@@ -181,7 +185,7 @@ class Client {
         this.transfer = (name, value, decoys) => {
             decoys = decoys ? decoys : [];
             var account = this.account;
-            var state = account._simulateBalances();
+            var state = account._simulate();
             if (value > state.available + state.pending)
                 throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
             var wait = this._away();
@@ -212,7 +216,7 @@ class Client {
                 }
                 throw "Anonset's size (including you and the recipient) must be a power of two. Add " + (next - size) + " or remove " + (size - previous) + ".";
             }
-            var friends = that.friends.showFriends();
+            var friends = that.friends.show();
             if (!(name in friends))
                 throw "Name \"" + name + "\" hasn't been friended yet!";
             var y = [account.keypair['y']].concat([friends[name]]); // not yet shuffled
@@ -262,7 +266,7 @@ class Client {
                                     console.log("Transfer submitted (txHash = \"" + hash + "\").");
                                 })
                                 .on('receipt', (receipt) => {
-                                    account._state = account._simulateBalances(); // have to freshly call it
+                                    account._state = account._simulate(); // have to freshly call it
                                     account._state.nonceUsed = true;
                                     account._state.pending -= value;
                                     console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
@@ -279,7 +283,7 @@ class Client {
 
         this.withdraw = (value) => {
             var account = this.account;
-            var state = account._simulateBalances();
+            var state = account._simulate();
             if (value > state.available + state.pending)
                 throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
             var wait = this._away();
@@ -310,7 +314,7 @@ class Client {
                                 console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
                             })
                             .on('receipt', (receipt) => {
-                                account._state = account._simulateBalances(); // have to freshly call it
+                                account._state = account._simulate(); // have to freshly call it
                                 account._state.nonceUsed = true;
                                 account._state.pending -= value;
                                 console.log("Withdrawal of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
