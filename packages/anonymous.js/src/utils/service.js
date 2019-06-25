@@ -1,5 +1,5 @@
-const ZetherProver = require('./zether/zether.js');
-const BurnProver = require('./burn/burn.js');
+const ZetherProver = require('../prover/zether/zether.js');
+const BurnProver = require('../prover/burn/burn.js');
 
 class Service {
     constructor() {
@@ -9,7 +9,6 @@ class Service {
 
         this.proveTransfer = (CLn, CRn, L, R, y, epoch, x, r, bTransfer, bDiff, index) => { // no longer async.
             // CLn, CRn, Y, x are "live" (point, BN etc)
-            // r is a "RedBN". will that cause issues?
             // epoch, bTransfer, bDiff, index are "plain / primitive" JS types.
             var statement = {};
             statement['CLn'] = CLn;

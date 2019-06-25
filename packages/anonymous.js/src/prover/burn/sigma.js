@@ -27,7 +27,6 @@ class SigmaProver {
             var z = statement['z'];
             var zSquared = z.redMul(statement['z']);
 
-            var kR = bn128.randomScalar();
             var kX = bn128.randomScalar();
 
             var Ay = g.mul(kX);

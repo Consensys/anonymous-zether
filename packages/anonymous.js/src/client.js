@@ -1,7 +1,7 @@
 const BN = require('BN.js');
 
 const utils = require('./utils/utils.js');
-const Service = require('./prover/service.js');
+const Service = require('./utils/service.js');
 const bn128 = require('./utils/bn128.js');
 
 var sleep = (wait) => new Promise((resolve) => setTimeout(resolve, wait));

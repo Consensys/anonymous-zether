@@ -49,7 +49,7 @@ class BurnProver {
             var rho = bn128.randomScalar(); // already reduced
             proof.s = params.commit(sL, sR, rho);
 
-            var statementHash = utils.hash(abiCoder.encodeParameters(['uint256', 'uint256', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [statement['epoch'], statement['bTransfer'], statement['y'], statement['CLn'], statement['CRn']]));
+            var statementHash = utils.hash(abiCoder.encodeParameters(['uint256', 'uint256', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [statement['bTransfer'], statement['epoch'], statement['y'], statement['CLn'], statement['CRn']]));
             statement['CLn'] = bn128.unserialize(statement['CLn']);
             statement['CRn'] = bn128.unserialize(statement['CRn']);
             statement['y'] = new GeneratorVector(statement['y'].map((point) => bn128.unserialize(point)));
