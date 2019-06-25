@@ -5,7 +5,10 @@ const CashToken = require("../contract-artifacts/artifacts/CashToken.json");
 const ZSC = require("../contract-artifacts/artifacts/ZSC.json");
 
 class Deployer {
-    constructor(web3) { // the only point of this being a "class" is to pass in web3.
+    constructor() {
+        const web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:22000"))
+        web3.transactionConfirmationBlocks = 1;
+
         this.deployZetherVerifier = () => {
             const abi = ZetherVerifier.abi;
             const bytecode = ZetherVerifier.bytecode;

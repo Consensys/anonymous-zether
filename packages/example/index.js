@@ -6,11 +6,10 @@ const Provider = require('./provider.js');
 
 (async () => {
     var provider = new Provider("ws://localhost:23000");
-    const temp = await provider.getProvider();
-    const web3 = new Web3(temp);
-    web3.transactionConfirmationBlocks = 1;
+    const web3 = new Web3(await provider.getProvider());
 
-    var deployer = new Deployer(web3);
+    web3.transactionConfirmationBlocks = 1;
+    var deployer = new Deployer();
     const zether = (await deployer.deployZetherVerifier()).contractAddress;
     const burn = (await deployer.deployBurnVerifier()).contractAddress;
     const cash = (await deployer.deployCashToken()).contractAddress;

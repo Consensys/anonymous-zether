@@ -248,7 +248,9 @@ class Client {
                         var R = bn128.curve.g.mul(r);
                         var CLn = result.map((simulated, i) => bn128.serialize(bn128.curve.point(simulated[0][0].slice(2), simulated[0][1].slice(2)).add(L[i])));
                         var CRn = result.map((simulated) => bn128.serialize(bn128.curve.point(simulated[1][0].slice(2), simulated[1][1].slice(2)).add(R)));
-                        var proof = service.proveTransfer(CLn, CRn, L.map(bn128.serialize), bn128.serialize(R), y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
+                        L = L.map(bn128.serialize);
+                        R = bn128.serialize(R);
+                        var proof = service.proveTransfer(CLn, CRn, L, R, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
                         var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
                         var throwaway = web3.eth.accounts.create();
                         var encoded = zsc.methods.transfer(L, R, y, u, proof).encodeABI();
