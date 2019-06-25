@@ -40,7 +40,7 @@ class BurnProver {
             var proof = new BurnProof();
 
             var aL = new FieldVector(new BN(witness['bDiff']).toString(2, 32).split("").reverse().map((i) => new BN(i, 2).toRed(bn128.q)));
-            var aR = aL.negate().plus(new BN(1).toRed(bn128.q).redNeg());
+            var aR = aL.plus(new BN(1).toRed(bn128.q).redNeg());
             var alpha = bn128.randomScalar();
             proof.a = params.commit(aL, aR, alpha);
             var sL = new FieldVector(Array.from({ length: 32 }).map(bn128.randomScalar));
