@@ -22,7 +22,7 @@ class ZetherProof {
             result += bn128.bytes(this.mu).slice(2);
             result += this.sigmaProof.serialize().slice(2);
             result += this.ipProof.serialize().slice(2);
-            result == this.anonProof.serialize().slice(2);
+            result += this.anonProof.serialize().slice(2);
             return result;
         }
     };

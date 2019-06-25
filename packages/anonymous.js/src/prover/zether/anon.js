@@ -30,12 +30,14 @@ class AnonProof {
                 });
             });
             this.yG.forEach((yG_i) => {
-                yG_i.getVecor().forEach((yG_ij) => {
+                yG_i.getVector().forEach((yG_ij) => {
                     result += bn128.representation(yG_ij).slice(2);
                 });
             });
             result += bn128.bytes(this.zA).slice(2);
             result += bn128.bytes(this.zC).slice(2);
+
+            return result;
         };
     }
 }
@@ -72,7 +74,7 @@ class AnonProver {
             proof.C = params.commit(c[0], c[1], rC);
             proof.D = params.commit(d[0], d[1], rD);
 
-            proof.inOutG = params.getG().mul(witness['rho']);
+            proof.inOutRG = params.getG().mul(witness['rho']);
             proof.gG = params.getG().mul(witness['sigma']);
 
             proof.CLnG = statement['CLn'].commit(a[0]).add(statement['y'].getVector()[witness['index'][0]].mul(witness['pi']));
@@ -107,7 +109,7 @@ class AnonProver {
                 bn128.serialize(proof.B),
                 bn128.serialize(proof.C),
                 bn128.serialize(proof.D),
-                bn128.serialize(proof.inOutG),
+                bn128.serialize(proof.inOutRG),
                 bn128.serialize(proof.gG),
                 bn128.serialize(proof.CLnG),
                 bn128.serialize(proof.CRnG),
@@ -115,7 +117,7 @@ class AnonProver {
                 bn128.serialize(proof.parityG1)
             ]));
 
-            proof.f = a.map((a_i, i) => new FieldVector(a_i.add(b[i].times(proof['challenge'])).slice(1)));
+            proof.f = a.map((a_i, i) => new FieldVector(a_i.add(b[i].times(proof['challenge'])).getVector().slice(1)));
             proof.zA = rB.redMul(proof.challenge).redAdd(rA);
             proof.zC = rC.redMul(proof.challenge).redAdd(rD);
 
