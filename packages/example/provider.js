@@ -1,10 +1,16 @@
 const Web3 = require("web3");
 
-module.exports = () => {
-    const { WebsocketProvider } = Web3.providers;
-    const provider = new WebsocketProvider("ws://localhost:23000");
-    return new Promise((resolve) => {
-        provider.on("connect", () => resolve(provider));
-        provider.on("error", console.log);
-    });
-};
+class Provider {
+    constructor(address) {
+        this.getProvider = () => {
+            const { WebsocketProvider } = Web3.providers;
+            const provider = new WebsocketProvider(address);
+            return new Promise((resolve, reject) => {
+                provider.on("connect", () => resolve(provider));
+                provider.on("error", (error) => reject(error)); // don't actually use the error object?
+            });
+        };
+    }
+}
+
+module.exports = Provider

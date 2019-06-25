@@ -235,7 +235,7 @@ contract BurnVerifier {
         powers[0] = 1;
         powers[1] = base;
         for (uint256 i = 2; i < m; i++) {
-            powers[i] = powers[i-1].mul(base);
+            powers[i] = powers[i - 1].mul(base);
         }
     }
 

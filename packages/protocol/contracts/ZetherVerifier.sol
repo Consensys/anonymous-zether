@@ -204,13 +204,12 @@ contract ZetherVerifier {
             anonAuxiliaries.f[0][1] = anonAuxiliaries.f[0][1].sub(anonAuxiliaries.f[i][1]);
         }
         G1Point memory temp;
-        for (uint256 i = 0; i < proof.size; i++) { // comparison of different types?
+        for (uint256 i = 0; i < proof.size; i++) {
             temp = add(temp, mul(gs[i], anonAuxiliaries.f[i][0]));
             temp = add(temp, mul(hs[i], anonAuxiliaries.f[i][1])); // commutative
         }
 
         require(eq(add(mul(anonProof.B, anonAuxiliaries.x), anonProof.A), add(temp, mul(h, anonProof.zA))), "Recovery failure for B^x * A.");
-        // warning: all hell will break loose if you use an anonset of size > 64
         for (uint i = 0; i < proof.size; i++) {
             anonAuxiliaries.f[i][0] = anonAuxiliaries.f[i][0].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]));
             anonAuxiliaries.f[i][1] = anonAuxiliaries.f[i][1].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]));
@@ -515,7 +514,7 @@ contract ZetherVerifier {
         powers[0] = 1;
         powers[1] = base;
         for (uint256 i = 2; i < m; i++) {
-            powers[i] = powers[i-1].mul(base);
+            powers[i] = powers[i - 1].mul(base);
         }
     }
 
