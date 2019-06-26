@@ -334,20 +334,15 @@ contract ZetherVerifier {
         uint256 half = size / 2;
         result = new G1Point[2][](half); // assuming that this is necessary even when return is declared up top
 
-        for (uint256 i = 1; i < half; i++) {
-            G1Point memory temp = base[i];
-            base[i] = base[(size - i) % size];
-            base[(size - i) % size] = temp;
-        } // performs a "convolutional flip" on the elements of base.
         G1Point[] memory base_fft = fft(base, false);
 
-        uint256[] memory temp = new uint256[](size);
+        uint256[] memory exponent_fft = new uint256[](size);
         for (uint256 i = 0; i < 2; i++) {
             for (uint256 j = 0; j < size; j++) {
-                temp[j] = exponent[j][i];
+                exponent_fft[j] = exponent[(size - j) % size][i]; // convolutional flip plus copy
             }
 
-            uint256[] memory exponent_fft = fft(temp);
+            exponent_fft = fft(exponent_fft);
             G1Point[] memory inverse_fft = new G1Point[](half);
             uint256 compensation = 2;
             compensation = compensation.inv();

@@ -107,7 +107,7 @@ class ZetherProver {
             var sigmaStatement = {}; // only certain parts of the "statement" are actually used in proving.
             sigmaStatement['inOutR'] = statement['R'].add(params.getG().mul(rhoOverX).neg());
             sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].add(params.getG().mul(piOverX).neg());
-            sigmaStatement['y'] = Array.from({ length: 2 }).map((_, i) => statement['y'].shift(witness['index'][i]).extract(0).flip().times(new BN(1).toRed(bn128.q).redSub(sigmaOverX)));
+            sigmaStatement['y'] = Array.from({ length: 2 }).map((_, i) => statement['y'].shift(witness['index'][i]).extract(0).times(new BN(1).toRed(bn128.q).redSub(sigmaOverX)));
             sigmaStatement['z'] = z;
             sigmaStatement['gPrime'] = params.getG().mul(new BN(1).toRed(bn128.q).redSub(sigmaOverX));
             sigmaStatement['epoch'] = statement['epoch'];

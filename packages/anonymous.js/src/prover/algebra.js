@@ -90,6 +90,11 @@ class FieldVector {
             return new FieldVector(vector.filter((_, i) => i % 2 == parity));
         };
 
+        this.flip = () => {
+            var size = vector.length;
+            return new FieldVector(Array.from({ length: size }).map((_, i) => vector[(size - i) % size]));
+        };
+
         this.concat = (other) => {
             return new FieldVector(vector.concat(other.getVector()));
         };
@@ -144,11 +149,6 @@ class GeneratorVector {
             return new GeneratorVector(vector.filter((_, i) => i % 2 == parity));
         };
 
-        this.flip = () => {
-            var size = vector.length;
-            return new GeneratorVector(Array.from({ length: size }).map((_, i) => vector[(size - i) % size]));
-        };
-
         this.shift = (n) => {
             var size = vector.length;
             return new GeneratorVector(Array.from({ length: size }).map((_, i) => vector[(i + size + n) % size]));
@@ -193,7 +193,7 @@ class Convolver {
 
         this.convolution = (exponent, base) => { // returns only even-indexed outputs of convolution!
             var size = base.length();
-            var temp = fft(base.flip(), false).hadamard(fft(exponent, false));
+            var temp = fft(base, false).hadamard(fft(exponent.flip(), false));
             return fft(temp.slice(0, size / 2).add(temp.slice(size / 2)).times(new BN(2).toRed(bn128.q).redInvm()), true);
             // using the optimization described here https://dsp.stackexchange.com/a/30699
         };
