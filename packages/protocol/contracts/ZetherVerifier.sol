@@ -331,9 +331,10 @@ contract ZetherVerifier {
         // will return two rows, each of half the length of the exponents;
         // namely, we will return the Hadamards of "base" by the even circular shifts of "exponent"'s rows.
         uint256 size = exponent.length;
-        result = new G1Point[2][](size / 2); // assuming that this is necessary even when return is declared up top
+        uint256 half = size / 2;
+        result = new G1Point[2][](half); // assuming that this is necessary even when return is declared up top
 
-        for (uint256 i = 1; i < size / 2; i++) {
+        for (uint256 i = 1; i < half; i++) {
             G1Point memory temp = base[i];
             base[i] = base[(size - i) % size];
             base[(size - i) % size] = temp;
@@ -347,14 +348,16 @@ contract ZetherVerifier {
             }
 
             uint256[] memory exponent_fft = fft(temp);
-            G1Point[] memory inverse_fft = new G1Point[](size);
-            for (uint256 j = 0; j < size; j++) { // Hadamard
-                inverse_fft[j] = mul(base_fft[j], exponent_fft[j]);
+            G1Point[] memory inverse_fft = new G1Point[](half);
+            uint256 compensation = 2;
+            compensation = compensation.inv();
+            for (uint256 j = 0; j < half; j++) { // Hadamard
+                inverse_fft[j] = mul(add(mul(base_fft[j], exponent_fft[j]), mul(base_fft[j + half], exponent_fft[j + half])), compensation);
             }
 
             inverse_fft = fft(inverse_fft, true);
-            for (uint256 j = 0; j < size / 2; j++) {
-                result[j][i] = inverse_fft[j * 2]; // only keep the evens
+            for (uint256 j = 0; j < half; j++) {
+                result[j][i] = inverse_fft[j];
             }
         }
         return result;

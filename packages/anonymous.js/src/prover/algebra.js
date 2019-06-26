@@ -191,8 +191,11 @@ class Convolver {
             return result;
         };
 
-        this.convolution = (exponent, base) => {
-            return fft(fft(base.flip(), false).hadamard(fft(exponent, false)), true);
+        this.convolution = (exponent, base) => { // returns only even-indexed outputs of convolution!
+            var size = base.length();
+            var temp = fft(base.flip(), false).hadamard(fft(exponent, false));
+            return fft(temp.slice(0, size / 2).add(temp.slice(size / 2)).times(new BN(2).toRed(bn128.q).redInvm()), true);
+            // using the optimization described here https://dsp.stackexchange.com/a/30699
         };
     }
 }
