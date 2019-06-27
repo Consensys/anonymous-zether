@@ -53,7 +53,7 @@ to assign the address of an unlocked account to the variable `home`.
 In the first window, Alice's let's say, execute
 ```javascript
 > var alice = new Client(deployed, home, web3)
-> alice.account.initialize()
+> alice.initialize()
 Promise { <pending> }
 Registration submitted (txHash = "0x3420c7ec482391ddaf349742bacc30ac26a5eba92dd1828f95499c5909c572b3").
 Registration successful.
@@ -61,7 +61,7 @@ Registration successful.
 and in Bob's,
 ```javascript
 > var bob = new Client(deployed, home, web3)
-> bob.account.initialize()
+> bob.initialize()
 ```
 Do something similar for the other two.
 

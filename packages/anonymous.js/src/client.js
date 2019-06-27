@@ -95,41 +95,6 @@ class Client {
             this.secret = () => {
                 return bn128.bytes(this.keypair['x']);
             };
-
-            this.initialize = (secret) => {
-                return new Promise((resolve, reject) => {
-                    zsc.methods.epochLength().call()
-                        .then((result) => {
-                            that._epochLength = result;
-                            if (secret === undefined) {
-                                var keypair = utils.createAccount();
-                                that.account.keypair = keypair;
-                                zsc.methods.register(that.account.keypair['y']).send({ from: home, gas: 5470000 })
-                                    .on('transactionHash', (hash) => {
-                                        console.log("Registration submitted (txHash = \"" + hash + "\").");
-                                    })
-                                    .on('receipt', (receipt) => {
-                                        console.log("Registration successful.");
-                                        resolve(receipt);
-                                    })
-                                    .on('error', (error) => {
-                                        console.log("Registration failed! Create a new `Client` (do not use this one).");
-                                        reject(error);
-                                    });
-                            } else {
-                                var x = new BN(secret, 16).toRed(bn128.q);
-                                that.account.keypair = { 'x': x, 'y': utils.determinePublicKey(x) };
-                                zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
-                                    .then((result) => {
-                                        var simulated = result[0];
-                                        that.account._state.available = utils.readBalance(simulated[0], simulated[1], that.account.keypair['x']);
-                                        console.log("Account recovered successfully.");
-                                        resolve(); // inconsistent that the above is resolved with a receipt and this not, but...
-                                    });
-                            }
-                        });
-                });
-            };
         };
 
         this.friends = new function() {
@@ -151,6 +116,41 @@ class Client {
                 delete friends[name];
                 return "Friend deleted.";
             };
+        };
+
+        this.initialize = (secret) => {
+            return new Promise((resolve, reject) => {
+                zsc.methods.epochLength().call()
+                    .then((result) => {
+                        that._epochLength = result;
+                        if (secret === undefined) {
+                            var keypair = utils.createAccount();
+                            that.account.keypair = keypair;
+                            zsc.methods.register(that.account.keypair['y']).send({ from: home, gas: 5470000 })
+                                .on('transactionHash', (hash) => {
+                                    console.log("Registration submitted (txHash = \"" + hash + "\").");
+                                })
+                                .on('receipt', (receipt) => {
+                                    console.log("Registration successful.");
+                                    resolve(receipt);
+                                })
+                                .on('error', (error) => {
+                                    console.log("Registration failed! Create a new `Client` (do not use this one).");
+                                    reject(error);
+                                });
+                        } else {
+                            var x = new BN(secret, 16).toRed(bn128.q);
+                            that.account.keypair = { 'x': x, 'y': utils.determinePublicKey(x) };
+                            zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
+                                .then((result) => {
+                                    var simulated = result[0];
+                                    that.account._state.available = utils.readBalance(simulated[0], simulated[1], that.account.keypair['x']);
+                                    console.log("Account recovered successfully.");
+                                    resolve(); // inconsistent that the above is resolved with a receipt and this not, but...
+                                });
+                        }
+                    });
+            });
         };
 
         this.deposit = (value) => {
