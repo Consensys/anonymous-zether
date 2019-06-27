@@ -96,7 +96,7 @@ class Client {
                 return bn128.bytes(this.keypair['x']);
             };
 
-            this.initialize = async (secret) => {
+            this.initialize = (secret) => {
                 return new Promise((resolve, reject) => {
                     zsc.methods.epochLength().call()
                         .then((result) => {

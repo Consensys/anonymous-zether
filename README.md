@@ -24,28 +24,22 @@ Anonymous Zether is not yet feasible for use in the Ethereum mainnet (see the [t
 
 To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make some anonymous transfers...
 
-### Install Prerequisites
+### Install prerequisites
 * [Yarn](https://yarnpkg.com/en/docs/install#mac-stable) tested with version 0.1.0
 * [Node.js](https://nodejs.org/en/download/) tested with version v10.15.3
 
-### Deploy a Quorum Network
+### Setting things up
 
-* Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)).
-* **Note:** for the Node.js example in this project to work, websockets need to be enabled when starting up geth / Quorum (use the geth flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*`).
+* Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)). **Note:** for the Node.js example in this project to work, websockets need to be enabled when starting up geth / Quorum (e.g., use the flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*` on your first `geth` node).
+* In the main `anonymous-zether` directory, type `yarn`.
 
 ### Run the Node.js demo
 
-The Node.js [example project](packages/example) in this repo will first deploy the necessary contracts: [ZetherVerifier.sol](packages/protocol/contracts/ZetherVerifier.sol), [BurnVerifier.sol](packages/protocol/contracts/BurnVerifier.sol), [CashToken.sol](packages/protocol/contracts/CashToken.sol), and finally
-[ZCS.sol](packages/protocol/contracts/ZSC.sol) (which is dependent on the previous contracts).
+The Node.js [example project](packages/example) in this repo will first deploy the necessary contracts: [ZetherVerifier.sol](packages/protocol/contracts/ZetherVerifier.sol), [BurnVerifier.sol](packages/protocol/contracts/BurnVerifier.sol), [CashToken.sol](packages/protocol/contracts/CashToken.sol), and finally [ZCS.sol](packages/protocol/contracts/ZSC.sol) (which is dependent on the previous contracts).
 
-Having done this, the Node.js application will fund an account, add some 'friends' and make an anonymous transfer.
+Having done this, the Node.js application will fund an account, add a "friend", and make an anonymous transfer.
 
-This **requires** that geth be started with `ws`, `--wsport 23000`, `--ws --wsorigins=*` flags.
-
-```bash
-$ cd anonymous-zether
-$ node packages/example
-```
+Simply navigate to the main directory and type `node packages/example`.
 
 ## Detailed usage example
 
