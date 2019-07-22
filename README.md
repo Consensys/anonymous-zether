@@ -30,7 +30,7 @@ To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make s
 
 ### Setting things up
 
-* Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)). **Note:** for the Node.js example in this project to work, websockets need to be enabled when starting up geth / Quorum (e.g., use the flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*` on your first `geth` node).
+* Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)). **Note:** for the Node.js example in this project to work, WebSockets need to be enabled when starting up geth / Quorum (i.e., use the flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*` on your first `geth` node). Furthermore, we only support Raft consensus at this time (don't use IBFT).
 * In the main `anonymous-zether` directory, type `yarn`.
 
 ### Run the Node.js demo
