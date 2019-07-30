@@ -26,7 +26,7 @@ To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make s
 
 ### Install prerequisites
 * [Yarn](https://yarnpkg.com/en/docs/install#mac-stable) tested with version 0.1.0
-* [Node.js](https://nodejs.org/en/download/) tested with version v10.15.3
+* [Node.js](https://nodejs.org/en/download/) tested with version v12.1.0
 
 ### Setting things up
 
