@@ -1,6 +1,6 @@
 const CashToken = artifacts.require("CashToken");
 const ZSC = artifacts.require("ZSC");
-const maintenance = require('../src/utils/maintenance.js');
+const utils = require('../../anonymous.js/src/utils/utils.js');
 
 contract("ZSC", async accounts => {
     it("should allow depositing / funding", async () => {
@@ -13,7 +13,7 @@ contract("ZSC", async accounts => {
             10000000,
             "Minting failed."
         );
-        var y = maintenance.createAccount()['y'];
+        var y = utils.createAccount()['y'];
         var resp = await zsc.register(y);
         var receipt = await web3.eth.getTransactionReceipt(resp.tx);
         assert.equal(
