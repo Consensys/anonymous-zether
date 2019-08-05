@@ -30,7 +30,9 @@ To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make s
 
 ### Setting things up
 
-* Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)). **Note:** for the Node.js example in this project to work, WebSockets need to be enabled when starting up geth / Quorum (i.e., use the flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*` on your first `geth` node). Furthermore, we only support Raft consensus at this time (don't use IBFT).
+* Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)).
+    * For the Node.js example in this project to work, WebSockets need to be enabled when starting up geth / Quorum (i.e., use the flags `--ws`, `--wsport 23000`, `--ws --wsorigins=*` on your first `geth` node).
+    * The code as currently written only supports Raft. The reason is that Raft reports `block.time` in nanoseconds (as opposed to milliseconds), so we had to add extra divisions by 1,000,000 [here](packages/protocol/contracts/ZSC.sol#L66) and [here](packages/anonymous.js/src/client.js#L37). To use IBFT, simply remove these two divisions and recompile the contracts (by running `truffle build` in [packages/protocol](packages/protocol) and copying all resulting `.json` artifacts into [packages/contract-artifacts/artifacts](packages/contract-artifacts/artifacts)). You _may_, due to slower block time, also have to adjust the `estimate` function [here](packages/anonymous.js/src/client.js#L177-L183).
 * In the main `anonymous-zether` directory, type `yarn`.
 
 ### Run the Node.js demo
@@ -43,7 +45,7 @@ Simply navigate to the main directory and type `node packages/example`.
 
 ## Detailed usage example
 
-Let's assume that `Client` has been imported and that all contracts have been deployed, as in https://github.com/jpmorganchase/anonymous-zether/blob/master/packages/example/index.js#L12-L19. In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, execute
+Let's assume that `Client` has been imported and that all contracts have been deployed, as in [packages/example/index.js#L12-L19](packages/example/index.js#L12-L19). In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, execute
 ```javascript
 > var home
 > web3.eth.getAccounts().then((accounts) => { home = accounts[accounts.length - 1]; })
