@@ -10,6 +10,6 @@ module.exports = function(deployer) {
     }).then(() => {
         return deployer.deploy(BurnVerifier, { gas: 470000000 });
     }).then(() => {
-        return deployer.deploy(ZSC, CashToken.address, ZetherVerifier.address, BurnVerifier.address, 3000);
+        return deployer.deploy(ZSC, CashToken.address, ZetherVerifier.address, BurnVerifier.address, 6);
     });
 }

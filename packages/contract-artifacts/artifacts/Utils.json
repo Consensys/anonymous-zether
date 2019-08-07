@@ -220,7 +220,7 @@
                       "name": "addmod",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 7852,
+                      "referencedDeclaration": 7838,
                       "src": "458:6:3",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_addmod_pure$_t_uint256_$_t_uint256_$_t_uint256_$returns$_t_uint256_$",
@@ -422,7 +422,7 @@
                       "name": "mulmod",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 7865,
+                      "referencedDeclaration": 7851,
                       "src": "580:6:3",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_mulmod_pure$_t_uint256_$_t_uint256_$_t_uint256_$returns$_t_uint256_$",
@@ -1737,7 +1737,7 @@
                       "name": "addmod",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 7852,
+                      "referencedDeclaration": 7838,
                       "src": "458:6:3",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_addmod_pure$_t_uint256_$_t_uint256_$_t_uint256_$returns$_t_uint256_$",
@@ -1939,7 +1939,7 @@
                       "name": "mulmod",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 7865,
+                      "referencedDeclaration": 7851,
                       "src": "580:6:3",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_mulmod_pure$_t_uint256_$_t_uint256_$_t_uint256_$returns$_t_uint256_$",
@@ -3063,7 +3063,7 @@
   },
   "networks": {},
   "schemaVersion": "3.0.9",
-  "updatedAt": "2019-06-24T15:20:23.935Z",
+  "updatedAt": "2019-08-05T16:43:41.430Z",
   "devdoc": {
     "methods": {}
   },

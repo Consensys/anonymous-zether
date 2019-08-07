@@ -24,6 +24,7 @@ contract ZSC {
     // arg is still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
 
     constructor(address _coin, address _zether, address _burn, uint256 _epochLength) public {
+        // epoch length, like block.time, is in _seconds_. 4 is the minimum!!! (To allow a withdrawal to go through.)
         coin = CashToken(_coin);
         zetherverifier = ZetherVerifier(_zether);
         burnverifier = BurnVerifier(_burn);
@@ -63,9 +64,8 @@ contract ZSC {
     }
 
     function rollOver(bytes32 yHash) internal {
-        uint256 e = block.timestamp / 1000000 / epochLength; // can block.timestamp be "gamed"?
+        uint256 e = block.timestamp / epochLength;
         // https://github.com/ethereum/wiki/blob/c02254611f218f43cbb07517ca8e5d00fd6d6d75/Block-Protocol-2.0.md
-        // note that block.timestamp is technically in _nanoseconds_, although its trailing 3 digits are always 0 (so really micro)
         if (lastRollOver[yHash] < e) {
             bytes32[2][2][2] memory scratch = [acc[yHash], pTransfers[yHash]];
             assembly {

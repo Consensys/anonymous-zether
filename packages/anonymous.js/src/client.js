@@ -34,7 +34,7 @@ class Client {
                     if (match(account.keypair['y'], party)) {
                         var blockNumber = event.blockNumber;
                         web3.eth.getBlock(blockNumber).then((block) => {
-                            account._state = account._simulate(block.timestamp / 1000000); // divide by 1000000 for quorum...?
+                            account._state = account._simulate(block.timestamp);
                             web3.eth.getTransaction(event.transactionHash).then((transaction) => {
                                 var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
                                 var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
@@ -54,11 +54,11 @@ class Client {
 
         this._epochLength = undefined;
         this._getEpoch = (timestamp) => {
-            return Math.floor((timestamp === undefined ? (new Date).getTime() : timestamp) / this._epochLength);
+            return Math.floor((timestamp === undefined ? (new Date).getTime() / 1000 : timestamp) / this._epochLength);
         };
-        this._away = () => {
+        this._away = () => { // returns ms away from next epoch change
             var current = (new Date).getTime();
-            return Math.ceil(current / this._epochLength) * this._epochLength - current;
+            return Math.ceil(current / (this._epochLength * 1000)) * (this._epochLength * 1000) - current;
         };
 
         this.account = new function() {
@@ -178,7 +178,7 @@ class Client {
             // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size
             // this function should hopefully give you good epoch lengths also for 8, 16, 32, etc... if you have very heavy traffic, may need to bump it up (many verifications)
             // i calibrated this on _my machine_. if you are getting transfer failures, you might need to bump up the constants, recalibrate yourself, etc.
-            return Math.ceil(size * Math.log(size) / Math.log(2) * 20 + 2200) + (contract ? 20 : 0);
+            return Math.ceil(size * Math.log(size) / Math.log(2) * 20 + 5200) + (contract ? 20 : 0);
             // the 20-millisecond buffer is designed to give the callback time to fire (see below).
         };
 
@@ -201,10 +201,10 @@ class Client {
             }
             var size = 2 + decoys.length;
             var estimated = estimate(size, false); // see notes above
-            if (estimated > this._epochLength)
-                throw "The size (" + size + ") you've requested might take longer than the epoch length (" + this._epochLength + " ms) to prove. Consider re-deploying, with an epoch length at least " + estimate(size, true) + " ms.";
+            if (estimated > this._epochLength * 1000)
+                throw "The anonset size (" + size + ") you've requested might take longer than the epoch length (" + this._epochLength + " seconds) to prove. Consider re-deploying, with an epoch length at least " + Math.ceil(estimate(size, true) / 1000) + " seconds.";
             if (estimated > wait) {
-                console.log(wait < 2000 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
+                console.log(wait < 3100 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
                 return sleep(wait).then(() => this.transfer(name, value, decoys));
             }
             if (size & (size - 1)) {
@@ -258,7 +258,7 @@ class Client {
                         var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
                         var throwaway = web3.eth.accounts.create();
                         var encoded = zsc.methods.transfer(L, R, y, u, proof).encodeABI();
-                        var tx = { 'to': zsc.address, 'data': encoded, 'gas': 2000000000, 'nonce': 0 };
+                        var tx = { 'to': zsc.address, 'data': encoded, 'gas': 547000000, 'nonce': 0 };
                         web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                             web3.eth.sendSignedTransaction(signed.rawTransaction)
                                 .on('transactionHash', (hash) => {
@@ -297,7 +297,7 @@ class Client {
                 console.log("Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
                 return sleep(wait).then(() => this.withdraw(value));
             }
-            if (2000 > wait) { // withdrawals will take <= 2 seconds (actually, more like 1)...
+            if (3100 > wait) { // determined empirically. IBFT, block time 1
                 console.log("Initiating withdrawal.");
                 return sleep(wait).then(() => this.withdraw(value));
             }
