@@ -8,12 +8,11 @@ var sleep = (wait) => new Promise((resolve) => setTimeout(resolve, wait));
 
 class Client {
     constructor(zsc, home, web3) {
-        if (zsc === undefined) {
+        if (zsc === undefined)
             throw "Please provide an argument pointing to a deployed ZSC contract!";
-        }
-        if (home === undefined) {
+        if (home === undefined)
             throw "Please specify an unlocked ethereum account.";
-        }
+
         var that = this;
         var match = (address, candidate) => {
             return address[0] == candidate[0] && address[1] == candidate[1];
@@ -110,9 +109,8 @@ class Client {
             };
 
             this.remove = (name) => {
-                if (!(name in friends)) {
+                if (!(name in friends))
                     throw "Friend " + name + " not found in directory!";
-                }
                 delete friends[name];
                 return "Friend deleted.";
             };
@@ -154,6 +152,8 @@ class Client {
         };
 
         this.deposit = (value) => {
+            if (this.account.keypair === undefined)
+                throw "Client's account is not yet initialized!";
             var account = this.account;
             console.log("Initiating deposit.");
             return new Promise((resolve, reject) => {
@@ -183,6 +183,8 @@ class Client {
         };
 
         this.transfer = (name, value, decoys) => {
+            if (this.account.keypair === undefined)
+                throw "Client's account is not yet initialized!";
             decoys = decoys ? decoys : [];
             var account = this.account;
             var state = account._simulate();
@@ -221,9 +223,8 @@ class Client {
                 throw "Name \"" + name + "\" hasn't been friended yet!";
             var y = [account.keypair['y']].concat([friends[name]]); // not yet shuffled
             decoys.forEach((decoy) => {
-                if (!(decoy in friends)) {
+                if (!(decoy in friends))
                     throw "Decoy \"" + decoy + "\" is unknown in friends directory!";
-                }
                 y.push(friends[decoy]);
             });
             var index = [];
@@ -282,6 +283,8 @@ class Client {
         };
 
         this.withdraw = (value) => {
+            if (this.account.keypair === undefined)
+                throw "Client's account is not yet initialized!";
             var account = this.account;
             var state = account._simulate();
             if (value > state.available + state.pending)

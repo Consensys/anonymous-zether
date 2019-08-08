@@ -4,7 +4,7 @@
 
 This is a private payment system, an _anonymous_ extension of Bünz, Agrawal, Zamani and Boneh's [Zether protocol](https://crypto.stanford.edu/~buenz/papers/zether.pdf).
 
-The outlines of an anonymous approach are sketched in the authors' original manuscript. We develop an explicit proof protocol for this extension, described in the technical note [AnonZether.pdf](docs/AnonZether.pdf). We also provide a full implementation of the anonymous protocol (including a proof generator, verification contracts, and a client / front-end).
+The outlines of an anonymous approach are sketched in the authors' original manuscript. We develop an explicit proof protocol for this extension, described in the technical note [AnonZether.pdf](docs/AnonZether.pdf). We also provide a full implementation of the anonymous protocol (including verification contracts, and a client / front-end with its own proof generator).
 
 Thanks go to Benedikt Bünz for discussions around this, as well as for the original Zether work. Also, Sergey Vasilyev's [range proof contracts](https://github.com/leanderdulac/BulletProofLib/blob/master/truffle/contracts/RangeProofVerifier.sol) served as a starting point for our [Zether verification contracts](packages/protocol/contracts).
 
@@ -27,6 +27,7 @@ To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make s
 ### Install prerequisites
 * [Yarn](https://yarnpkg.com/en/docs/install#mac-stable) tested with version 0.1.0
 * [Node.js](https://nodejs.org/en/download/) tested with version v12.1.0
+* [web3.js](https://github.com/ethereum/web3.js/) tested with version 2.0.0-alpha.1
 
 ### Setting things up
 
