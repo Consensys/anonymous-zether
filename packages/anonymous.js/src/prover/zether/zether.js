@@ -54,11 +54,11 @@ class ZetherProver {
             proof.s = params.commit(sL, sR, rho);
 
             var statementHash = utils.hash(abiCoder.encodeParameters(['uint256', 'bytes32[2]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]'], [statement['epoch'], statement['R'], statement['CLn'], statement['CRn'], statement['L'], statement['y']]));
-            statement['CLn'] = new GeneratorVector(statement['CLn'].map((point) => bn128.unserialize(point)));
-            statement['CRn'] = new GeneratorVector(statement['CRn'].map((point) => bn128.unserialize(point)));
-            statement['L'] = new GeneratorVector(statement['L'].map((point) => bn128.unserialize(point)));
+            statement['CLn'] = new GeneratorVector(statement['CLn'].map(bn128.unserialize));
+            statement['CRn'] = new GeneratorVector(statement['CRn'].map(bn128.unserialize));
+            statement['L'] = new GeneratorVector(statement['L'].map(bn128.unserialize));
             statement['R'] = bn128.unserialize(statement['R']);
-            statement['y'] = new GeneratorVector(statement['y'].map((point) => bn128.unserialize(point)));
+            statement['y'] = new GeneratorVector(statement['y'].map(bn128.unserialize));
             // go ahead and "liven" these once and for all now that they have been hashed
 
             var y = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(statementHash), bn128.serialize(proof.a), bn128.serialize(proof.s)]));
