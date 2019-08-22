@@ -14,7 +14,6 @@ contract ZSC {
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
     mapping(bytes32 => bytes32[2][2]) acc; // main account mapping
     mapping(bytes32 => bytes32[2][2]) pTransfers; // storage for pending transfers
-    mapping(bytes32 => address) ethAddrs;
     mapping(bytes32 => uint256) lastRollOver;
     bytes32[] nonceSet; // would be more natural to use a mapping, but they can't be deleted / reset!
     uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated
@@ -65,7 +64,6 @@ contract ZSC {
 
     function rollOver(bytes32 yHash) internal {
         uint256 e = block.timestamp / epochLength;
-        // https://github.com/ethereum/wiki/blob/c02254611f218f43cbb07517ca8e5d00fd6d6d75/Block-Protocol-2.0.md
         if (lastRollOver[yHash] < e) {
             bytes32[2][2][2] memory scratch = [acc[yHash], pTransfers[yHash]];
             assembly {
@@ -95,21 +93,6 @@ contract ZSC {
         }
     }
 
-    function register(bytes32[2] calldata y) external { // keeping this as is
-        bytes32 yHash = keccak256(abi.encodePacked(y));
-        bytes32[2][2] memory scratch = acc[yHash];
-        require((scratch[0][0] | scratch[0][1] | scratch[1][0] | scratch[1][1]) == 0x00, "Account already registered.");
-        ethAddrs[yHash] = msg.sender; // eth address will be _permanently_ bound to y
-        // warning: front-running danger. client should verify that he was not front-run before depositing funds to y!
-        assembly {
-            calldatacopy(mload(scratch), 0x04, 0x40) // copy contents of y to first inner array of scratch
-            mstore(mload(add(scratch, 0x20)), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
-            mstore(add(mload(add(scratch, 0x20)), 0x20), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
-            // account of y is now [y, g] = ElG_y(e, 1). sentinel for having registered
-        }
-        acc[yHash] = scratch;
-    }
-
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
         bytes32 yHash = keccak256(abi.encodePacked(y));
         rollOver(yHash);
@@ -135,9 +118,7 @@ contract ZSC {
             }
         }
         pTransfers[yHash][0] = scratch;
-        require(coin.transferFrom(ethAddrs[yHash], address(this), bTransfer), "Transfer from sender failed.");
-        // front-running here would be disadvantageous, but still prevent it here by using ethAddrs[yHash] instead of msg.sender
-        // also adds flexibility: can later issue messages from arbitrary ethereum accounts.
+        require(coin.transferFrom(msg.sender, address(this), bTransfer), "Transfer from sender failed.");
         bTotal += bTransfer;
     }
 
@@ -186,18 +167,6 @@ contract ZSC {
         }
         require(result == 1, "Elliptic curve operations failure. Bad points?");
 
-        // warning: no check that recipients are registered accounts, i.e., that _every_ y has been registered to.
-        // make sure that you register your eth account to your pubkey before receiving funds (unless you're using a throwaway, see below).
-        // if you don't, your registration could be pre-empted by an adversary, necessitating that you further transfer before withdrawing
-        // if this pre-empt goes unnoticed, and the further transfer is _not_ taken prior to withdrawal, then you'll lose funds
-        // this is a design decision: could require everyone to be registered...? but this would dampen anonymity a bit. i.e., throwaways
-        // it would be more convenient to not have to register a (new, random) eth account to each throwaway you make.
-        // sure, an adversary could latch on to your throwaway, but you were going to transfer it back to your main account anyway, so who cares?
-        // thus the burden is thus now on you, the _recipient_, to make sure you (successfully) register before receiving funds,
-        // and if you don't and re pre-empted / front-run, to _notice_ and to transfer to a new account before withdrawing
-        // this won't be an issue in practice, as the client software will _force_ you to register right away when your public key is generated,
-        // and will notify you if the process is compromised.
-
         bool seen = false;
         bytes32 uHash = keccak256(abi.encodePacked(u));
         for (uint256 i = 0; i < nonceSet.length; i++) {
@@ -220,7 +189,6 @@ contract ZSC {
         bytes32 yHash = keccak256(abi.encodePacked(y));
         rollOver(yHash);
 
-        require(ethAddrs[yHash] != address(0), "Unregistered account!"); // not necessary for safety, but will prevent accidentally withdrawing to the 0 address
         require(0 <= bTransfer && bTransfer <= MAX, "Transfer amount out of range.");
         bytes32[2][2] memory scratch = pTransfers[yHash]; // could technically use sload, but... let's not go there.
         assembly {
@@ -263,8 +231,8 @@ contract ZSC {
             }
         }
         require(!seen, "Nonce already seen!");
-        require(burnverifier.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, proof), "Burn proof verification failed!");
-        require(coin.transfer(ethAddrs[yHash], bTransfer), "This shouldn't fail... Something went severely wrong.");
+        require(burnverifier.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, msg.sender, proof), "Burn proof verification failed!");
+        require(coin.transfer(msg.sender, bTransfer), "This shouldn't fail... Something went severely wrong.");
         // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".
         bTotal -= bTransfer;
         nonceSet.push(uHash);

@@ -52,7 +52,7 @@ class BurnProver {
             var statementHash = utils.hash(abiCoder.encodeParameters(['uint256', 'uint256', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [statement['bTransfer'], statement['epoch'], statement['y'], statement['CLn'], statement['CRn']]));
             statement['CLn'] = bn128.unserialize(statement['CLn']);
             statement['CRn'] = bn128.unserialize(statement['CRn']);
-            statement['y'] = new GeneratorVector(statement['y'].map(bn128.unserialize));
+            statement['y'] = bn128.unserialize(statement['y']); // actually, y will never be used in what follows...!
             // leave bTransfer (and bDiff) as is for now
 
             var y = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(statementHash), bn128.serialize(proof.a), bn128.serialize(proof.s)]));

@@ -124,18 +124,8 @@ class Client {
                         if (secret === undefined) {
                             var keypair = utils.createAccount();
                             that.account.keypair = keypair;
-                            zsc.methods.register(that.account.keypair['y']).send({ from: home, gas: 5470000 })
-                                .on('transactionHash', (hash) => {
-                                    console.log("Registration submitted (txHash = \"" + hash + "\").");
-                                })
-                                .on('receipt', (receipt) => {
-                                    console.log("Registration successful.");
-                                    resolve(receipt);
-                                })
-                                .on('error', (error) => {
-                                    console.log("Registration failed! Create a new `Client` (do not use this one).");
-                                    reject(error);
-                                });
+                            console.log("New account generated.");
+                            resolve();
                         } else {
                             var x = new BN(secret.slice(2), 16).toRed(bn128.q);
                             that.account.keypair = { 'x': x, 'y': utils.determinePublicKey(x) };
@@ -144,7 +134,7 @@ class Client {
                                     var simulated = result[0];
                                     that.account._state.available = utils.readBalance(simulated[0], simulated[1], that.account.keypair['x']);
                                     console.log("Account recovered successfully.");
-                                    resolve(); // inconsistent that the above is resolved with a receipt and this not, but...
+                                    resolve();
                                 });
                         }
                     });
@@ -310,7 +300,7 @@ class Client {
                         var simulated = result[0];
                         var CLn = bn128.serialize(bn128.unserialize(simulated[0]).add(bn128.curve.g.mul(new BN(-value))));
                         var CRn = simulated[1];
-                        var proof = service.proveBurn(CLn, CRn, account.keypair['y'], value, state.lastRollOver, account.keypair['x'], state.available - value);
+                        var proof = service.proveBurn(CLn, CRn, account.keypair['y'], value, state.lastRollOver, home, account.keypair['x'], state.available - value);
                         var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
                         zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 })
                             .on('transactionHash', (hash) => {

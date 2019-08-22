@@ -23,7 +23,6 @@ class SigmaProver {
         var g = utils.mapInto(soliditySha3("G")); // my version of "params". works, i guess.
 
         this.generateProof = (statement, witness, salt) => {
-            var y = statement['y'];
             var z = statement['z'];
             var zSquared = z.redMul(statement['z']);
 
@@ -31,7 +30,8 @@ class SigmaProver {
 
             var Ay = g.mul(kX);
             var Au = utils.gEpoch(statement['epoch']).mul(kX);
-            var At = statement['CRn'].mul(zSquared).mul(kX);
+            var At = statement['CRn'].isInfinity() ? statement['CRn'] : statement['CRn'].mul(zSquared).mul(kX);
+            // hack workaround due to https://github.com/indutny/elliptic/issues/189
 
             var proof = new SigmaProof();
 
@@ -39,12 +39,14 @@ class SigmaProver {
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
-                'bytes32[2]'
+                'bytes32[2]',
+                'address',
             ], [
                 bn128.bytes(salt),
                 bn128.serialize(Ay),
                 bn128.serialize(Au),
-                bn128.serialize(At)
+                bn128.serialize(At),
+                statement.sender,
             ]));
 
             proof.sX = kX.redAdd(proof['challenge'].redMul(witness['x']));

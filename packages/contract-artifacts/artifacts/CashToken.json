@@ -333,7 +333,7 @@
         "id": 1793,
         "nodeType": "ImportDirective",
         "scope": 1797,
-        "sourceUnit": 7767,
+        "sourceUnit": 7765,
         "src": "0:71:1",
         "symbolAliases": [],
         "unitAlias": ""
@@ -347,10 +347,10 @@
               "id": 1794,
               "name": "ERC20Mintable",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 7766,
+              "referencedDeclaration": 7764,
               "src": "95:13:1",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_ERC20Mintable_$7766",
+                "typeIdentifier": "t_contract$_ERC20Mintable_$7764",
                 "typeString": "contract ERC20Mintable"
               }
             },
@@ -360,10 +360,10 @@
           }
         ],
         "contractDependencies": [
-          7208,
-          7738,
-          7766,
-          7835
+          7206,
+          7736,
+          7764,
+          7833
         ],
         "contractKind": "contract",
         "documentation": null,
@@ -371,10 +371,10 @@
         "id": 1796,
         "linearizedBaseContracts": [
           1796,
-          7766,
-          7208,
-          7738,
-          7835
+          7764,
+          7206,
+          7736,
+          7833
         ],
         "name": "CashToken",
         "nodeType": "ContractDefinition",
@@ -401,7 +401,7 @@
         "id": 1793,
         "nodeType": "ImportDirective",
         "scope": 1797,
-        "sourceUnit": 7767,
+        "sourceUnit": 7765,
         "src": "0:71:1",
         "symbolAliases": [],
         "unitAlias": ""
@@ -415,10 +415,10 @@
               "id": 1794,
               "name": "ERC20Mintable",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 7766,
+              "referencedDeclaration": 7764,
               "src": "95:13:1",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_ERC20Mintable_$7766",
+                "typeIdentifier": "t_contract$_ERC20Mintable_$7764",
                 "typeString": "contract ERC20Mintable"
               }
             },
@@ -428,10 +428,10 @@
           }
         ],
         "contractDependencies": [
-          7208,
-          7738,
-          7766,
-          7835
+          7206,
+          7736,
+          7764,
+          7833
         ],
         "contractKind": "contract",
         "documentation": null,
@@ -439,10 +439,10 @@
         "id": 1796,
         "linearizedBaseContracts": [
           1796,
-          7766,
-          7208,
-          7738,
-          7835
+          7764,
+          7206,
+          7736,
+          7833
         ],
         "name": "CashToken",
         "nodeType": "ContractDefinition",
@@ -459,20 +459,166 @@
   },
   "networks": {
     "10": {
-      "events": {},
+      "events": {
+        "0x6ae172837ea30b801fbfcdd4108aa1d5bf8ff775444fd70256b44e6bf3dfc3f6": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "MinterAdded",
+          "type": "event",
+          "signature": "0x6ae172837ea30b801fbfcdd4108aa1d5bf8ff775444fd70256b44e6bf3dfc3f6"
+        },
+        "0xe94479a9f7e1952cc78f2d6baab678adc1b772d936c6583def489e524cb66692": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "MinterRemoved",
+          "type": "event",
+          "signature": "0xe94479a9f7e1952cc78f2d6baab678adc1b772d936c6583def489e524cb66692"
+        },
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "name": "from",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "value",
+              "type": "uint256"
+            }
+          ],
+          "name": "Transfer",
+          "type": "event",
+          "signature": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+        },
+        "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "name": "spender",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "value",
+              "type": "uint256"
+            }
+          ],
+          "name": "Approval",
+          "type": "event",
+          "signature": "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
+        }
+      },
       "links": {},
-      "address": "0x97bc74b5B68bF1B52F02A6601BAC685Acb1a46C8",
-      "transactionHash": "0x2323285ac9a782c17022dea516c16796e20975f0bbc5a3af33486de53561eb69"
+      "address": "0x433AAfd44Fb31ad50e84335C1fD2269D10abF6f1",
+      "transactionHash": "0x630b45db5d64c92f241d0cc595bec1e3ddd2626534b22bcb678e8f8e0670f772"
     },
     "5777": {
-      "events": {},
+      "events": {
+        "0x6ae172837ea30b801fbfcdd4108aa1d5bf8ff775444fd70256b44e6bf3dfc3f6": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "MinterAdded",
+          "type": "event",
+          "signature": "0x6ae172837ea30b801fbfcdd4108aa1d5bf8ff775444fd70256b44e6bf3dfc3f6"
+        },
+        "0xe94479a9f7e1952cc78f2d6baab678adc1b772d936c6583def489e524cb66692": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "MinterRemoved",
+          "type": "event",
+          "signature": "0xe94479a9f7e1952cc78f2d6baab678adc1b772d936c6583def489e524cb66692"
+        },
+        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "name": "from",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "value",
+              "type": "uint256"
+            }
+          ],
+          "name": "Transfer",
+          "type": "event",
+          "signature": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+        },
+        "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "name": "spender",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "value",
+              "type": "uint256"
+            }
+          ],
+          "name": "Approval",
+          "type": "event",
+          "signature": "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
+        }
+      },
       "links": {},
       "address": "0x78734A731dbD4de7f3Bf103F37F137454E51b0DC",
       "transactionHash": "0xae5d928167d31cdd39989eb495b490f54f3ca98984cfe5e67858cf9ceca21487"
     }
   },
   "schemaVersion": "3.0.9",
-  "updatedAt": "2019-08-05T16:44:14.259Z",
+  "updatedAt": "2019-08-12T17:09:47.402Z",
   "devdoc": {
     "methods": {
       "allowance(address,address)": {

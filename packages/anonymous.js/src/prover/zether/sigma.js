@@ -46,7 +46,7 @@ class SigmaProver {
                 'bytes32[2]',
                 'bytes32[2]',
                 'bytes32[2]',
-                'bytes32[2]'
+                'bytes32[2]',
             ], [
                 bn128.bytes(salt),
                 AL[0].getVector().map((point, i) => [point, AL[1].getVector()[i]].map(bn128.serialize)), // unusual---have to transpose
@@ -54,7 +54,7 @@ class SigmaProver {
                 bn128.serialize(AD),
                 bn128.serialize(Au),
                 bn128.serialize(ADiff),
-                bn128.serialize(At)
+                bn128.serialize(At),
             ]));
 
             proof.sX = kX.redAdd(proof.challenge.redMul(witness['x']));

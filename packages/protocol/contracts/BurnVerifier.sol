@@ -23,6 +23,7 @@ contract BurnVerifier {
         G1Point y;
         uint256 bTransfer;
         uint256 epoch; // or uint8?
+        address sender;
         G1Point u;
     }
 
@@ -58,7 +59,7 @@ contract BurnVerifier {
         }
     } // will it be more expensive later on to sload these than to recompute them?
 
-    function verifyBurn(bytes32[2] memory CLn, bytes32[2] memory CRn, bytes32[2] memory y, uint256 bTransfer, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
+    function verifyBurn(bytes32[2] memory CLn, bytes32[2] memory CRn, bytes32[2] memory y, uint256 bTransfer, uint256 epoch, bytes32[2] memory u, address sender, bytes memory proof) view public returns (bool) {
         BurnStatement memory statement; // WARNING: if this is called directly in the console,
         // and your strings are less than 64 characters, they will be padded on the right, not the left. should hopefully not be an issue,
         // as this will typically be called simply by the other contract, which will get its arguments using precompiles. still though, beware
@@ -68,6 +69,7 @@ contract BurnVerifier {
         statement.bTransfer = bTransfer;
         statement.epoch = epoch;
         statement.u = G1Point(uint256(u[0]), uint256(u[1]));
+        statement.sender = sender;
         BurnProof memory burnProof = unserialize(proof);
         return verify(statement, burnProof);
     }
@@ -117,7 +119,7 @@ contract BurnVerifier {
         sigmaAuxiliaries.cCommit = add(mul(statement.balanceCommitNewL, proof.sigmaProof.c.mul(burnAuxiliaries.zSquared)), mul(statement.balanceCommitNewR, proof.sigmaProof.sX.mul(burnAuxiliaries.zSquared).neg()));
         sigmaAuxiliaries.At = add(add(mul(g, burnAuxiliaries.t.mul(proof.sigmaProof.c)), mul(h, proof.tauX.mul(proof.sigmaProof.c))), neg(add(sigmaAuxiliaries.cCommit, mul(burnAuxiliaries.tEval, proof.sigmaProof.c))));
 
-        uint256 challenge = uint256(keccak256(abi.encode(burnAuxiliaries.x, sigmaAuxiliaries.Ay, sigmaAuxiliaries.Au, sigmaAuxiliaries.At))).mod();
+        uint256 challenge = uint256(keccak256(abi.encode(burnAuxiliaries.x, sigmaAuxiliaries.Ay, sigmaAuxiliaries.Au, sigmaAuxiliaries.At, statement.sender))).mod();
         require(challenge == proof.sigmaProof.c, "Sigma protocol challenge equality failure.");
 
         uint256 uChallenge = uint256(keccak256(abi.encode(proof.sigmaProof.c, proof.t, proof.tauX, proof.mu))).mod();

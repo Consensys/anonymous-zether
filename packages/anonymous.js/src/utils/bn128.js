@@ -33,13 +33,14 @@ bn128.bytes = (i) => { // i is a BN (red)
 };
 
 bn128.serialize = (point) => {
+    if (point.x == null && point.y == null)
+        return ["0x0000000000000000000000000000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000000000000000000000000000"];
     return [bn128.bytes(point.getX()), bn128.bytes(point.getY())];
 };
 
 bn128.unserialize = (serialization) => {
-    if (serialization[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && serialization[1] == "0x0000000000000000000000000000000000000000000000000000000000000000") {
+    if (serialization[0] == "0x0000000000000000000000000000000000000000000000000000000000000000" && serialization[1] == "0x0000000000000000000000000000000000000000000000000000000000000000")
         return bn128.zero;
-    }
     return bn128.curve.point(serialization[0].slice(2), serialization[1].slice(2)); // no check if valid curve point?
 };
 
