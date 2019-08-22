@@ -137,7 +137,7 @@ class Client {
                                     reject(error);
                                 });
                         } else {
-                            var x = new BN(secret, 16).toRed(bn128.q);
+                            var x = new BN(secret.slice(2), 16).toRed(bn128.q);
                             that.account.keypair = { 'x': x, 'y': utils.determinePublicKey(x) };
                             zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
                                 .then((result) => {
