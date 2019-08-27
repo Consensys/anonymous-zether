@@ -27,9 +27,8 @@ Anonymous Zether is not yet feasible for use in the Ethereum mainnet (see the [t
 To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make some anonymous transfers...
 
 ### Install prerequisites
-* [Yarn](https://yarnpkg.com/en/docs/install#mac-stable) tested with version 0.1.0
-* [Node.js](https://nodejs.org/en/download/) tested with version v12.1.0
-* [web3.js](https://github.com/ethereum/web3.js/) tested with version 2.0.0-alpha.1
+* [Yarn](https://yarnpkg.com/en/docs/install#mac-stable) tested with version 1.17.3
+* [Node.js](https://nodejs.org/en/download/) tested with version v12.9.1
 
 ### Setting things up
 

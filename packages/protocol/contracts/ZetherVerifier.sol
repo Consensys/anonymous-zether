@@ -52,11 +52,12 @@ contract ZetherVerifier {
         G1Point balanceCommitNewLG;
         G1Point balanceCommitNewRG;
         G1Point[2][] yG; // assuming this one has the same size..., N / 2 by 2,
-        G1Point parityG0;
-        G1Point parityG1;
+        G1Point E;
+        G1Point F;
         uint256[2][] f; // and that this has size N - 1 by 2.
         uint256 zA;
         uint256 zC;
+        uint256 zE;
     }
 
     struct SigmaProof {
@@ -192,8 +193,8 @@ contract ZetherVerifier {
         // length equality checks for anonProof members? or during deserialization?
         AnonProof memory anonProof = proof.anonProof;
         AnonAuxiliaries memory anonAuxiliaries;
-        G1Point[2] memory parityG = [anonProof.parityG0, anonProof.parityG1]; // breaking this out to avoid stacktoodeep. won't affect encoding
-        anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.inOutRG, anonProof.gG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, parityG))).mod();
+        G1Point[2] memory parity = [anonProof.E, anonProof.F]; // breaking this out to avoid stacktoodeep. won't affect encoding
+        anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.inOutRG, anonProof.gG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, parity))).mod();
         anonAuxiliaries.f = new uint256[2][](proof.size);
         anonAuxiliaries.f[0][0] = anonAuxiliaries.x;
         anonAuxiliaries.f[0][1] = anonAuxiliaries.x;
@@ -247,15 +248,16 @@ contract ZetherVerifier {
         // replace the leftmost column with the Hadamard of the left and right columns. just do the multiplication once...
         anonAuxiliaries.cycler[0][0] = anonAuxiliaries.cycler[0][0].mul(anonAuxiliaries.cycler[0][1]);
         anonAuxiliaries.cycler[1][0] = anonAuxiliaries.cycler[1][0].mul(anonAuxiliaries.cycler[1][1]);
+        anonAuxiliaries.parity = add(mul(h, anonProof.zE), add(mul(gs[0], anonAuxiliaries.cycler[0][0]), mul(hs[0], anonAuxiliaries.cycler[1][0])));
+
+        require(eq(anonAuxiliaries.parity, add(mul(anonProof.F, anonAuxiliaries.x), anonProof.E)), "Index opposite parity check fail.");
+
         for (uint256 i = 0; i < proof.size; i++) {
             anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, mul(statement.CLn[i], anonAuxiliaries.f[i][0]));
             anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, mul(statement.CRn[i], anonAuxiliaries.f[i][0]));
-            anonAuxiliaries.parity = add(anonAuxiliaries.parity, mul(statement.y[i], anonAuxiliaries.cycler[i % 2][0])); // Hadamard already baked in...
         }
         anonAuxiliaries.balanceCommitNewL2 = mul(add(anonAuxiliaries.balanceCommitNewL2, neg(anonProof.balanceCommitNewLG)), anonAuxiliaries.xInv);
         anonAuxiliaries.balanceCommitNewR2 = mul(add(anonAuxiliaries.balanceCommitNewR2, neg(anonProof.balanceCommitNewRG)), anonAuxiliaries.xInv);
-
-        require(eq(anonAuxiliaries.parity, add(mul(anonProof.parityG1, anonAuxiliaries.x), anonProof.parityG0)), "Index opposite parity check fail.");
 
         anonAuxiliaries.gPrime = mul(add(mul(g, anonAuxiliaries.x), neg(anonProof.gG)), anonAuxiliaries.xInv);
 
@@ -451,8 +453,8 @@ contract ZetherVerifier {
         anonProof.gG = G1Point(slice(arr, 1600), slice(arr, 1632));
         anonProof.balanceCommitNewLG = G1Point(slice(arr, 1664), slice(arr, 1696));
         anonProof.balanceCommitNewRG = G1Point(slice(arr, 1728), slice(arr, 1760));
-        anonProof.parityG0 = G1Point(slice(arr, 1792), slice(arr, 1824));
-        anonProof.parityG1 = G1Point(slice(arr, 1856), slice(arr, 1888));
+        anonProof.E = G1Point(slice(arr, 1792), slice(arr, 1824));
+        anonProof.F = G1Point(slice(arr, 1856), slice(arr, 1888));
 
         anonProof.f = new uint256[2][](size - 1);
         for (uint256 i = 0; i < size - 1; i++) {
@@ -473,6 +475,7 @@ contract ZetherVerifier {
 
         anonProof.zA = slice(arr, 1856 + size * 192);
         anonProof.zC = slice(arr, 1888 + size * 192);
+        anonProof.zE = slice(arr, 1920 + size * 192);
 
         proof.anonProof = anonProof;
         return proof;
