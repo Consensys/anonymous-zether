@@ -1,5 +1,5 @@
 const { AbiCoder } = require('web3-eth-abi');
-const BN = require('BN.js');
+const BN = require('bn.js');
 
 const { GeneratorParams, FieldVector, Convolver } = require('../algebra.js');
 const bn128 = require('../../utils/bn128.js');

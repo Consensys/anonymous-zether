@@ -30,8 +30,7 @@ class SigmaProver {
 
             var Ay = g.mul(kX);
             var Au = utils.gEpoch(statement['epoch']).mul(kX);
-            var At = statement['CRn'].isInfinity() ? statement['CRn'] : statement['CRn'].mul(zSquared).mul(kX);
-            // hack workaround due to https://github.com/indutny/elliptic/issues/189
+            var At = statement['CRn'].mul(zSquared).mul(kX);
 
             var proof = new SigmaProof();
 

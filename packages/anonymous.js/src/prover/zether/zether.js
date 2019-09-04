@@ -1,5 +1,5 @@
 const { AbiCoder } = require('web3-eth-abi');
-const BN = require('BN.js');
+const BN = require('bn.js');
 
 const bn128 = require('../../utils/bn128.js');
 const utils = require('../../utils/utils.js');
