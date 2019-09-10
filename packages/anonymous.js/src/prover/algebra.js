@@ -249,8 +249,8 @@ class PedersenCommitment {
 }
 
 class PolyCommitment {
-    constructor(params, coefficients) {
-        var coefficientCommitments = [new PedersenCommitment(params, coefficients[0], new BN(0).toRed(bn128.q))];
+    constructor(params, coefficients, randomness) {
+        var coefficientCommitments = [new PedersenCommitment(params, coefficients[0], randomness)];
         coefficients.slice(1).forEach((coefficient) => {
             coefficientCommitments.push(new PedersenCommitment(params, coefficient, bn128.randomScalar()));
         });

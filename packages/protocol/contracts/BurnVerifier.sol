@@ -30,6 +30,8 @@ contract BurnVerifier {
     struct BurnProof {
         G1Point A;
         G1Point S;
+        G1Point XL;
+        G1Point XR;
         G1Point[2] commits;
         uint256 tauX;
         uint256 mu;
@@ -62,7 +64,7 @@ contract BurnVerifier {
     function verifyBurn(bytes32[2] memory CLn, bytes32[2] memory CRn, bytes32[2] memory y, uint256 bTransfer, uint256 epoch, bytes32[2] memory u, address sender, bytes memory proof) view public returns (bool) {
         BurnStatement memory statement; // WARNING: if this is called directly in the console,
         // and your strings are less than 64 characters, they will be padded on the right, not the left. should hopefully not be an issue,
-        // as this will typically be called simply by the other contract, which will get its arguments using precompiles. still though, beware
+        // as this will typically be called simply by the other contract. still though, beware
         statement.balanceCommitNewL = G1Point(uint256(CLn[0]), uint256(CLn[1]));
         statement.balanceCommitNewR = G1Point(uint256(CRn[0]), uint256(CRn[1]));
         statement.y = G1Point(uint256(y[0]), uint256(y[1]));
@@ -78,8 +80,7 @@ contract BurnVerifier {
         uint256 y;
         uint256[m] ys;
         uint256 z;
-        uint256 zSquared;
-        uint256 zCubed;
+        uint256[2] zs; // [z^2, z^3]
         uint256[m] twoTimesZSquared;
         uint256 k;
         G1Point tEval;
@@ -98,16 +99,18 @@ contract BurnVerifier {
 
     function verify(BurnStatement memory statement, BurnProof memory proof) view internal returns (bool) {
         BurnAuxiliaries memory burnAuxiliaries;
-        burnAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.bTransfer, statement.epoch, statement.y, statement.balanceCommitNewL, statement.balanceCommitNewR))).mod(), proof.A, proof.S))).mod();
+        burnAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.balanceCommitNewL, statement.balanceCommitNewR, statement.y, statement.bTransfer, statement.epoch))).mod(), proof.A, proof.S, proof.XL, proof.XR))).mod();
         burnAuxiliaries.ys = powers(burnAuxiliaries.y);
         burnAuxiliaries.z = uint256(keccak256(abi.encode(burnAuxiliaries.y))).mod();
-        burnAuxiliaries.zSquared = burnAuxiliaries.z.mul(burnAuxiliaries.z);
-        burnAuxiliaries.zCubed = burnAuxiliaries.zSquared.mul(burnAuxiliaries.z);
-        burnAuxiliaries.twoTimesZSquared = times(twos, burnAuxiliaries.zSquared);
+        burnAuxiliaries.zs[0] = burnAuxiliaries.z.mul(burnAuxiliaries.z);
+        for (uint256 i = 1; i < 2; i++) { // silly
+            burnAuxiliaries.zs[i] = burnAuxiliaries.zs[i - 1].mul(burnAuxiliaries.z);
+        }
+        burnAuxiliaries.twoTimesZSquared = times(twos, burnAuxiliaries.zs[0]);
         burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.commits))).mod();
 
         // begin verification of sigma proof. is it worth passing to a different method?
-        burnAuxiliaries.k = sumScalars(burnAuxiliaries.ys).mul(burnAuxiliaries.z.sub(burnAuxiliaries.zSquared)).sub(burnAuxiliaries.zCubed.mul(2 ** m).sub(burnAuxiliaries.zCubed)); // really care about t - k
+        burnAuxiliaries.k = sumScalars(burnAuxiliaries.ys).mul(burnAuxiliaries.z.sub(burnAuxiliaries.zs[0])).sub(burnAuxiliaries.zs[1].mul(2 ** m).sub(burnAuxiliaries.zs[1])); // really care about t - k
         burnAuxiliaries.tEval = add(mul(proof.commits[0], burnAuxiliaries.x), mul(proof.commits[1], burnAuxiliaries.x.mul(burnAuxiliaries.x))); // replace with "commit"?
         burnAuxiliaries.t = proof.t.sub(burnAuxiliaries.k);
 
@@ -116,7 +119,7 @@ contract BurnVerifier {
         sigmaAuxiliaries.Ay = add(mul(g, proof.sigmaProof.sX), mul(statement.y, sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.gEpoch = mapInto("Zether", statement.epoch);
         sigmaAuxiliaries.Au = add(mul(sigmaAuxiliaries.gEpoch, proof.sigmaProof.sX), mul(statement.u, sigmaAuxiliaries.minusC));
-        sigmaAuxiliaries.cCommit = add(mul(statement.balanceCommitNewL, proof.sigmaProof.c.mul(burnAuxiliaries.zSquared)), mul(statement.balanceCommitNewR, proof.sigmaProof.sX.mul(burnAuxiliaries.zSquared).neg()));
+        sigmaAuxiliaries.cCommit = add(mul(add(mul(statement.balanceCommitNewL, proof.sigmaProof.c), mul(statement.balanceCommitNewR, proof.sigmaProof.sX.neg())), burnAuxiliaries.zs[0]), mul(add(mul(proof.XL, proof.sigmaProof.c), mul(proof.XR, proof.sigmaProof.sX.neg())), burnAuxiliaries.zs[1]));
         sigmaAuxiliaries.At = add(add(mul(g, burnAuxiliaries.t.mul(proof.sigmaProof.c)), mul(h, proof.tauX.mul(proof.sigmaProof.c))), neg(add(sigmaAuxiliaries.cCommit, mul(burnAuxiliaries.tEval, proof.sigmaProof.c))));
 
         uint256 challenge = uint256(keccak256(abi.encode(burnAuxiliaries.x, sigmaAuxiliaries.Ay, sigmaAuxiliaries.Au, sigmaAuxiliaries.At, statement.sender))).mod();
@@ -129,7 +132,6 @@ contract BurnVerifier {
         G1Point memory P = add(add(proof.A, mul(proof.S, burnAuxiliaries.x)), mul(sumPoints(gs), burnAuxiliaries.z.neg()));
         P = add(neg(mul(h, proof.mu)), add(P, commit(hPrimes, hExp)));
         P = add(P, mul(u, proof.t));
-
 
         // begin inner product verification
         InnerProductProof memory ipProof = proof.ipProof;
@@ -182,23 +184,25 @@ contract BurnVerifier {
     function unserialize(bytes memory arr) internal pure returns (BurnProof memory proof) {
         proof.A = G1Point(slice(arr, 0), slice(arr, 32));
         proof.S = G1Point(slice(arr, 64), slice(arr, 96));
-        proof.commits = [G1Point(slice(arr, 128), slice(arr, 160)), G1Point(slice(arr, 192), slice(arr, 224))];
-        proof.t = slice(arr, 256);
-        proof.tauX = slice(arr, 288);
-        proof.mu = slice(arr, 320);
+        proof.XL = G1Point(slice(arr, 128), slice(arr, 160));
+        proof.XR = G1Point(slice(arr, 192), slice(arr, 224));
+        proof.commits = [G1Point(slice(arr, 256), slice(arr, 288)), G1Point(slice(arr, 320), slice(arr, 352))];
+        proof.t = slice(arr, 384);
+        proof.tauX = slice(arr, 416);
+        proof.mu = slice(arr, 448);
 
         SigmaProof memory sigmaProof;
-        sigmaProof.c = slice(arr, 352);
-        sigmaProof.sX = slice(arr, 384);
+        sigmaProof.c = slice(arr, 480);
+        sigmaProof.sX = slice(arr, 512);
         proof.sigmaProof = sigmaProof;
 
         InnerProductProof memory ipProof;
         for (uint256 i = 0; i < n; i++) {
-            ipProof.ls[i] = G1Point(slice(arr, 416 + i * 64), slice(arr, 448 + i * 64));
-            ipProof.rs[i] = G1Point(slice(arr, 416 + (n + i) * 64), slice(arr, 448 + (n + i) * 64));
+            ipProof.ls[i] = G1Point(slice(arr, 544 + i * 64), slice(arr, 576 + i * 64));
+            ipProof.rs[i] = G1Point(slice(arr, 544 + (n + i) * 64), slice(arr, 576 + (n + i) * 64));
         }
-        ipProof.a = slice(arr, 416 + n * 128);
-        ipProof.b = slice(arr, 448 + n * 128);
+        ipProof.a = slice(arr, 544 + n * 128);
+        ipProof.b = slice(arr, 576 + n * 128);
         proof.ipProof = ipProof;
         return proof;
     }
