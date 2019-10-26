@@ -59,8 +59,7 @@ In the first window, Alice's let's say, execute
 > var alice = new Client(deployed, home, web3)
 > alice.initialize()
 Promise { <pending> }
-Registration submitted (txHash = "0x3420c7ec482391ddaf349742bacc30ac26a5eba92dd1828f95499c5909c572b3").
-Registration successful.
+New account generated.
 ```
 and in Bob's,
 ```javascript
