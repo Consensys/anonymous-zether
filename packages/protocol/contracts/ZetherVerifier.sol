@@ -150,7 +150,6 @@ contract ZetherVerifier {
     struct AnonAuxiliaries {
         uint256 x;
         uint256[2][] f;
-        uint256 xInv;
         G1Point inOutR2;
         G1Point balanceCommitNewL2;
         G1Point balanceCommitNewR2;
@@ -234,8 +233,7 @@ contract ZetherVerifier {
             anonAuxiliaries.f[0][1] = anonAuxiliaries.f[0][1].sub(anonAuxiliaries.f[i][1]);
         }
 
-        anonAuxiliaries.xInv = anonAuxiliaries.x.inv();
-        anonAuxiliaries.inOutR2 = add(statement.R, mul(anonProof.inOutRG, anonAuxiliaries.xInv.neg()));
+        anonAuxiliaries.inOutR2 = add(mul(statement.R, anonAuxiliaries.x), neg(anonProof.inOutRG));
         anonAuxiliaries.L2 = assembleConvolutions(anonAuxiliaries.f, statement.L); // will internally include _two_ fourier transforms, and split even / odd, etc.
         anonAuxiliaries.y2 = assembleConvolutions(anonAuxiliaries.f, statement.y);
         for (uint256 i = 0; i < proof.size / 2; i++) { // order of loops can be switched...
@@ -244,8 +242,8 @@ contract ZetherVerifier {
                 for (uint256 k = 0; k < 2; k++) {
                     anonAuxiliaries.cycler[k][j] = anonAuxiliaries.cycler[k][j].add(anonAuxiliaries.f[2 * i + k][j]);
                 }
-                anonAuxiliaries.L2[i][j] = mul(add(anonAuxiliaries.L2[i][j], neg(anonProof.LG[i][j])), anonAuxiliaries.xInv);
-                anonAuxiliaries.y2[i][j] = mul(add(anonAuxiliaries.y2[i][j], neg(anonProof.yG[i][j])), anonAuxiliaries.xInv);
+                anonAuxiliaries.L2[i][j] = add(anonAuxiliaries.L2[i][j], neg(anonProof.LG[i][j]));
+                anonAuxiliaries.y2[i][j] = add(anonAuxiliaries.y2[i][j], neg(anonProof.yG[i][j]));
             }
         }
         // replace the leftmost column with the Hadamard of the left and right columns. just do the multiplication once...
@@ -259,10 +257,10 @@ contract ZetherVerifier {
             anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, mul(statement.CLn[i], anonAuxiliaries.f[i][0]));
             anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, mul(statement.CRn[i], anonAuxiliaries.f[i][0]));
         }
-        anonAuxiliaries.balanceCommitNewL2 = mul(add(anonAuxiliaries.balanceCommitNewL2, neg(anonProof.balanceCommitNewLG)), anonAuxiliaries.xInv);
-        anonAuxiliaries.balanceCommitNewR2 = mul(add(anonAuxiliaries.balanceCommitNewR2, neg(anonProof.balanceCommitNewRG)), anonAuxiliaries.xInv);
+        anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, neg(anonProof.balanceCommitNewLG));
+        anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, neg(anonProof.balanceCommitNewRG));
 
-        anonAuxiliaries.gPrime = mul(add(mul(g, anonAuxiliaries.x), neg(anonProof.gG)), anonAuxiliaries.xInv);
+        anonAuxiliaries.gPrime = add(mul(g, anonAuxiliaries.x), neg(anonProof.gG));
 
         SigmaProof memory sigmaProof = proof.sigmaProof;
         SigmaAuxiliaries memory sigmaAuxiliaries;
@@ -277,8 +275,8 @@ contract ZetherVerifier {
         sigmaAuxiliaries.gEpoch = mapInto("Zether", statement.epoch);
         sigmaAuxiliaries.Au = add(mul(sigmaAuxiliaries.gEpoch, sigmaProof.sX), mul(statement.u, sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.ADiff = add(mul(add(anonAuxiliaries.y2[0][0], anonAuxiliaries.y2[0][1]), sigmaProof.sR), mul(add(anonAuxiliaries.L2[0][0], anonAuxiliaries.L2[0][1]), sigmaAuxiliaries.minusC));
-        sigmaAuxiliaries.cCommit = add(add(mul(add(mul(anonAuxiliaries.L2[0][0], sigmaProof.c.neg()), mul(anonAuxiliaries.inOutR2, sigmaProof.sX)), zetherAuxiliaries.zs[0]), mul(add(mul(anonAuxiliaries.balanceCommitNewL2, sigmaProof.c), mul(anonAuxiliaries.balanceCommitNewR2, sigmaProof.sX.neg())), zetherAuxiliaries.zs[1])), mul(add(mul(proof.XL, sigmaProof.c), mul(proof.XR, sigmaProof.sX.neg())), zetherAuxiliaries.zs[2]));
-        sigmaAuxiliaries.At = add(add(mul(g, zetherAuxiliaries.t.mul(sigmaProof.c)), mul(h, proof.tauX.mul(sigmaProof.c))), neg(add(sigmaAuxiliaries.cCommit, mul(zetherAuxiliaries.tEval, sigmaProof.c))));
+        sigmaAuxiliaries.cCommit = add(add(mul(add(mul(anonAuxiliaries.L2[0][0], sigmaProof.c.neg()), mul(anonAuxiliaries.inOutR2, sigmaProof.sX)), zetherAuxiliaries.zs[0]), mul(add(mul(anonAuxiliaries.balanceCommitNewL2, sigmaProof.c), mul(anonAuxiliaries.balanceCommitNewR2, sigmaProof.sX.neg())), zetherAuxiliaries.zs[1])), mul(add(mul(proof.XL, sigmaProof.c), mul(proof.XR, sigmaProof.sX.neg())), zetherAuxiliaries.zs[2].mul(anonAuxiliaries.x)));
+        sigmaAuxiliaries.At = add(neg(sigmaAuxiliaries.cCommit), mul(add(add(mul(g, zetherAuxiliaries.t), neg(zetherAuxiliaries.tEval)), mul(h, proof.tauX)), sigmaProof.c.mul(anonAuxiliaries.x)));
 
         uint256 challenge = uint256(keccak256(abi.encode(anonAuxiliaries.x, sigmaAuxiliaries.Ay, sigmaAuxiliaries.AD, sigmaAuxiliaries.Au, sigmaAuxiliaries.ADiff, sigmaAuxiliaries.At, sigmaAuxiliaries.AL))).mod();
         require(challenge == proof.sigmaProof.c, "Sigma protocol challenge equality failure.");

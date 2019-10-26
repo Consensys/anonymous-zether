@@ -40,7 +40,7 @@ class SigmaProver {
             var AL = statement['y'].map((y_i) => new GeneratorVector(y_i.times(kR).getVector().slice(1)));
             var Au = utils.gEpoch(statement['epoch']).mul(kX);
             var ADiff = y.add(yBar).mul(kR);
-            var At = statement['D'].mul(zs[0].neg()).add(statement['CRn'].mul(zs[1])).add(statement['XR'].mul(zs[2])).mul(kX);
+            var At = statement['D'].mul(zs[0].neg()).add(statement['CRn'].mul(zs[1])).add(statement['XR'].mul(witness['w'].mul(zs[2]))).mul(kX);
 
             var proof = new SigmaProof();
 

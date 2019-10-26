@@ -107,22 +107,19 @@ class ZetherProver {
             proof.anonProof = anonProver.generateProof(statement, anonWitness, x);
 
             var challenge = proof.anonProof.challenge;
-            var xInv = challenge.redInvm();
-            var piOverX = anonWitness['pi'].redMul(xInv);
-            var rhoOverX = anonWitness['rho'].redMul(xInv);
-            var sigmaOverX = anonWitness['sigma'].redMul(xInv);
 
             var sigmaStatement = {}; // only certain parts of the "statement" are actually used in proving.
-            sigmaStatement['D'] = statement['R'].add(params.getG().mul(rhoOverX).neg());
-            sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].add(params.getG().mul(piOverX).neg());
-            sigmaStatement['y'] = Array.from({ length: 2 }).map((_, i) => statement['y'].shift(witness['index'][i]).extract(0).times(new BN(1).toRed(bn128.q).redSub(sigmaOverX)));
+            sigmaStatement['D'] = statement['R'].mul(challenge).add(params.getG().mul(anonWitness['rho'].redNeg()));
+            sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].mul(challenge).add(params.getG().mul(anonWitness['pi'].redNeg()));
+            sigmaStatement['y'] = Array.from({ length: 2 }).map((_, i) => statement['y'].shift(witness['index'][i]).extract(0).times(challenge.redSub(anonWitness['sigma'])));
             sigmaStatement['z'] = z;
-            sigmaStatement['gPrime'] = params.getG().mul(new BN(1).toRed(bn128.q).redSub(sigmaOverX));
+            sigmaStatement['gPrime'] = params.getG().mul(challenge.redSub(anonWitness['sigma']));
             sigmaStatement['epoch'] = statement['epoch'];
             sigmaStatement['XR'] = proof.XR;
             var sigmaWitness = {};
             sigmaWitness['x'] = witness['x'];
-            sigmaWitness['r'] = witness['r'].redSub(rhoOverX).redMul(new BN(1).toRed(bn128.q).redSub(sigmaOverX).redInvm());
+            sigmaWitness['r'] = witness['r'].redMul(challenge).redSub(anonWitness['rho']).redMul(challenge.redSub(anonWitness['sigma']).redInvm());
+            sigmaWitness['w'] = challenge;
             proof.sigmaProof = sigmaProver.generateProof(sigmaStatement, sigmaWitness, challenge);
 
             var uChallenge = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32', 'bytes32', 'bytes32'], [bn128.bytes(proof.sigmaProof.challenge), bn128.bytes(proof.t), bn128.bytes(proof.tauX), bn128.bytes(proof.mu)]));
