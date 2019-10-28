@@ -76,13 +76,13 @@ class AnonProver {
             proof.C = params.commit(c[0], c[1], rC);
             proof.D = params.commit(d[0], d[1], rD);
 
-            proof.inOutRG = params.getG().mul(witness['rho']);
+            proof.inOutRG = statement['R'].mul(witness['sigma']);
             proof.gG = params.getG().mul(witness['sigma']);
 
-            proof.CLnG = statement['CLn'].commit(a[0]).add(statement['y'].getVector()[witness['index'][0]].mul(witness['pi']));
-            proof.CRnG = statement['CRn'].commit(a[0]).add(params.getG().mul(witness['pi']));
+            proof.CLnG = statement['CLn'].commit(a[0]).add(statement['CLn'].getVector()[witness['index'][0]].add(params.getG().mul(-witness['bDiff'])).mul(witness['sigma']));
+            proof.CRnG = statement['CRn'].commit(a[0]).add(statement['CRn'].getVector()[witness['index'][0]].mul(witness['sigma']));
             var convolver = new Convolver();
-            proof.LG = a.map((a_i, i) => convolver.convolution(a_i, statement['L']).add(statement['y'].shift(witness['index'][i]).extract(0).times(witness['rho'])));
+            proof.LG = a.map((a_i, i) => convolver.convolution(a_i, statement['L']).add(statement['y'].shift(witness['index'][i]).extract(0).times(witness['sigma'].mul(witness['r']))));
             proof.yG = a.map((a_i, i) => convolver.convolution(a_i, statement['y']).add(statement['y'].shift(witness['index'][i]).extract(0).times(witness['sigma'])));
 
             var cycler = a.map((a_i) => new FieldVector(Array.from({ length: 2 }).map((_, j) => a_i.extract(j).sum())));

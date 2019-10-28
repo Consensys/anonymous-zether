@@ -103,22 +103,26 @@ class ZetherProver {
             proof.tauX = evalCommit.getR();
             proof.mu = alpha.redAdd(rho.redMul(x));
 
-            var anonWitness = { 'index': witness['index'], 'pi': bn128.randomScalar(), 'rho': bn128.randomScalar(), 'sigma': bn128.randomScalar() };
+            var anonWitness = {}; // could just pass in the entire zether witness...?
+            anonWitness['index'] = witness['index'];
+            anonWitness['bDiff'] = witness['bDiff'];
+            anonWitness['r'] = witness['r'];
+            anonWitness['sigma'] = bn128.randomScalar();
             proof.anonProof = anonProver.generateProof(statement, anonWitness, x);
 
             var challenge = proof.anonProof.challenge;
 
             var sigmaStatement = {}; // only certain parts of the "statement" are actually used in proving.
-            sigmaStatement['D'] = statement['R'].mul(challenge).add(params.getG().mul(anonWitness['rho'].redNeg()));
-            sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].mul(challenge).add(params.getG().mul(anonWitness['pi'].redNeg()));
+            sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].mul(challenge.redSub(anonWitness['sigma']));
             sigmaStatement['y'] = Array.from({ length: 2 }).map((_, i) => statement['y'].shift(witness['index'][i]).extract(0).times(challenge.redSub(anonWitness['sigma'])));
-            sigmaStatement['z'] = z;
+            sigmaStatement['D'] = statement['R'].mul(challenge.redSub(anonWitness['sigma']));
             sigmaStatement['gPrime'] = params.getG().mul(challenge.redSub(anonWitness['sigma']));
+            sigmaStatement['z'] = z;
             sigmaStatement['epoch'] = statement['epoch'];
             sigmaStatement['XR'] = proof.XR;
             var sigmaWitness = {};
             sigmaWitness['x'] = witness['x'];
-            sigmaWitness['r'] = witness['r'].redMul(challenge).redSub(anonWitness['rho']).redMul(challenge.redSub(anonWitness['sigma']).redInvm());
+            sigmaWitness['r'] = witness['r'];
             sigmaWitness['w'] = challenge;
             proof.sigmaProof = sigmaProver.generateProof(sigmaStatement, sigmaWitness, challenge);
 
