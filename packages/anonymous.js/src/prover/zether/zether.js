@@ -14,8 +14,8 @@ class ZetherProof {
             var result = "0x";
             result += bn128.representation(this.a).slice(2);
             result += bn128.representation(this.s).slice(2);
-            result += bn128.representation(this.XL).slice(2);
-            result += bn128.representation(this.XR).slice(2);
+            result += bn128.representation(this.HL).slice(2);
+            result += bn128.representation(this.HR).slice(2);
             this.tCommits.getVector().forEach((commit) => {
                 result += bn128.representation(commit).slice(2);
             });
@@ -44,11 +44,11 @@ class ZetherProver {
         this.generateProof = (statement, witness, salt) => { // salt probably won't be used
             var proof = new ZetherProof();
 
-            var statementHash = utils.hash(abiCoder.encodeParameters(['bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2]', 'bytes32[2][]', 'uint256'], [statement['CLn'], statement['CRn'], statement['L'], statement['R'], statement['y'], statement['epoch']]));
+            var statementHash = utils.hash(abiCoder.encodeParameters(['bytes32[2][]', 'bytes32[2][]', 'bytes32[2][]', 'bytes32[2]', 'bytes32[2][]', 'uint256'], [statement['CLn'], statement['CRn'], statement['C'], statement['D'], statement['y'], statement['epoch']]));
             statement['CLn'] = new GeneratorVector(statement['CLn'].map(bn128.unserialize));
             statement['CRn'] = new GeneratorVector(statement['CRn'].map(bn128.unserialize));
-            statement['L'] = new GeneratorVector(statement['L'].map(bn128.unserialize));
-            statement['R'] = bn128.unserialize(statement['R']);
+            statement['C'] = new GeneratorVector(statement['C'].map(bn128.unserialize));
+            statement['D'] = bn128.unserialize(statement['D']);
             statement['y'] = new GeneratorVector(statement['y'].map(bn128.unserialize));
             // go ahead and "liven" these once and for all now that they have been hashed
 
@@ -62,11 +62,11 @@ class ZetherProver {
             var rho = bn128.randomScalar(); // already reduced
             proof.s = params.commit(sL, sR, rho);
             var gamma = bn128.randomScalar();
-            var blinding = bn128.randomScalar();
-            proof.XL = params.getH().mul(gamma).add(statement['y'].getVector()[witness['index'][0]].mul(blinding));
-            proof.XR = params.getG().mul(blinding); // (XL, XR) is an ElGamal encryption of h^gamma under y...
+            var rGamma = bn128.randomScalar();
+            proof.HL = params.getH().mul(gamma).add(statement['y'].getVector()[witness['index'][0]].mul(rGamma));
+            proof.HR = params.getG().mul(rGamma); // (HL, HR) is an ElGamal encryption of h^gamma under y...
 
-            var y = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(statementHash), bn128.serialize(proof.a), bn128.serialize(proof.s), bn128.serialize(proof.XL), bn128.serialize(proof.XR)]));
+            var y = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(statementHash), bn128.serialize(proof.a), bn128.serialize(proof.s), bn128.serialize(proof.HL), bn128.serialize(proof.HR)]));
             var ys = [new BN(1).toRed(bn128.q)];
             for (var i = 1; i < 64; i++) { // it would be nice to have a nifty functional way of doing this.
                 ys.push(ys[i - 1].redMul(y));
@@ -115,11 +115,11 @@ class ZetherProver {
             var sigmaStatement = {}; // only certain parts of the "statement" are actually used in proving.
             sigmaStatement['CRn'] = statement['CRn'].getVector()[witness['index'][0]].mul(challenge.redSub(anonWitness['sigma']));
             sigmaStatement['y'] = Array.from({ length: 2 }).map((_, i) => statement['y'].shift(witness['index'][i]).extract(0).times(challenge.redSub(anonWitness['sigma'])));
-            sigmaStatement['D'] = statement['R'].mul(challenge.redSub(anonWitness['sigma']));
-            sigmaStatement['gPrime'] = params.getG().mul(challenge.redSub(anonWitness['sigma']));
+            sigmaStatement['D'] = statement['D'].mul(challenge.redSub(anonWitness['sigma']));
+            sigmaStatement['gG'] = params.getG().mul(challenge.redSub(anonWitness['sigma']));
             sigmaStatement['z'] = z;
             sigmaStatement['epoch'] = statement['epoch'];
-            sigmaStatement['XR'] = proof.XR;
+            sigmaStatement['HR'] = proof.HR;
             var sigmaWitness = {};
             sigmaWitness['x'] = witness['x'];
             sigmaWitness['r'] = witness['r'];

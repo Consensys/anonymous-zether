@@ -34,7 +34,7 @@ class SigmaProver {
 
             var Ay = params.getG().mul(kX);
             var Au = utils.gEpoch(statement['epoch']).mul(kX);
-            var At = statement['CRn'].mul(zs[0]).add(statement['XR'].mul(zs[1])).mul(kX);
+            var At = statement['CRn'].mul(zs[0]).add(statement['HR'].mul(zs[1])).mul(kX);
 
             var proof = new SigmaProof();
 

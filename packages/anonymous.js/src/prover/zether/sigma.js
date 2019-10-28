@@ -35,12 +35,12 @@ class SigmaProver {
             var kR = bn128.randomScalar();
             var kX = bn128.randomScalar();
 
-            var Ay = statement['gPrime'].mul(kX);
-            var AD = statement['gPrime'].mul(kR);
-            var AL = statement['y'].map((y_i) => new GeneratorVector(y_i.times(kR).getVector().slice(1)));
+            var Ay = statement['gG'].mul(kX);
+            var AD = statement['gG'].mul(kR);
             var Au = utils.gEpoch(statement['epoch']).mul(kX);
             var ADiff = y.add(yBar).mul(kR);
-            var At = statement['D'].mul(zs[0].neg()).add(statement['CRn'].mul(zs[1])).add(statement['XR'].mul(witness['w'].mul(zs[2]))).mul(kX);
+            var At = statement['D'].mul(zs[0].neg()).add(statement['CRn'].mul(zs[1])).add(statement['HR'].mul(witness['w'].mul(zs[2]))).mul(kX);
+            var AC = statement['y'].map((y_i) => new GeneratorVector(y_i.times(kR).getVector().slice(1)));
 
             var proof = new SigmaProof();
 
@@ -59,7 +59,7 @@ class SigmaProver {
                 bn128.serialize(Au),
                 bn128.serialize(ADiff),
                 bn128.serialize(At),
-                AL[0].getVector().map((point, i) => [point, AL[1].getVector()[i]].map(bn128.serialize)), // unusual---have to transpose
+                AC[0].getVector().map((point, i) => [point, AC[1].getVector()[i]].map(bn128.serialize)), // unusual---have to transpose
             ]));
 
             proof.sX = kX.redAdd(proof.challenge.redMul(witness['x']));

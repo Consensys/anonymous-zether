@@ -13,8 +13,8 @@ class BurnProof {
             var result = "0x";
             result += bn128.representation(this.a).slice(2);
             result += bn128.representation(this.s).slice(2);
-            result += bn128.representation(this.XL).slice(2);
-            result += bn128.representation(this.XR).slice(2);
+            result += bn128.representation(this.HL).slice(2);
+            result += bn128.representation(this.HR).slice(2);
             this.tCommits.getVector().forEach((commit) => {
                 result += bn128.representation(commit).slice(2);
             });
@@ -58,10 +58,10 @@ class BurnProver {
             proof.s = params.commit(sL, sR, rho);
             var gamma = bn128.randomScalar();
             var blinding = bn128.randomScalar();
-            proof.XL = params.getH().mul(gamma).add(statement['y'].mul(blinding));
-            proof.XR = params.getG().mul(blinding); // (XL, XR) is an ElGamal encryption of h^gamma under y...
+            proof.HL = params.getH().mul(gamma).add(statement['y'].mul(blinding));
+            proof.HR = params.getG().mul(blinding); // (XL, XR) is an ElGamal encryption of h^gamma under y...
 
-            var y = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(statementHash), bn128.serialize(proof.a), bn128.serialize(proof.s), bn128.serialize(proof.XL), bn128.serialize(proof.XR)]));
+            var y = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(statementHash), bn128.serialize(proof.a), bn128.serialize(proof.s), bn128.serialize(proof.HL), bn128.serialize(proof.HR)]));
             var ys = [new BN(1).toRed(bn128.q)];
             for (var i = 1; i < 32; i++) { // it would be nice to have a nifty functional way of doing this.
                 ys.push(ys[i - 1].redMul(y));
@@ -95,7 +95,7 @@ class BurnProver {
 
             var sigmaStatement = statement; // pointless---just adding fields to the same object
             sigmaStatement['z'] = z;
-            sigmaStatement['XR'] = proof.XR;
+            sigmaStatement['HR'] = proof.HR;
             var sigmaWitness = {};
             sigmaWitness['x'] = witness['x'];
             proof.sigmaProof = sigmaProver.generateProof(sigmaStatement, sigmaWitness, x);

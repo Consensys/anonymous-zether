@@ -239,16 +239,16 @@ class Client {
                 zsc.methods.simulateAccounts(y, this._getEpoch()).call()
                     .then((result) => {
                         var r = bn128.randomScalar();
-                        var L = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.unserialize(party).mul(r)));
-                        var R = bn128.curve.g.mul(r);
-                        var CLn = result.map((simulated, i) => bn128.serialize(bn128.unserialize(simulated[0]).add(L[i])));
-                        var CRn = result.map((simulated) => bn128.serialize(bn128.unserialize(simulated[1]).add(R)));
-                        L = L.map(bn128.serialize);
-                        R = bn128.serialize(R);
-                        var proof = service.proveTransfer(CLn, CRn, L, R, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
+                        var C = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.unserialize(party).mul(r)));
+                        var D = bn128.curve.g.mul(r);
+                        var CLn = result.map((simulated, i) => bn128.serialize(bn128.unserialize(simulated[0]).add(C[i])));
+                        var CRn = result.map((simulated) => bn128.serialize(bn128.unserialize(simulated[1]).add(D)));
+                        C = C.map(bn128.serialize);
+                        D = bn128.serialize(D);
+                        var proof = service.proveTransfer(CLn, CRn, C, D, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
                         var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
                         var throwaway = web3.eth.accounts.create();
-                        var encoded = zsc.methods.transfer(L, R, y, u, proof).encodeABI();
+                        var encoded = zsc.methods.transfer(C, D, y, u, proof).encodeABI();
                         var tx = { 'to': zsc.address, 'data': encoded, 'gas': 547000000, 'nonce': 0 };
                         web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                             web3.eth.sendSignedTransaction(signed.rawTransaction)

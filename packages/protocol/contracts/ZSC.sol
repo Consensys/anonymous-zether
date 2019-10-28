@@ -122,11 +122,11 @@ contract ZSC {
         bTotal += bTransfer;
     }
 
-    function transfer(bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, bytes32[2] memory u, bytes memory proof) public {
+    function transfer(bytes32[2][] memory C, bytes32[2] memory D, bytes32[2][] memory y, bytes32[2] memory u, bytes memory proof) public {
         uint256 size = y.length;
         bytes32[2][] memory CLn = new bytes32[2][](size);
         bytes32[2][] memory CRn = new bytes32[2][](size);
-        require(L.length == size, "Input array length mismatch!");
+        require(C.length == size, "Input array length mismatch!");
         uint256 result = 1;
         for (uint256 i = 0; i < y.length; i++) {
             bytes32 yHash = keccak256(abi.encodePacked(y[i]));
@@ -136,17 +136,17 @@ contract ZSC {
                 let m := mload(0x40)
                 mstore(m, mload(mload(scratch)))
                 mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
-                // calldatacopy(add(m, 0x40), add(0x104, mul(i, 0x40)), 0x40) // copy L[i] onto running block
+                // calldatacopy(add(m, 0x40), add(0x104, mul(i, 0x40)), 0x40) // copy C[i] onto running block
                 // having to change external --> public to avoid stacktoodeep
                 // as a result, have to use the below two lines instead of the above single line.
-                mstore(add(m, 0x40), mload(mload(add(add(L, 0x20), mul(i, 0x20)))))
-                mstore(add(m, 0x60), mload(add(mload(add(add(L, 0x20), mul(i, 0x20))), 0x20)))
+                mstore(add(m, 0x40), mload(mload(add(add(C, 0x20), mul(i, 0x20)))))
+                mstore(add(m, 0x60), mload(add(mload(add(add(C, 0x20), mul(i, 0x20))), 0x20)))
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(scratch), 0x40))
                 mstore(m, mload(mload(add(scratch, 0x20))))
                 mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
                 // calldatacopy(add(m, 0x40), 0x24, 0x40) // copy R onto running block
-                mstore(add(m, 0x40), mload(R))
-                mstore(add(m, 0x60), mload(add(R, 0x20)))
+                mstore(add(m, 0x40), mload(D))
+                mstore(add(m, 0x60), mload(add(D, 0x20)))
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(scratch, 0x20)), 0x40))
             }
             pTransfers[yHash] = scratch; // credit / debit / neither y's account.
@@ -155,13 +155,13 @@ contract ZSC {
                 let m := mload(0x40)
                 mstore(m, mload(mload(scratch)))
                 mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
-                mstore(add(m, 0x40), mload(mload(add(add(L, 0x20), mul(i, 0x20)))))
-                mstore(add(m, 0x60), mload(add(mload(add(add(L, 0x20), mul(i, 0x20))), 0x20)))
+                mstore(add(m, 0x40), mload(mload(add(add(C, 0x20), mul(i, 0x20)))))
+                mstore(add(m, 0x60), mload(add(mload(add(add(C, 0x20), mul(i, 0x20))), 0x20)))
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(add(CLn, 0x20), mul(i, 0x20))), 0x40))
                 mstore(m, mload(mload(add(scratch, 0x20))))
                 mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
-                mstore(add(m, 0x40), mload(R))
-                mstore(add(m, 0x60), mload(add(R, 0x20)))
+                mstore(add(m, 0x40), mload(D))
+                mstore(add(m, 0x60), mload(add(D, 0x20)))
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(add(CRn, 0x20), mul(i, 0x20))), 0x40))
             }
         }
@@ -179,7 +179,7 @@ contract ZSC {
         if (size > zetherverifier.baseSize()) {
             zetherverifier.extendBase(size);
         }
-        require(zetherverifier.verifyTransfer(CLn, CRn, L, R, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
+        require(zetherverifier.verifyTransfer(CLn, CRn, C, D, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
         nonceSet.push(uHash);
         emit TransferOccurred(y);

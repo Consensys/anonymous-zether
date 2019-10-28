@@ -21,8 +21,8 @@ contract ZetherVerifier {
     struct ZetherStatement {
         G1Point[] CLn;
         G1Point[] CRn;
-        G1Point[] L;
-        G1Point R;
+        G1Point[] C;
+        G1Point D;
         G1Point[] y;
         uint256 epoch; // or uint8?
         G1Point u;
@@ -32,8 +32,8 @@ contract ZetherVerifier {
         uint256 size; // not strictly necessary, but...?
         G1Point A;
         G1Point S;
-        G1Point XL;
-        G1Point XR;
+        G1Point HL;
+        G1Point HR;
         G1Point[2] commits;
         uint256 tauX;
         uint256 mu;
@@ -44,22 +44,22 @@ contract ZetherVerifier {
     }
 
     struct AnonProof {
-        G1Point A;
-        G1Point B;
-        G1Point C;
-        G1Point D;
-        G1Point[2][] LG; // flipping the indexing order on this, 'cause...
-        G1Point inOutRG;
+        G1Point P;
+        G1Point Q;
+        G1Point U;
+        G1Point V;
+        G1Point X;
+        G1Point Y;
+        G1Point CLnG;
+        G1Point CRnG;
+        G1Point DG;
         G1Point gG;
-        G1Point balanceCommitNewLG;
-        G1Point balanceCommitNewRG;
+        G1Point[2][] CG; // flipping the indexing order on this, 'cause...
         G1Point[2][] yG; // assuming this one has the same size..., N / 2 by 2,
-        G1Point E;
-        G1Point F;
         uint256[2][] f; // and that this has size N - 1 by 2.
-        uint256 zA;
-        uint256 zC;
-        uint256 zE;
+        uint256 zP;
+        uint256 zU;
+        uint256 zX;
     }
 
     struct SigmaProof {
@@ -100,22 +100,22 @@ contract ZetherVerifier {
         }
     }
 
-    function verifyTransfer(bytes32[2][] memory CLn, bytes32[2][] memory CRn, bytes32[2][] memory L, bytes32[2] memory R, bytes32[2][] memory y, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
+    function verifyTransfer(bytes32[2][] memory CLn, bytes32[2][] memory CRn, bytes32[2][] memory C, bytes32[2] memory D, bytes32[2][] memory y, uint256 epoch, bytes32[2] memory u, bytes memory proof) view public returns (bool) {
         ZetherStatement memory statement;
         uint256 size = y.length;
         require(gs.length >= size, "Inadequate stored vector base! Call extendBase and then try again.");
 
         statement.CLn = new G1Point[](size);
         statement.CRn = new G1Point[](size);
-        statement.L = new G1Point[](size);
+        statement.C = new G1Point[](size);
         statement.y = new G1Point[](size);
         for (uint256 i = 0; i < size; i++) {
             statement.CLn[i] = G1Point(uint256(CLn[i][0]), uint256(CLn[i][1]));
             statement.CRn[i] = G1Point(uint256(CRn[i][0]), uint256(CRn[i][1]));
-            statement.L[i] = G1Point(uint256(L[i][0]), uint256(L[i][1]));
+            statement.C[i] = G1Point(uint256(C[i][0]), uint256(C[i][1]));
             statement.y[i] = G1Point(uint256(y[i][0]), uint256(y[i][1]));
         }
-        statement.R = G1Point(uint256(R[0]), uint256(R[1]));
+        statement.D = G1Point(uint256(D[0]), uint256(D[1]));
         statement.epoch = epoch;
         statement.u = G1Point(uint256(u[0]), uint256(u[1]));
         ZetherProof memory zetherProof = unserialize(proof);
@@ -137,7 +137,6 @@ contract ZetherVerifier {
 
     struct SigmaAuxiliaries {
         uint256 minusC;
-        G1Point[2][] AL;
         G1Point Ay;
         G1Point AD;
         G1Point gEpoch;
@@ -145,19 +144,19 @@ contract ZetherVerifier {
         G1Point ADiff;
         G1Point cCommit;
         G1Point At;
+        G1Point[2][] AC;
     }
 
     struct AnonAuxiliaries {
-        uint256 x;
+        uint256 w;
         uint256[2][] f;
-        G1Point inOutR2;
-        G1Point balanceCommitNewL2;
-        G1Point balanceCommitNewR2;
+        G1Point D2;
+        G1Point CLn2;
+        G1Point CRn2;
         uint256[2][2] cycler; // should need no inline declaration / initialization. should be pre-allocated
-        G1Point[2][] L2;
+        G1Point[2][] C2;
         G1Point[2][] y2;
-        G1Point parity;
-        G1Point gPrime;
+        G1Point g2;
     }
 
     struct IPAuxiliaries {
@@ -172,7 +171,7 @@ contract ZetherVerifier {
 
     function verify(ZetherStatement memory statement, ZetherProof memory proof) view internal returns (bool) {
         ZetherAuxiliaries memory zetherAuxiliaries;
-        zetherAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.L, statement.R, statement.y, statement.epoch))).mod(), proof.A, proof.S, proof.XL, proof.XR))).mod(); // break this out?
+        zetherAuxiliaries.y = uint256(keccak256(abi.encode(uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.C, statement.D, statement.y, statement.epoch))).mod(), proof.A, proof.S, proof.HL, proof.HR))).mod();
         zetherAuxiliaries.ys = powers(zetherAuxiliaries.y);
         zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
         zetherAuxiliaries.zs[0] = zetherAuxiliaries.z.mul(zetherAuxiliaries.z);
@@ -195,11 +194,11 @@ contract ZetherVerifier {
         // length equality checks for anonProof members? or during deserialization?
         AnonProof memory anonProof = proof.anonProof;
         AnonAuxiliaries memory anonAuxiliaries;
-        G1Point[2] memory parity = [anonProof.E, anonProof.F]; // breaking this out to avoid stacktoodeep. won't affect encoding
-        anonAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.x, anonProof.LG, anonProof.yG, anonProof.A, anonProof.B, anonProof.C, anonProof.D, anonProof.inOutRG, anonProof.gG, anonProof.balanceCommitNewLG, anonProof.balanceCommitNewRG, parity))).mod();
+        G1Point[6] memory letters = [anonProof.P, anonProof.Q, anonProof.U, anonProof.V, anonProof.X, anonProof.Y]; // only purpose is to avoid stacktoodeep
+        anonAuxiliaries.w = uint256(keccak256(abi.encode(zetherAuxiliaries.x, letters, anonProof.CLnG, anonProof.CRnG, anonProof.DG, anonProof.gG, anonProof.CG, anonProof.yG))).mod();
         anonAuxiliaries.f = new uint256[2][](proof.size);
-        anonAuxiliaries.f[0][0] = anonAuxiliaries.x;
-        anonAuxiliaries.f[0][1] = anonAuxiliaries.x;
+        anonAuxiliaries.f[0][0] = anonAuxiliaries.w;
+        anonAuxiliaries.f[0][1] = anonAuxiliaries.w;
         for (uint i = 1; i < proof.size; i++) {
             anonAuxiliaries.f[i][0] = anonProof.f[i - 1][0];
             anonAuxiliaries.f[i][1] = anonProof.f[i - 1][1];
@@ -212,20 +211,20 @@ contract ZetherVerifier {
             temp = add(temp, mul(hs[i], anonAuxiliaries.f[i][1])); // commutative
         }
 
-        require(eq(add(mul(anonProof.B, anonAuxiliaries.x), anonProof.A), add(temp, mul(h, anonProof.zA))), "Recovery failure for B^x * A.");
+        require(eq(add(mul(anonProof.Q, anonAuxiliaries.w), anonProof.P), add(temp, mul(h, anonProof.zP))), "Recovery failure for Q^w * P.");
         for (uint i = 0; i < proof.size; i++) {
-            anonAuxiliaries.f[i][0] = anonAuxiliaries.f[i][0].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][0]));
-            anonAuxiliaries.f[i][1] = anonAuxiliaries.f[i][1].mul(anonAuxiliaries.x.sub(anonAuxiliaries.f[i][1]));
+            anonAuxiliaries.f[i][0] = anonAuxiliaries.f[i][0].mul(anonAuxiliaries.w.sub(anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.f[i][1] = anonAuxiliaries.f[i][1].mul(anonAuxiliaries.w.sub(anonAuxiliaries.f[i][1]));
         }
         temp = G1Point(0, 0);
         for (uint256 i = 0; i < proof.size; i++) { // danger... gs and hs need to be big enough.
             temp = add(temp, mul(gs[i], anonAuxiliaries.f[i][0]));
             temp = add(temp, mul(hs[i], anonAuxiliaries.f[i][1])); // commutative
         }
-        require(eq(add(mul(anonProof.C, anonAuxiliaries.x), anonProof.D), add(temp, mul(h, anonProof.zC))), "Recovery failure for C^x * D.");
+        require(eq(add(mul(anonProof.U, anonAuxiliaries.w), anonProof.V), add(temp, mul(h, anonProof.zU))), "Recovery failure for U^w * V.");
 
-        anonAuxiliaries.f[0][0] = anonAuxiliaries.x;
-        anonAuxiliaries.f[0][1] = anonAuxiliaries.x;
+        anonAuxiliaries.f[0][0] = anonAuxiliaries.w;
+        anonAuxiliaries.f[0][1] = anonAuxiliaries.w;
         for (uint i = 1; i < proof.size; i++) { // need to recompute these. contract too large if use another variable
             anonAuxiliaries.f[i][0] = anonProof.f[i - 1][0];
             anonAuxiliaries.f[i][1] = anonProof.f[i - 1][1];
@@ -233,52 +232,53 @@ contract ZetherVerifier {
             anonAuxiliaries.f[0][1] = anonAuxiliaries.f[0][1].sub(anonAuxiliaries.f[i][1]);
         }
 
-        anonAuxiliaries.inOutR2 = add(mul(statement.R, anonAuxiliaries.x), neg(anonProof.inOutRG));
-        anonAuxiliaries.L2 = assembleConvolutions(anonAuxiliaries.f, statement.L); // will internally include _two_ fourier transforms, and split even / odd, etc.
+        anonAuxiliaries.C2 = assembleConvolutions(anonAuxiliaries.f, statement.C); // will internally include _two_ fourier transforms, and split even / odd, etc.
         anonAuxiliaries.y2 = assembleConvolutions(anonAuxiliaries.f, statement.y);
+        anonAuxiliaries.D2 = add(mul(statement.D, anonAuxiliaries.w), neg(anonProof.DG));
         for (uint256 i = 0; i < proof.size / 2; i++) { // order of loops can be switched...
             // could use _two_ further nested loops inside this, but...
             for (uint256 j = 0; j < 2; j++) {
                 for (uint256 k = 0; k < 2; k++) {
                     anonAuxiliaries.cycler[k][j] = anonAuxiliaries.cycler[k][j].add(anonAuxiliaries.f[2 * i + k][j]);
                 }
-                anonAuxiliaries.L2[i][j] = add(anonAuxiliaries.L2[i][j], neg(anonProof.LG[i][j]));
+                anonAuxiliaries.C2[i][j] = add(anonAuxiliaries.C2[i][j], neg(anonProof.CG[i][j]));
                 anonAuxiliaries.y2[i][j] = add(anonAuxiliaries.y2[i][j], neg(anonProof.yG[i][j]));
             }
         }
         // replace the leftmost column with the Hadamard of the left and right columns. just do the multiplication once...
         anonAuxiliaries.cycler[0][0] = anonAuxiliaries.cycler[0][0].mul(anonAuxiliaries.cycler[0][1]);
         anonAuxiliaries.cycler[1][0] = anonAuxiliaries.cycler[1][0].mul(anonAuxiliaries.cycler[1][1]);
-        anonAuxiliaries.parity = add(mul(h, anonProof.zE), add(mul(gs[0], anonAuxiliaries.cycler[0][0]), mul(hs[0], anonAuxiliaries.cycler[1][0])));
+        temp = add(mul(gs[0], anonAuxiliaries.cycler[0][0]), mul(hs[0], anonAuxiliaries.cycler[1][0]));
 
-        require(eq(anonAuxiliaries.parity, add(mul(anonProof.F, anonAuxiliaries.x), anonProof.E)), "Index opposite parity check fail.");
+        require(eq(add(mul(anonProof.Y, anonAuxiliaries.w), anonProof.X), add(temp, mul(h, anonProof.zX))), "Index opposite parity check fail.");
 
         for (uint256 i = 0; i < proof.size; i++) {
-            anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, mul(statement.CLn[i], anonAuxiliaries.f[i][0]));
-            anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, mul(statement.CRn[i], anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.CLn2 = add(anonAuxiliaries.CLn2, mul(statement.CLn[i], anonAuxiliaries.f[i][0]));
+            anonAuxiliaries.CRn2 = add(anonAuxiliaries.CRn2, mul(statement.CRn[i], anonAuxiliaries.f[i][0]));
         }
-        anonAuxiliaries.balanceCommitNewL2 = add(anonAuxiliaries.balanceCommitNewL2, neg(anonProof.balanceCommitNewLG));
-        anonAuxiliaries.balanceCommitNewR2 = add(anonAuxiliaries.balanceCommitNewR2, neg(anonProof.balanceCommitNewRG));
+        anonAuxiliaries.CLn2 = add(anonAuxiliaries.CLn2, neg(anonProof.CLnG));
+        anonAuxiliaries.CRn2 = add(anonAuxiliaries.CRn2, neg(anonProof.CRnG));
 
-        anonAuxiliaries.gPrime = add(mul(g, anonAuxiliaries.x), neg(anonProof.gG));
+        anonAuxiliaries.g2 = add(mul(g, anonAuxiliaries.w), neg(anonProof.gG));
 
         SigmaProof memory sigmaProof = proof.sigmaProof;
         SigmaAuxiliaries memory sigmaAuxiliaries;
         sigmaAuxiliaries.minusC = sigmaProof.c.neg();
-        sigmaAuxiliaries.AL = new G1Point[2][](proof.size / 2 - 1);
-        for (uint256 i = 1; i < proof.size / 2; i++) {
-            sigmaAuxiliaries.AL[i - 1][0] = add(mul(anonAuxiliaries.y2[i][0], sigmaProof.sR), mul(anonAuxiliaries.L2[i][0], sigmaAuxiliaries.minusC));
-            sigmaAuxiliaries.AL[i - 1][1] = add(mul(anonAuxiliaries.y2[i][1], sigmaProof.sR), mul(anonAuxiliaries.L2[i][1], sigmaAuxiliaries.minusC));
-        }
-        sigmaAuxiliaries.AD = add(mul(anonAuxiliaries.gPrime, sigmaProof.sR), mul(anonAuxiliaries.inOutR2, sigmaAuxiliaries.minusC));
-        sigmaAuxiliaries.Ay = add(mul(anonAuxiliaries.gPrime, sigmaProof.sX), mul(anonAuxiliaries.y2[0][0], sigmaAuxiliaries.minusC));
+
+        sigmaAuxiliaries.AD = add(mul(anonAuxiliaries.g2, sigmaProof.sR), mul(anonAuxiliaries.D2, sigmaAuxiliaries.minusC));
+        sigmaAuxiliaries.Ay = add(mul(anonAuxiliaries.g2, sigmaProof.sX), mul(anonAuxiliaries.y2[0][0], sigmaAuxiliaries.minusC));
         sigmaAuxiliaries.gEpoch = mapInto("Zether", statement.epoch);
         sigmaAuxiliaries.Au = add(mul(sigmaAuxiliaries.gEpoch, sigmaProof.sX), mul(statement.u, sigmaAuxiliaries.minusC));
-        sigmaAuxiliaries.ADiff = add(mul(add(anonAuxiliaries.y2[0][0], anonAuxiliaries.y2[0][1]), sigmaProof.sR), mul(add(anonAuxiliaries.L2[0][0], anonAuxiliaries.L2[0][1]), sigmaAuxiliaries.minusC));
-        sigmaAuxiliaries.cCommit = add(add(mul(add(mul(anonAuxiliaries.L2[0][0], sigmaProof.c.neg()), mul(anonAuxiliaries.inOutR2, sigmaProof.sX)), zetherAuxiliaries.zs[0]), mul(add(mul(anonAuxiliaries.balanceCommitNewL2, sigmaProof.c), mul(anonAuxiliaries.balanceCommitNewR2, sigmaProof.sX.neg())), zetherAuxiliaries.zs[1])), mul(add(mul(proof.XL, sigmaProof.c), mul(proof.XR, sigmaProof.sX.neg())), zetherAuxiliaries.zs[2].mul(anonAuxiliaries.x)));
-        sigmaAuxiliaries.At = add(neg(sigmaAuxiliaries.cCommit), mul(add(add(mul(g, zetherAuxiliaries.t), neg(zetherAuxiliaries.tEval)), mul(h, proof.tauX)), sigmaProof.c.mul(anonAuxiliaries.x)));
+        sigmaAuxiliaries.ADiff = add(mul(add(anonAuxiliaries.y2[0][0], anonAuxiliaries.y2[0][1]), sigmaProof.sR), mul(add(anonAuxiliaries.C2[0][0], anonAuxiliaries.C2[0][1]), sigmaAuxiliaries.minusC));
+        sigmaAuxiliaries.cCommit = add(add(mul(add(mul(anonAuxiliaries.C2[0][0], sigmaProof.c.neg()), mul(anonAuxiliaries.D2, sigmaProof.sX)), zetherAuxiliaries.zs[0]), mul(add(mul(anonAuxiliaries.CLn2, sigmaProof.c), mul(anonAuxiliaries.CRn2, sigmaProof.sX.neg())), zetherAuxiliaries.zs[1])), mul(add(mul(proof.HL, sigmaProof.c), mul(proof.HR, sigmaProof.sX.neg())), zetherAuxiliaries.zs[2].mul(anonAuxiliaries.w)));
+        sigmaAuxiliaries.At = add(neg(sigmaAuxiliaries.cCommit), mul(add(add(mul(g, zetherAuxiliaries.t), neg(zetherAuxiliaries.tEval)), mul(h, proof.tauX)), sigmaProof.c.mul(anonAuxiliaries.w)));
+        sigmaAuxiliaries.AC = new G1Point[2][](proof.size / 2 - 1);
+        for (uint256 i = 1; i < proof.size / 2; i++) {
+            sigmaAuxiliaries.AC[i - 1][0] = add(mul(anonAuxiliaries.y2[i][0], sigmaProof.sR), mul(anonAuxiliaries.C2[i][0], sigmaAuxiliaries.minusC));
+            sigmaAuxiliaries.AC[i - 1][1] = add(mul(anonAuxiliaries.y2[i][1], sigmaProof.sR), mul(anonAuxiliaries.C2[i][1], sigmaAuxiliaries.minusC));
+        }
 
-        uint256 challenge = uint256(keccak256(abi.encode(anonAuxiliaries.x, sigmaAuxiliaries.Ay, sigmaAuxiliaries.AD, sigmaAuxiliaries.Au, sigmaAuxiliaries.ADiff, sigmaAuxiliaries.At, sigmaAuxiliaries.AL))).mod();
+        uint256 challenge = uint256(keccak256(abi.encode(anonAuxiliaries.w, sigmaAuxiliaries.Ay, sigmaAuxiliaries.AD, sigmaAuxiliaries.Au, sigmaAuxiliaries.ADiff, sigmaAuxiliaries.At, sigmaAuxiliaries.AC))).mod();
         require(challenge == proof.sigmaProof.c, "Sigma protocol challenge equality failure.");
 
         IPAuxiliaries memory ipAuxiliaries;
@@ -424,8 +424,8 @@ contract ZetherVerifier {
     function unserialize(bytes memory arr) internal pure returns (ZetherProof memory proof) {
         proof.A = G1Point(slice(arr, 0), slice(arr, 32));
         proof.S = G1Point(slice(arr, 64), slice(arr, 96));
-        proof.XL = G1Point(slice(arr, 128), slice(arr, 160));
-        proof.XR = G1Point(slice(arr, 192), slice(arr, 224));
+        proof.HL = G1Point(slice(arr, 128), slice(arr, 160));
+        proof.HR = G1Point(slice(arr, 192), slice(arr, 224));
         proof.commits = [G1Point(slice(arr, 256), slice(arr, 288)), G1Point(slice(arr, 320), slice(arr, 352))];
         proof.t = slice(arr, 384);
         proof.tauX = slice(arr, 416);
@@ -448,16 +448,16 @@ contract ZetherVerifier {
 
         AnonProof memory anonProof;
         uint256 size = (arr.length - 1408 - 672) / 192;  // warning: this and the below assume that n = 6!!!
-        anonProof.A = G1Point(slice(arr, 1408), slice(arr, 1440));
-        anonProof.B = G1Point(slice(arr, 1472), slice(arr, 1504));
-        anonProof.C = G1Point(slice(arr, 1536), slice(arr, 1568));
-        anonProof.D = G1Point(slice(arr, 1600), slice(arr, 1632));
-        anonProof.inOutRG = G1Point(slice(arr, 1664), slice(arr, 1696));
-        anonProof.gG = G1Point(slice(arr, 1728), slice(arr, 1760));
-        anonProof.balanceCommitNewLG = G1Point(slice(arr, 1792), slice(arr, 1824));
-        anonProof.balanceCommitNewRG = G1Point(slice(arr, 1856), slice(arr, 1888));
-        anonProof.E = G1Point(slice(arr, 1920), slice(arr, 1952));
-        anonProof.F = G1Point(slice(arr, 1984), slice(arr, 2016));
+        anonProof.P = G1Point(slice(arr, 1408), slice(arr, 1440));
+        anonProof.Q = G1Point(slice(arr, 1472), slice(arr, 1504));
+        anonProof.U = G1Point(slice(arr, 1536), slice(arr, 1568));
+        anonProof.V = G1Point(slice(arr, 1600), slice(arr, 1632));
+        anonProof.X = G1Point(slice(arr, 1664), slice(arr, 1696));
+        anonProof.Y = G1Point(slice(arr, 1728), slice(arr, 1760));
+        anonProof.CLnG = G1Point(slice(arr, 1792), slice(arr, 1824));
+        anonProof.CRnG = G1Point(slice(arr, 1856), slice(arr, 1888));
+        anonProof.DG = G1Point(slice(arr, 1920), slice(arr, 1952));
+        anonProof.gG = G1Point(slice(arr, 1984), slice(arr, 2016));
 
         anonProof.f = new uint256[2][](size - 1);
         for (uint256 i = 0; i < size - 1; i++) {
@@ -465,20 +465,20 @@ contract ZetherVerifier {
             anonProof.f[i][1] = slice(arr, 2048 + (size - 1 + i) * 32);
         }
 
-        anonProof.LG = new G1Point[2][](size / 2);
+        anonProof.CG = new G1Point[2][](size / 2);
         anonProof.yG = new G1Point[2][](size / 2);
         for (uint256 i = 0; i < size / 2; i++) {
-            anonProof.LG[i][0] = G1Point(slice(arr, 1984 + (size + i) * 64), slice(arr, 2016 + (size + i) * 64));
-            anonProof.LG[i][1] = G1Point(slice(arr, 1984 + size * 96 + i * 64), slice(arr, 2016 + size * 96 + i * 64));
+            anonProof.CG[i][0] = G1Point(slice(arr, 1984 + (size + i) * 64), slice(arr, 2016 + (size + i) * 64));
+            anonProof.CG[i][1] = G1Point(slice(arr, 1984 + size * 96 + i * 64), slice(arr, 2016 + size * 96 + i * 64));
             anonProof.yG[i][0] = G1Point(slice(arr, 1984 + size * 128 + i * 64), slice(arr, 2016 + size * 128 + i * 64));
             anonProof.yG[i][1] = G1Point(slice(arr, 1984 + size * 160 + i * 64), slice(arr, 2016 + size * 160 + i * 64));
             // these are tricky, and can maybe be optimized further?
         }
         proof.size = size;
 
-        anonProof.zA = slice(arr, 1984 + size * 192);
-        anonProof.zC = slice(arr, 2016 + size * 192);
-        anonProof.zE = slice(arr, 2048 + size * 192);
+        anonProof.zP = slice(arr, 1984 + size * 192);
+        anonProof.zU = slice(arr, 2016 + size * 192);
+        anonProof.zX = slice(arr, 2048 + size * 192);
 
         proof.anonProof = anonProof;
         return proof;

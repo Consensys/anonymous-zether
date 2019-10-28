@@ -129,7 +129,7 @@ In fact, you can see for yourself the perspective of Eve—an eavesdropper, let'
 > var parsed
 > web3.eth.getBlock('latest').then((block) => web3.eth.getTransaction(block.transactions[0])).then((transaction) => parsed = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10)))
 ```
-You will see a bunch of fields; in particular, `parsed['y']` will contain the list of public keys, while `parsed['L']`, `parsed['R']` and `parsed['proof']` will contain further bytes which conjecturally reveal nothing about the transaction.
+You will see a bunch of fields; in particular, `parsed['y']` will contain the list of public keys, while `parsed['C']`, `parsed['D']` and `parsed['proof']` will contain further bytes which conjecturally reveal nothing about the transaction.
 
 Keep in mind that there are a few obvious situations where information can be determined. For example, if someone who has never deposited before appears in a transaction for the first time (this was the case of Bob earlier above), then it will be clear that this person was not the transaction's originator. Similarly, if a certain person has performed only deposits and withdrawals, then his account balance will obviously be visible.
 

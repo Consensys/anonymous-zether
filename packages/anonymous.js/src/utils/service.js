@@ -7,14 +7,14 @@ class Service {
         var burn = new BurnProver();
         // this class is sort of useless? revisit it.
 
-        this.proveTransfer = (CLn, CRn, L, R, y, epoch, x, r, bTransfer, bDiff, index) => { // no longer async.
+        this.proveTransfer = (CLn, CRn, C, D, y, epoch, x, r, bTransfer, bDiff, index) => { // no longer async.
             // CLn, CRn, Y, x are "live" (point, BN etc)
             // epoch, bTransfer, bDiff, index are "plain / primitive" JS types.
             var statement = {};
             statement['CLn'] = CLn;
             statement['CRn'] = CRn;
-            statement['L'] = L;
-            statement['R'] = R;
+            statement['C'] = C;
+            statement['D'] = D;
             statement['y'] = y;
             statement['epoch'] = epoch;
 
