@@ -1,5 +1,5 @@
-const ZetherProver = require('../prover/zether/zether.js');
-const BurnProver = require('../prover/burn/burn.js');
+const ZetherProver = require('../prover/zether.js');
+const BurnProver = require('../prover/burn.js');
 
 class Service {
     constructor() {
@@ -7,7 +7,7 @@ class Service {
         var burn = new BurnProver();
         // this class is sort of useless? revisit it.
 
-        this.proveTransfer = (CLn, CRn, C, D, y, epoch, x, r, bTransfer, bDiff, index) => { // no longer async.
+        this.proveTransfer = (CLn, CRn, C, D, y, epoch, sk, r, bTransfer, bDiff, index) => { // no longer async.
             // CLn, CRn, Y, x are "live" (point, BN etc)
             // epoch, bTransfer, bDiff, index are "plain / primitive" JS types.
             var statement = {};
@@ -19,7 +19,7 @@ class Service {
             statement['epoch'] = epoch;
 
             var witness = {};
-            witness['x'] = x;
+            witness['sk'] = sk;
             witness['r'] = r;
             witness['bTransfer'] = bTransfer;
             witness['bDiff'] = bDiff;
@@ -28,7 +28,7 @@ class Service {
             return zether.generateProof(statement, witness).serialize();
         }
 
-        this.proveBurn = (CLn, CRn, y, bTransfer, epoch, sender, x, bDiff) => {
+        this.proveBurn = (CLn, CRn, y, bTransfer, epoch, sender, sk, bDiff) => {
             var statement = {};
             statement['CLn'] = CLn;
             statement['CRn'] = CRn;
@@ -38,7 +38,7 @@ class Service {
             statement['sender'] = sender;
 
             var witness = {};
-            witness['x'] = x;
+            witness['sk'] = sk;
             witness['bDiff'] = bDiff;
 
             return burn.generateProof(statement, witness).serialize();

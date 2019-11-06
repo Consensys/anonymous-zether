@@ -11,9 +11,6 @@ utils.determinePublicKey = (x) => {
 // no "start" parameter for now.
 // CL and CR are "flat", x is a BN.
 utils.readBalance = (CL, CR, x) => {
-    CL = bn128.unserialize(CL);
-    CR = bn128.unserialize(CR);
-
     var gB = CL.add(CR.mul(x.neg()));
 
     var accumulator = bn128.zero;

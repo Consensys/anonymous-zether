@@ -140,13 +140,13 @@ contract ZSC {
                 // having to change external --> public to avoid stacktoodeep
                 // as a result, have to use the below two lines instead of the above single line.
                 mstore(add(m, 0x40), mload(mload(add(add(C, 0x20), mul(i, 0x20)))))
-                mstore(add(m, 0x60), mload(add(mload(add(add(C, 0x20), mul(i, 0x20))), 0x20)))
+                mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(mload(add(add(C, 0x20), mul(i, 0x20))), 0x20))))
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(scratch), 0x40))
                 mstore(m, mload(mload(add(scratch, 0x20))))
                 mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
                 // calldatacopy(add(m, 0x40), 0x24, 0x40) // copy R onto running block
                 mstore(add(m, 0x40), mload(D))
-                mstore(add(m, 0x60), mload(add(D, 0x20)))
+                mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(D, 0x20)))) // invert!
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(scratch, 0x20)), 0x40))
             }
             pTransfers[yHash] = scratch; // credit / debit / neither y's account.
@@ -156,12 +156,12 @@ contract ZSC {
                 mstore(m, mload(mload(scratch)))
                 mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
                 mstore(add(m, 0x40), mload(mload(add(add(C, 0x20), mul(i, 0x20)))))
-                mstore(add(m, 0x60), mload(add(mload(add(add(C, 0x20), mul(i, 0x20))), 0x20)))
+                mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(mload(add(add(C, 0x20), mul(i, 0x20))), 0x20))))
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(add(CLn, 0x20), mul(i, 0x20))), 0x40))
                 mstore(m, mload(mload(add(scratch, 0x20))))
                 mstore(add(m, 0x20), mload(add(mload(add(scratch, 0x20)), 0x20)))
                 mstore(add(m, 0x40), mload(D))
-                mstore(add(m, 0x60), mload(add(D, 0x20)))
+                mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(D, 0x20))))
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(add(CRn, 0x20), mul(i, 0x20))), 0x40))
             }
         }
