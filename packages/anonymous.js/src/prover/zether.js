@@ -126,7 +126,8 @@ class ZetherProver {
             var r_V = bn128.randomScalar();
             var r_X = bn128.randomScalar();
             var r_Y = bn128.randomScalar();
-            var sigma = new FieldVector(Array.from({ length: size / 2 }).map(bn128.randomScalar));
+            var pi = bn128.randomScalar();
+            var sigma = Array.from({ length: 2 }).map(() => new FieldVector(Array.from({ length: size / 2 }).map(bn128.randomScalar)));
             var p = Array.from({ length: 2 }).map(() => Array.from({ length: size - 1 }).map(bn128.randomScalar));
             p = p.map((p_j) => {
                 p_j.unshift(new FieldVector(p_j).sum().redNeg());
@@ -143,13 +144,13 @@ class ZetherProver {
             proof.X = params.commit(cycler[0].hadamard(cycler[1]).extract(0), cycler[0].hadamard(cycler[1]).extract(1), r_X);
             proof.Y = params.commit(cycler[witness['index'][1] % 2].extract(0), cycler[witness['index'][0] % 2].extract(1), r_Y);
 
-            proof.CLnG = statement['CLn'].commit(p[0]).add(statement['CLn'].getVector()[witness['index'][0]].add(params.getG().mul(witness['bDiff'].redNeg())).mul(sigma.getVector()[0]));
-            proof.CRnG = statement['CRn'].commit(p[0]).add(statement['CRn'].getVector()[witness['index'][0]].mul(sigma.getVector()[0]));
+            proof.CLnG = statement['CLn'].commit(p[0]).add(statement['y'].getVector()[witness['index'][0]].mul(pi));
+            proof.CRnG = statement['CRn'].commit(p[0]).add(params.getG().mul(pi));
             var convolver = new Convolver();
-            proof.CG = p.map((p_j, j) => convolver.convolution(p_j, statement['C']).add(statement['y'].shift(witness['index'][j]).extract(0).times(witness['r']).hadamard(sigma)));
-            proof.yG = p.map((p_j, j) => convolver.convolution(p_j, statement['y']).add(statement['y'].shift(witness['index'][j]).extract(0).hadamard(sigma)));
-            proof.DG = statement['D'].mul(sigma.getVector()[0]);
-            proof.gG = params.getG().mul(sigma.getVector()[0]);
+            proof.CG = p.map((p_j, j) => convolver.convolution(p_j, statement['C']).add(statement['y'].shift(witness['index'][j]).extract(0).times(witness['r']).hadamard(sigma[j])));
+            proof.yG = p.map((p_j, j) => convolver.convolution(p_j, statement['y']).add(statement['y'].shift(witness['index'][j]).extract(0).hadamard(sigma[j])));
+            proof.DG = statement['D'].mul(sigma[0].getVector()[0]);
+            proof.gG = params.getG().mul(sigma[0].getVector()[0]);
 
             var w = utils.hash(abiCoder.encodeParameters([
                 'bytes32',
@@ -190,10 +191,10 @@ class ZetherProver {
             proof.z_U = r_U.redMul(w).redAdd(r_V);
             proof.z_X = r_Y.redMul(w).redAdd(r_X);
 
-            var CRn2 = statement['CRn'].getVector()[witness['index'][0]].mul(w.redSub(sigma.getVector()[0]));
-            var y2 = Array.from({ length: 2 }).map((_, j) => statement['y'].shift(witness['index'][j]).extract(0).hadamard(sigma.negate().plus(w)));
-            var D2 = statement['D'].mul(w.redSub(sigma.getVector()[0]));
-            var g2 = params.getG().mul(w.redSub(sigma.getVector()[0]));
+            var CRn2 = statement['CRn'].getVector()[witness['index'][0]].mul(w).add(params.getG().mul(pi.redNeg()));
+            var y2 = Array.from({ length: 2 }).map((_, j) => statement['y'].shift(witness['index'][j]).extract(0).hadamard(sigma[j].negate().plus(w)));
+            var D2 = statement['D'].mul(w.redSub(sigma[0].getVector()[0]));
+            var g2 = params.getG().mul(w.redSub(sigma[0].getVector()[0]));
 
             var gammaTransfer = bn128.randomScalar();
             var gammaDiff = bn128.randomScalar();
