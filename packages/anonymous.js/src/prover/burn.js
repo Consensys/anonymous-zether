@@ -39,8 +39,7 @@ class BurnProver {
     constructor() {
         var abiCoder = new AbiCoder();
 
-        var params = new GeneratorParams();
-        params.extend(32);
+        var params = new GeneratorParams(32);
         var ipProver = new InnerProductProver();
 
         this.generateProof = (statement, witness) => { // salt probably won't be used
@@ -171,7 +170,7 @@ class BurnProver {
 
             var u_x = params.getG().mul(o); // Begin Protocol 1. this is u^x in Protocol 1. use our g for their u, our o for their x.
             var ZPrime = Z.add(u_x.mul(proof.tHat)); // corresponds to P' in protocol 1.
-            var primeBase = new GeneratorParams(gs, hsPrime, u_x);
+            var primeBase = new GeneratorParams(u_x, gs, hsPrime);
             var ipStatement = { 'primeBase': primeBase, 'P': ZPrime };
             var ipWitness = {};
             ipWitness['l'] = lPoly.evaluate(x);

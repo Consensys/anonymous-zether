@@ -62,16 +62,12 @@ class InnerProductProver {
             var bPrime = bsLeft.times(xInv).add(bsRight.times(x));
 
             var PPrime = L.mul(x.redMul(x)).add(R.mul(xInv.redMul(xInv))).add(P);
-            var basePrime = new GeneratorParams(gPrime, hPrime, u);
+            var basePrime = new GeneratorParams(u, gPrime, hPrime);
 
             return generateProof(basePrime, PPrime, aPrime, bPrime, ls, rs, x);
         };
 
         this.generateProof = (statement, witness, salt) => {
-            var size = statement['primeBase'].size();
-            if (size & (size - 1)) {
-                throw "Size must be a power of 2!"; // probably unnecessary... this won't be called directly.
-            }
             return generateProof(statement['primeBase'], statement['P'], witness['l'], witness['r'], [], [], salt);
         };
     }

@@ -176,9 +176,6 @@ contract ZSC {
             }
         }
         require(!seen, "Nonce already seen!");
-        if (size > zetherverifier.baseSize()) {
-            zetherverifier.extendBase(size);
-        }
         require(zetherverifier.verifyTransfer(CLn, CRn, C, D, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
         nonceSet.push(uHash);
@@ -233,7 +230,6 @@ contract ZSC {
         require(!seen, "Nonce already seen!");
         require(burnverifier.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, msg.sender, proof), "Burn proof verification failed!");
         require(coin.transfer(msg.sender, bTransfer), "This shouldn't fail... Something went severely wrong.");
-        // note: change from Zether spec. should use bound address not msg.sender, to prevent "front-running attack".
         bTotal -= bTransfer;
         nonceSet.push(uHash);
     }

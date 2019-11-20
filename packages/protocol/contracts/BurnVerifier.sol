@@ -15,8 +15,6 @@ contract BurnVerifier {
     G1Point g;
     G1Point h;
 
-    uint256[m] twos = powers(2); // how much is this actually used?
-
     struct BurnStatement {
         G1Point CLn;
         G1Point CRn;
@@ -123,7 +121,9 @@ contract BurnVerifier {
         burnAuxiliaries.zSum = burnAuxiliaries.zs[0].mul(burnAuxiliaries.z); // trivial sum
         burnAuxiliaries.k = sumScalars(burnAuxiliaries.ys).mul(burnAuxiliaries.z.sub(burnAuxiliaries.zs[0])).sub(burnAuxiliaries.zSum.mul(2 ** m).sub(burnAuxiliaries.zSum));
         burnAuxiliaries.t = proof.tHat.sub(burnAuxiliaries.k);
-        burnAuxiliaries.twoTimesZSquared = times(twos, burnAuxiliaries.zs[0]);
+        for (uint256 i = 0; i < m; i++) {
+            burnAuxiliaries.twoTimesZSquared[i] = burnAuxiliaries.zs[0].mul(2 ** i);
+        }
 
         burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.tCommits))).mod();
         burnAuxiliaries.tEval = add(mul(proof.tCommits[0], burnAuxiliaries.x), mul(proof.tCommits[1], burnAuxiliaries.x.mul(burnAuxiliaries.x))); // replace with "commit"?
@@ -285,7 +285,7 @@ contract BurnVerifier {
         uint256 y;
     }
 
-    function add(G1Point memory p1, G1Point memory p2) public view returns (G1Point memory r) {
+    function add(G1Point memory p1, G1Point memory p2) internal view returns (G1Point memory r) {
         assembly {
             let m := mload(0x40)
             mstore(m, mload(p1))

@@ -18,7 +18,7 @@ We briefly describe the operation of the (anonymous) Zether Smart Contract, foll
 
 Users need _never_ interact directly with the ZSC; rather, our front-end client streamlines its use.
 
-Our theoretical contribution is a zero-knowledge proof protocol for the anonymous transfer statement (8) of [Bünz, et. al.](https://crypto.stanford.edu/~buenz/papers/zether.pdf), which moreover has appealing asymptotic performance characteristics; details on our techniques can be found in the [technical report](docs/AnonZether.pdf). We also of course provide this implementation.
+Our theoretical contribution is a zero-knowledge proof protocol for the anonymous transfer statement (8) of [Bünz, et al.](https://crypto.stanford.edu/~buenz/papers/zether.pdf), which moreover has appealing asymptotic performance characteristics; details on our techniques can be found in the [technical report](docs/AnonZether.pdf). We also of course provide this implementation.
 
 Anonymous Zether is not yet feasible for use in the Ethereum mainnet (see the [technical report](docs/AnonZether.pdf) for gas use details). However, after [Istanbul](https://eips.ethereum.org/EIPS/eip-1108), things will be much better.
 

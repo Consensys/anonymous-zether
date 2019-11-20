@@ -211,6 +211,8 @@ class Client {
             var friends = that.friends.show();
             if (!(name in friends))
                 throw "Name \"" + name + "\" hasn't been friended yet!";
+            if (match(friends[name], account.keypair['y']))
+                throw "Sending to yourself is currently unsupported (and useless!)."
             var y = [account.keypair['y']].concat([friends[name]]); // not yet shuffled
             decoys.forEach((decoy) => {
                 if (!(decoy in friends))

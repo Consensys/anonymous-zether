@@ -4,34 +4,24 @@ const BN = require('bn.js');
 const { soliditySha3 } = require('web3-utils');
 
 class GeneratorParams {
-    constructor(gs, hs, h) { // doing double duty also as a "VectorBase". comes empty
-        if (gs === undefined) {
-            gs = new GeneratorVector([]);
-        }
-        if (hs === undefined) {
-            hs = new GeneratorVector([]);
-        }
+    constructor(h, gs, hs) { // doing double duty also as a "VectorBase". comes empty
         var g = utils.mapInto(soliditySha3("G"));
-        if (h === undefined) {
+        if (typeof(h) == 'number') {
+            var gsInnards = [];
+            var hsInnards = []
+            for (var i = 0; i < h; i++) {
+                gsInnards.push(utils.mapInto(soliditySha3("G", i)));
+                hsInnards.push(utils.mapInto(soliditySha3("H", i)));
+            }
             h = utils.mapInto(soliditySha3("V"));
+            gs = new GeneratorVector(gsInnards);
+            hs = new GeneratorVector(hsInnards);
         }
 
-        this.size = () => { return gs.getVector().length; };
         this.getG = () => { return g; };
         this.getH = () => { return h; };
         this.getGs = () => { return gs; };
         this.getHs = () => { return hs; };
-
-        this.extend = (size) => {
-            var gsInnards = gs.getVector();
-            var hsInnards = hs.getVector();
-            for (var i = this.size(); i < size; i++) {
-                gsInnards.push(utils.mapInto(soliditySha3("G", i)));
-                hsInnards.push(utils.mapInto(soliditySha3("H", i)));
-            }
-            gs = new GeneratorVector(gsInnards);
-            hs = new GeneratorVector(hsInnards);
-        };
 
         this.commit = (gExp, hExp, blinding) => {
             var result = h.mul(blinding);
@@ -42,6 +32,18 @@ class GeneratorParams {
             });
             hExp.getVector().forEach((hExp, i) => { // swap the order and enclose this in an if (hExp) if block if you want it optional.
                 result = result.add(hsVector[i].mul(hExp));
+            });
+            return result;
+        };
+
+        this.commitRows = (exp, blinding) => { // exp is an m * 2 array...
+            var result = h.mul(blinding);
+            var gsVector = gs.getVector();
+            var hsVector = hs.getVector();
+            exp.forEach((exp_i, i) => {
+                var expVector = exp_i.getVector();
+                result = result.add(gsVector[i].mul(expVector[0]));
+                result = result.add(hsVector[i].mul(expVector[1]));
             });
             return result;
         };
@@ -147,11 +149,6 @@ class GeneratorVector {
 
         this.extract = (parity) => {
             return new GeneratorVector(vector.filter((_, i) => i % 2 == parity));
-        };
-
-        this.shift = (n) => {
-            var size = vector.length;
-            return new GeneratorVector(Array.from({ length: size }).map((_, i) => vector[(i + size + n) % size]));
         };
 
         this.concat = (other) => {
@@ -271,4 +268,20 @@ class PolyCommitment {
     }
 }
 
-module.exports = { GeneratorParams, FieldVector, GeneratorVector, Convolver, FieldVectorPolynomial, PolyCommitment };
+Polynomial = class {
+    constructor(coefficients) {
+        this.coefficients = coefficients ? coefficients : [new BN(1).toRed(bn128.q)]; // vector of coefficients, _little_ endian.
+
+        this.mul = (other) => { // i assume that other is linear _at most_ with coeffs.length == 2.
+            // could use FFTs to make this faster, yada yada
+            var product = this.coefficients.map((coefficient_i) => coefficient_i.redMul(other.coefficients[0]));
+            product.push(new BN().toRed(bn128.q));
+            if (other.coefficients[1].eqn(1)) {
+                product = product.map((product_i, i) => i > 0 ? product_i.redAdd(this.coefficients[i - 1]) : product_i);
+            }
+            return new Polynomial(product);
+        }
+    }
+}
+
+module.exports = { GeneratorParams, FieldVector, GeneratorVector, Convolver, FieldVectorPolynomial, PolyCommitment, Polynomial };

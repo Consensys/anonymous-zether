@@ -3,7 +3,7 @@ const BN = require('bn.js');
 
 const bn128 = require('../utils/bn128.js');
 const utils = require('../utils/utils.js');
-const { Convolver, FieldVector, FieldVectorPolynomial, GeneratorParams, GeneratorVector, PolyCommitment } = require('./algebra.js');
+const { Convolver, FieldVector, FieldVectorPolynomial, GeneratorParams, GeneratorVector, PolyCommitment, Polynomial } = require('./algebra.js');
 const InnerProductProver = require('./innerproduct.js');
 
 class ZetherProof {
@@ -12,33 +12,22 @@ class ZetherProof {
             var result = "0x";
             result += bn128.representation(this.A).slice(2);
             result += bn128.representation(this.S).slice(2);
-
             result += bn128.representation(this.P).slice(2);
             result += bn128.representation(this.Q).slice(2);
             result += bn128.representation(this.U).slice(2);
             result += bn128.representation(this.V).slice(2);
             result += bn128.representation(this.X).slice(2);
             result += bn128.representation(this.Y).slice(2);
-            result += bn128.representation(this.CLnG).slice(2);
-            result += bn128.representation(this.CRnG).slice(2);
-            this.CG.forEach((CG_j) => {
-                CG_j.getVector().forEach((CG_ji) => {
-                    result += bn128.representation(CG_ji).slice(2);
-                });
-            });
-            this.yG.forEach((yG_j) => {
-                yG_j.getVector().forEach((yG_ji) => {
-                    result += bn128.representation(yG_ji).slice(2);
-                });
-            });
-            result += bn128.representation(this.DG).slice(2);
-            result += bn128.representation(this.gG).slice(2);
 
-            this.f.forEach((f_j) => {
-                f_j.getVector().forEach((f_ji) => {
-                    result += bn128.bytes(f_ji).slice(2);
-                });
-            });
+            this.CLnG.forEach((CLnG_i) => { result += bn128.representation(CLnG_i).slice(2); });
+            this.CRnG.forEach((CRnG_i) => { result += bn128.representation(CRnG_i).slice(2); });
+            this.C_0G.forEach((C_0G_i) => { result += bn128.representation(C_0G_i).slice(2); });
+            this.y_0G.forEach((y_0G_i) => { result += bn128.representation(y_0G_i).slice(2); });
+            this.C_XG.forEach((C_XG_i) => { result += bn128.representation(C_XG_i).slice(2); });
+            this.y_XG.forEach((y_XG_i) => { result += bn128.representation(y_XG_i).slice(2); });
+            this.DG.forEach((DG_i) => { result += bn128.representation(DG_i).slice(2); });
+            this.gG.forEach((gG_i) => { result += bn128.representation(gG_i).slice(2); });
+            this.f.forEach((f_i) => { result += bn128.bytes(f_i).slice(2); });
 
             result += bn128.bytes(this.z_P).slice(2);
             result += bn128.bytes(this.z_U).slice(2);
@@ -75,9 +64,26 @@ class ZetherProver {
     constructor() {
         var abiCoder = new AbiCoder();
 
-        var params = new GeneratorParams();
-        params.extend(64);
+        var params = new GeneratorParams(64);
         var ipProver = new InnerProductProver();
+
+        var recursivePolynomials = (list, accum, p, q) => {
+            // ps, qs are log(N)-lengthed.
+            // returns N-length list of coefficient vectors
+            // should take about N log N to compute.
+            if (p.length == 0) {
+                list.push(accum.coefficients);
+                return;
+            }
+            var pTop = p.pop();
+            var qTop = q.pop();
+            var left = new Polynomial([pTop.getVector()[0], qTop.getVector()[0]]);
+            var right = new Polynomial([pTop.getVector()[1], qTop.getVector()[1]]);
+            recursivePolynomials(list, accum.mul(left), p, q);
+            recursivePolynomials(list, accum.mul(right), p, q);
+            p.push(pTop);
+            q.push(qTop);
+        }
 
         this.generateProof = (statement, witness) => {
             var proof = new ZetherProof();
@@ -116,43 +122,29 @@ class ZetherProver {
             var rho = bn128.randomScalar(); // already reduced
             proof.S = params.commit(sL, sR, rho);
 
-            var size = statement['y'].length(); // begin one out of many proving.
-            if (params.size() < size) {
-                params.extend(size);
-            } // one-off cost when a "new record" size is used.
+            var N = statement['y'].length();
+            if (N & (N - 1))
+                throw "Size must be a power of 2!"; // probably unnecessary... this won't be called directly.
+            var m = new BN(N).bitLength() - 1; // assuming that N is a power of 2?
+            // DON'T need to extend the params anymore. 64 will always be enough.
             var r_P = bn128.randomScalar();
             var r_Q = bn128.randomScalar();
             var r_U = bn128.randomScalar();
             var r_V = bn128.randomScalar();
             var r_X = bn128.randomScalar();
             var r_Y = bn128.randomScalar();
-            var pi = bn128.randomScalar();
-            var sigma = Array.from({ length: 2 }).map(() => new FieldVector(Array.from({ length: size / 2 }).map(bn128.randomScalar)));
-            var p = Array.from({ length: 2 }).map(() => Array.from({ length: size - 1 }).map(bn128.randomScalar));
-            p = p.map((p_j) => {
-                p_j.unshift(new FieldVector(p_j).sum().redNeg());
-                return new FieldVector(p_j);
-            });
-            var q = Array.from({ length: 2 }).map((_, j) => new FieldVector(Array.from({ length: size }).map((_, i) => witness['index'][j] == i ? new BN(1).toRed(bn128.q) : new BN(0).toRed(bn128.q))));
-            var u = p.map((p_j, j) => p_j.hadamard(q[j].times(new BN(2).toRed(bn128.q)).negate().plus(new BN(1).toRed(bn128.q))));
-            var v = p.map((p_j) => p_j.hadamard(p_j).negate())
-            proof.P = params.commit(p[0], p[1], r_P);
-            proof.Q = params.commit(q[0], q[1], r_Q);
-            proof.U = params.commit(u[0], u[1], r_U);
-            proof.V = params.commit(v[0], v[1], r_V);
-            var cycler = p.map((p_j) => new FieldVector(Array.from({ length: 2 }).map((_, i) => p_j.extract(i).sum())));
-            proof.X = params.commit(cycler[0].hadamard(cycler[1]).extract(0), cycler[0].hadamard(cycler[1]).extract(1), r_X);
-            proof.Y = params.commit(cycler[witness['index'][1] % 2].extract(0), cycler[witness['index'][0] % 2].extract(1), r_Y);
+            var p = Array.from({ length: 2 * m }).map(bn128.randomScalar).map((p_i) => new FieldVector([p_i.redNeg(), p_i]));
+            var q = (new BN(witness['index'][1]).toString(2, m) + new BN(witness['index'][0]).toString(2, m)).split("").reverse().map((i) => new FieldVector([new BN(1).sub(new BN(i, 2)).toRed(bn128.q), new BN(i, 2).toRed(bn128.q)]));
+            var u = p.map((p_i, i) => p_i.hadamard(q[i].times(new BN(2).toRed(bn128.q)).negate().plus(new BN(1).toRed(bn128.q))));
+            var v = p.map((p_i) => p_i.hadamard(p_i).negate())
+            proof.P = params.commitRows(p, r_P);
+            proof.Q = params.commitRows(q, r_Q);
+            proof.U = params.commitRows(u, r_U);
+            proof.V = params.commitRows(v, r_V);
+            proof.X = params.commitRows([p[0].hadamard(p[m])], r_X);
+            proof.Y = params.commitRows([p[0].hadamard(q[m]).add(p[m].hadamard(q[0]))], r_Y);
 
-            proof.CLnG = statement['CLn'].commit(p[0]).add(statement['y'].getVector()[witness['index'][0]].mul(pi));
-            proof.CRnG = statement['CRn'].commit(p[0]).add(params.getG().mul(pi));
-            var convolver = new Convolver();
-            proof.CG = p.map((p_j, j) => convolver.convolution(p_j, statement['C']).add(statement['y'].shift(witness['index'][j]).extract(0).times(witness['r']).hadamard(sigma[j])));
-            proof.yG = p.map((p_j, j) => convolver.convolution(p_j, statement['y']).add(statement['y'].shift(witness['index'][j]).extract(0).hadamard(sigma[j])));
-            proof.DG = statement['D'].mul(sigma[0].getVector()[0]);
-            proof.gG = params.getG().mul(sigma[0].getVector()[0]);
-
-            var w = utils.hash(abiCoder.encodeParameters([
+            var d = utils.hash(abiCoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -160,12 +152,6 @@ class ZetherProver {
                 'bytes32[2]',
                 'bytes32[2]',
                 'bytes32[2]',
-                'bytes32[2]',
-                'bytes32[2]',
-                'bytes32[2]',
-                'bytes32[2]',
-                'bytes32[2][2][]',
-                'bytes32[2][2][]',
                 'bytes32[2]',
                 'bytes32[2]',
             ], [
@@ -178,32 +164,108 @@ class ZetherProver {
                 bn128.serialize(proof.V),
                 bn128.serialize(proof.X),
                 bn128.serialize(proof.Y),
-                bn128.serialize(proof.CLnG),
-                bn128.serialize(proof.CRnG),
-                proof.CG[0].getVector().map((point, i) => [point, proof.CG[1].getVector()[i]].map(bn128.serialize)),
-                proof.yG[0].getVector().map((point, i) => [point, proof.yG[1].getVector()[i]].map(bn128.serialize)),
-                bn128.serialize(proof.DG),
-                bn128.serialize(proof.gG),
             ]));
 
-            proof.f = p.map((p_j, j) => new FieldVector(p_j.add(q[j].times(w)).getVector().slice(1)));
+            var pi = Array.from({ length: m }).map(bn128.randomScalar);
+            var sigma_0 = Array.from({ length: m }).map(bn128.randomScalar); // for sender
+            var sigma_X = Array.from({ length: m }).map(bn128.randomScalar); // for sender, recipient and the rest.
+
+            var poly_0 = [];
+            var poly_1 = [];
+            recursivePolynomials(poly_0, new Polynomial(), p.slice(0, m), q.slice(0, m));
+            recursivePolynomials(poly_1, new Polynomial(), p.slice(m), q.slice(m));
+            poly_0 = Array.from({ length: m }).map((_, i) => new FieldVector(poly_0.map((poly_0_j) => poly_0_j[i])));
+            poly_1 = Array.from({ length: m }).map((_, i) => new FieldVector(poly_1.map((poly_1_j) => poly_1_j[i])));
+
+            proof.CLnG = Array.from({ length: m }).map((_, i) => statement['CLn'].commit(poly_0[i]).add(statement['y'].getVector()[witness['index'][0]].mul(pi[i])));
+            proof.CRnG = Array.from({ length: m }).map((_, i) => statement['CRn'].commit(poly_0[i]).add(params.getG().mul(pi[i])));
+            proof.C_0G = Array.from({ length: m }).map((_, i) => statement['C'].commit(poly_0[i]).add(statement['y'].getVector()[witness['index'][0]].mul(witness['r'].redMul(sigma_0[i]))));
+            proof.y_0G = Array.from({ length: m }).map((_, i) => statement['y'].commit(poly_0[i]).add(statement['y'].getVector()[witness['index'][0]].mul(sigma_0[i])));
+            proof.C_XG = Array.from({ length: m }).map((_, i) => statement['D'].mul(sigma_X[i]));
+            proof.y_XG = Array.from({ length: m }).map((_, i) => params.getG().mul(sigma_X[i]));
+            var dPow = new BN(1).toRed(bn128.q);
+            for (var j = 0; j < N; j++) { // could turn this into a complicated reduce, but...
+                var temp = params.getG().mul(witness['bTransfer'].redMul(dPow));
+                var poly = j % 2 ? poly_1 : poly_0; // clunky, i know, etc. etc.
+                proof.C_XG = proof.C_XG.map((C_XG_i, i) => C_XG_i.add(temp.mul(poly[i].getVector()[(witness['index'][0] + N - (j - j % 2)) % N].redSub(poly[i].getVector()[(witness['index'][1] + N - (j - j % 2)) % N]))));
+                if (j != 0)
+                    dPow = dPow.redMul(d);
+            }
+            proof.DG = Array.from({ length: m }).map((_, i) => statement['D'].mul(sigma_0[i]));
+            proof.gG = Array.from({ length: m }).map((_, i) => params.getG().mul(sigma_0[i]));
+
+            var w = utils.hash(abiCoder.encodeParameters([
+                'bytes32',
+                'bytes32[2][]',
+                'bytes32[2][]',
+                'bytes32[2][]',
+                'bytes32[2][]',
+                'bytes32[2][]',
+                'bytes32[2][]',
+                'bytes32[2][]',
+                'bytes32[2][]',
+            ], [
+                bn128.bytes(d),
+                proof.CLnG.map(bn128.serialize),
+                proof.CRnG.map(bn128.serialize),
+                proof.C_0G.map(bn128.serialize),
+                proof.y_0G.map(bn128.serialize),
+                proof.C_XG.map(bn128.serialize),
+                proof.y_XG.map(bn128.serialize),
+                proof.DG.map(bn128.serialize),
+                proof.gG.map(bn128.serialize),
+            ]));
+
+            proof.f = p.map((p_i, i) => p_i.getVector()[1].redAdd(q[i].getVector()[1].redMul(w)));
             proof.z_P = r_Q.redMul(w).redAdd(r_P);
             proof.z_U = r_U.redMul(w).redAdd(r_V);
             proof.z_X = r_Y.redMul(w).redAdd(r_X);
 
-            var CRn2 = statement['CRn'].getVector()[witness['index'][0]].mul(w).add(params.getG().mul(pi.redNeg()));
-            var y2 = Array.from({ length: 2 }).map((_, j) => statement['y'].shift(witness['index'][j]).extract(0).hadamard(sigma[j].negate().plus(w)));
-            var D2 = statement['D'].mul(w.redSub(sigma[0].getVector()[0]));
-            var g2 = params.getG().mul(w.redSub(sigma[0].getVector()[0]));
+            var CRnR = bn128.zero;
+            var y_0R = bn128.zero;
+            var y_XR = bn128.zero;
+            var DR = bn128.zero;
+            var gR = bn128.zero;
+            var f_0 = new FieldVector(Array.from({ length: N }).map(() => new BN().toRed(bn128.q))); // evaluations of poly_0 and poly_1 at w.
+            var f_1 = new FieldVector(Array.from({ length: N }).map(() => new BN().toRed(bn128.q))); // verifier will compute these using f.
+
+            var wPow = new BN(1).toRed(bn128.q);
+            for (var i = 0; i < m; i++) {
+                CRnR = CRnR.add(params.getG().mul(pi[i].redNeg().redMul(wPow)));
+                y_0R = y_0R.add(statement['y'].getVector()[witness['index'][0]].mul(sigma_0[i].redNeg().redMul(wPow)));
+                y_XR = y_XR.add(proof.y_XG[i].mul(wPow.neg()));
+                DR = DR.add(statement['D'].mul(sigma_0[i].redNeg().redMul(wPow)));
+                gR = gR.add(params.getG().mul(sigma_0[i].redNeg().redMul(wPow)));
+                f_0 = f_0.add(poly_0[i].times(wPow));
+                f_1 = f_1.add(poly_1[i].times(wPow));
+                wPow = wPow.redMul(w);
+            }
+            CRnR = CRnR.add(statement['CRn'].getVector()[witness['index'][0]].mul(wPow));
+            y_0R = y_0R.add(statement['y'].getVector()[witness['index'][0]].mul(wPow));
+            DR = DR.add(statement['D'].mul(wPow));
+            gR = gR.add(params.getG().mul(wPow));
+            f_0 = f_0.add(new FieldVector(Array.from({ length: N }).map((_, i) => i == witness['index'][0] ? wPow : new BN().toRed(bn128.q))));
+            f_1 = f_1.add(new FieldVector(Array.from({ length: N }).map((_, i) => i == witness['index'][1] ? wPow : new BN().toRed(bn128.q))));
+
+            var convolver = new Convolver();
+            var y_poly_0 = convolver.convolution(f_0, statement['y']);
+            var y_poly_1 = convolver.convolution(f_1, statement['y']);
+            dPow = new BN(1).toRed(bn128.q);
+            for (var j = 0; j < N; j++) {
+                var y_poly = j % 2 ? y_poly_1 : y_poly_0;
+                y_XR = y_XR.add(y_poly.getVector()[Math.floor(j / 2)].mul(dPow));
+                if (j != 0)
+                    dPow = dPow.redMul(d);
+            }
 
             var gammaTransfer = bn128.randomScalar();
             var gammaDiff = bn128.randomScalar();
             var zetaTransfer = bn128.randomScalar();
             var zetaDiff = bn128.randomScalar();
-            proof.CPrime = params.getH().mul(gammaTransfer.redMul(w)).add(y2[0].getVector()[0].mul(zetaTransfer));
-            proof.DPrime = g2.mul(zetaTransfer);
-            proof.CLnPrime = params.getH().mul(gammaDiff.redMul(w)).add(y2[0].getVector()[0].mul(zetaDiff));
-            proof.CRnPrime = g2.mul(zetaDiff);
+            proof.CPrime = params.getH().mul(gammaTransfer.redMul(wPow)).add(y_0R.mul(zetaTransfer));
+            proof.DPrime = gR.mul(zetaTransfer);
+            proof.CLnPrime = params.getH().mul(gammaDiff.redMul(wPow)).add(y_0R.mul(zetaDiff));
+            proof.CRnPrime = gR.mul(zetaDiff);
 
             var y = utils.hash(abiCoder.encodeParameters([
                 'bytes32',
@@ -264,15 +326,14 @@ class ZetherProver {
             var k_nuTransfer = bn128.randomScalar();
             var k_nuDiff = bn128.randomScalar(); // nu "corresponds to" gamma
 
-            var A_y = g2.mul(k_sk);
-            var A_D = g2.mul(k_r);
+            var A_y = gR.mul(k_sk);
+            var A_D = params.getG().mul(k_r); // gR........ no longer
             var A_u = utils.gEpoch(statement['epoch']).mul(k_sk);
-            var A_B = y2[0].getVector()[0].add(y2[1].getVector()[0]).mul(k_r);
-            var A_C = y2.map((y2_j) => new GeneratorVector(y2_j.times(k_r).getVector().slice(1)));
-            var A_t = D2.add(proof.DPrime).mul(zs[0]).add(CRn2.add(proof.CRnPrime).mul(zs[1])).mul(k_sk);
+            var A_X = y_XR.mul(k_r);
+            var A_t = DR.add(proof.DPrime).mul(zs[0]).add(CRnR.add(proof.CRnPrime).mul(zs[1])).mul(k_sk);
 
-            var A_C00 = params.getG().mul(k_vTransfer).add(D2.mul(k_sk));
-            var A_CLn = params.getG().mul(k_vDiff).add(CRn2.mul(k_sk));
+            var A_C0 = params.getG().mul(k_vTransfer).add(DR.mul(k_sk));
+            var A_CLn = params.getG().mul(k_vDiff).add(CRnR.mul(k_sk));
             var A_CPrime = params.getH().mul(k_nuTransfer).add(proof.DPrime.mul(k_sk));
             var A_CLnPrime = params.getH().mul(k_nuDiff).add(proof.CRnPrime.mul(k_sk));
 
@@ -282,7 +343,6 @@ class ZetherProver {
                 'bytes32[2]',
                 'bytes32[2]',
                 'bytes32[2]',
-                'bytes32[2][2][]',
                 'bytes32[2]',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -293,10 +353,9 @@ class ZetherProver {
                 bn128.serialize(A_y),
                 bn128.serialize(A_D),
                 bn128.serialize(A_u),
-                bn128.serialize(A_B),
-                A_C[0].getVector().map((point, i) => [point, A_C[1].getVector()[i]].map(bn128.serialize)), // unusual---have to transpose
+                bn128.serialize(A_X),
                 bn128.serialize(A_t),
-                bn128.serialize(A_C00),
+                bn128.serialize(A_C0),
                 bn128.serialize(A_CLn),
                 bn128.serialize(A_CPrime),
                 bn128.serialize(A_CLnPrime),
@@ -304,10 +363,10 @@ class ZetherProver {
 
             proof.s_sk = k_sk.redAdd(proof.c.redMul(witness['sk']));
             proof.s_r = k_r.redAdd(proof.c.redMul(witness['r']));
-            proof.s_vTransfer = k_vTransfer.redAdd(proof.c.redMul(witness['bTransfer'].redMul(w)));
-            proof.s_vDiff = k_vDiff.redAdd(proof.c.redMul(witness['bDiff'].redMul(w)));
-            proof.s_nuTransfer = k_nuTransfer.redAdd(proof.c.redMul(gammaTransfer.redMul(w)));
-            proof.s_nuDiff = k_nuDiff.redAdd(proof.c.redMul(gammaDiff.redMul(w)));
+            proof.s_vTransfer = k_vTransfer.redAdd(proof.c.redMul(witness['bTransfer'].redMul(wPow)));
+            proof.s_vDiff = k_vDiff.redAdd(proof.c.redMul(witness['bDiff'].redMul(wPow)));
+            proof.s_nuTransfer = k_nuTransfer.redAdd(proof.c.redMul(gammaTransfer.redMul(wPow)));
+            proof.s_nuDiff = k_nuDiff.redAdd(proof.c.redMul(gammaDiff.redMul(wPow)));
 
             var gs = params.getGs();
             var hsPrime = params.getHs().hadamard(ys.invert());
@@ -323,7 +382,7 @@ class ZetherProver {
 
             var u_x = params.getG().mul(o); // Begin Protocol 1. this is u^x in Protocol 1. use our g for their u, our o for their x.
             var ZPrime = Z.add(u_x.mul(proof.tHat)); // corresponds to P' in protocol 1.
-            var primeBase = new GeneratorParams(gs, hsPrime, u_x);
+            var primeBase = new GeneratorParams(u_x, gs, hsPrime);
             var ipStatement = { 'primeBase': primeBase, 'P': ZPrime };
             var ipWitness = {};
             ipWitness['l'] = lPoly.evaluate(x);
