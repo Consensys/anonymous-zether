@@ -1,4 +1,4 @@
-const { AbiCoder } = require('web3-eth-abi');
+const ABICoder = require('web3-eth-abi');
 const BN = require('bn.js');
 
 const bn128 = require('../utils/bn128.js');
@@ -62,8 +62,6 @@ class ZetherProof {
 
 class ZetherProver {
     constructor() {
-        var abiCoder = new AbiCoder();
-
         var params = new GeneratorParams(64);
         var ipProver = new InnerProductProver();
 
@@ -88,7 +86,7 @@ class ZetherProver {
         this.generateProof = (statement, witness) => {
             var proof = new ZetherProof();
 
-            var statementHash = utils.hash(abiCoder.encodeParameters([
+            var statementHash = utils.hash(ABICoder.encodeParameters([
                 'bytes32[2][]',
                 'bytes32[2][]',
                 'bytes32[2][]',
@@ -144,7 +142,7 @@ class ZetherProver {
             proof.X = params.commitRows([p[0].hadamard(p[m])], r_X);
             proof.Y = params.commitRows([p[0].hadamard(q[m]).add(p[m].hadamard(q[0]))], r_Y);
 
-            var d = utils.hash(abiCoder.encodeParameters([
+            var d = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -194,7 +192,7 @@ class ZetherProver {
             proof.DG = Array.from({ length: m }).map((_, i) => statement['D'].mul(sigma_0[i]));
             proof.gG = Array.from({ length: m }).map((_, i) => params.getG().mul(sigma_0[i]));
 
-            var w = utils.hash(abiCoder.encodeParameters([
+            var w = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2][]',
                 'bytes32[2][]',
@@ -267,7 +265,7 @@ class ZetherProver {
             proof.CLnPrime = params.getH().mul(gammaDiff.redMul(wPow)).add(y_0R.mul(zetaDiff));
             proof.CRnPrime = gR.mul(zetaDiff);
 
-            var y = utils.hash(abiCoder.encodeParameters([
+            var y = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -305,7 +303,7 @@ class ZetherProver {
             var polyCommitment = new PolyCommitment(params, tPolyCoefficients, zs[0].redMul(gammaTransfer).redAdd(zs[1].redMul(gammaDiff)));
             proof.tCommits = new GeneratorVector(polyCommitment.getCommitments()); // just 2 of them
 
-            var x = utils.hash(abiCoder.encodeParameters([
+            var x = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -337,7 +335,7 @@ class ZetherProver {
             var A_CPrime = params.getH().mul(k_nuTransfer).add(proof.DPrime.mul(k_sk));
             var A_CLnPrime = params.getH().mul(k_nuDiff).add(proof.CRnPrime.mul(k_sk));
 
-            proof.c = utils.hash(abiCoder.encodeParameters([
+            proof.c = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -374,7 +372,7 @@ class ZetherProver {
             var Z = proof.A.add(proof.S.mul(x)).add(gs.sum().mul(z.redNeg())).add(hsPrime.commit(hExp)); // rename of P
             Z = Z.add(params.getH().mul(proof.mu.redNeg())); // Statement P of protocol 1. should this be included in the calculation of v...?
 
-            var o = utils.hash(abiCoder.encodeParameters([
+            var o = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
             ], [
                 bn128.bytes(proof.c),
@@ -384,9 +382,7 @@ class ZetherProver {
             var ZPrime = Z.add(u_x.mul(proof.tHat)); // corresponds to P' in protocol 1.
             var primeBase = new GeneratorParams(u_x, gs, hsPrime);
             var ipStatement = { 'primeBase': primeBase, 'P': ZPrime };
-            var ipWitness = {};
-            ipWitness['l'] = lPoly.evaluate(x);
-            ipWitness['r'] = rPoly.evaluate(x);
+            var ipWitness = { 'l': lPoly.evaluate(x), 'r': rPoly.evaluate(x) };
             proof.ipProof = ipProver.generateProof(ipStatement, ipWitness, o);
 
             return proof;

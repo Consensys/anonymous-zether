@@ -8,24 +8,25 @@ const utils = require('../anonymous.js/src/utils/utils.js');
 const run = async () => {
     var provider = new Provider("ws://localhost:23000");
     const web3 = new Web3(await provider.getProvider());
+    const accounts = await web3.eth.getAccounts();
 
-    web3.transactionConfirmationBlocks = 1;
-    var deployer = new Deployer();
+    var deployer = new Deployer(accounts);
     const zether = (await deployer.deployZetherVerifier()).contractAddress;
     const burn = (await deployer.deployBurnVerifier()).contractAddress;
     const cash = (await deployer.deployCashToken()).contractAddress;
-    await deployer.mintCashToken(cash);
+    await deployer.mintCashToken(cash, 1000);
     const zsc = (await deployer.deployZSC(cash, zether, burn, 6)).contractAddress; // epoch length in seconds.
-    await deployer.approveCashToken(cash, zsc)
+    await deployer.approveCashToken(cash, zsc, 1000)
     const deployed = new web3.eth.Contract(ZSC.abi, zsc);
 
-    const accounts = await web3.eth.getAccounts();
-    const alice = new Client(deployed, accounts[0], web3);
+    const alice = new Client(web3, deployed, accounts[0]);
     await alice.initialize();
-    await alice.deposit(10000);
-    await alice.withdraw(1000);
-    alice.friends.add("Bob", utils.createAccount()['y']);
-    await alice.transfer('Bob', 1000);
+    await alice.deposit(1000);
+    await alice.withdraw(100);
+    const bob = new Client(web3, deployed, accounts[0]);
+    await bob.initialize();
+    alice.friends.add("Bob", bob.account.public());
+    await alice.transfer('Bob', 100);
 };
 
 run().catch(console.error);

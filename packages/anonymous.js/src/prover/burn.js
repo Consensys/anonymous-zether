@@ -1,4 +1,4 @@
-const { AbiCoder } = require('web3-eth-abi');
+const ABICoder = require('web3-eth-abi');
 const BN = require('bn.js');
 
 const bn128 = require('../utils/bn128.js');
@@ -37,15 +37,13 @@ class BurnProof {
 
 class BurnProver {
     constructor() {
-        var abiCoder = new AbiCoder();
-
         var params = new GeneratorParams(32);
         var ipProver = new InnerProductProver();
 
         this.generateProof = (statement, witness) => { // salt probably won't be used
             var proof = new BurnProof();
 
-            var statementHash = utils.hash(abiCoder.encodeParameters([
+            var statementHash = utils.hash(ABICoder.encodeParameters([
                 'bytes32[2]',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -80,7 +78,7 @@ class BurnProver {
             proof.CLnPrime = params.getH().mul(gammaDiff).add(statement['y'].mul(zetaDiff));
             proof.CRnPrime = params.getG().mul(zetaDiff);
 
-            var y = utils.hash(abiCoder.encodeParameters([
+            var y = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -112,7 +110,7 @@ class BurnProver {
             var polyCommitment = new PolyCommitment(params, tPolyCoefficients, zs[0].redMul(gammaDiff));
             proof.tCommits = new GeneratorVector(polyCommitment.getCommitments()); // just 2 of them
 
-            var x = utils.hash(abiCoder.encodeParameters([
+            var x = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -136,7 +134,7 @@ class BurnProver {
             var A_CLn = params.getG().mul(k_vDiff).add(statement['CRn'].mul(k_sk));
             var A_CLnPrime = params.getH().mul(k_nuDiff).add(proof.CRnPrime.mul(k_sk));
 
-            proof.c = utils.hash(abiCoder.encodeParameters([
+            proof.c = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -162,7 +160,7 @@ class BurnProver {
             var Z = proof.A.add(proof.S.mul(x)).add(gs.sum().mul(z.redNeg())).add(hsPrime.commit(hExp)); // rename of P
             Z = Z.add(params.getH().mul(proof.mu.redNeg())); // Statement P of protocol 1. should this be included in the calculation of v...?
 
-            var o = utils.hash(abiCoder.encodeParameters([
+            var o = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
             ], [
                 bn128.bytes(proof.c),
@@ -172,9 +170,7 @@ class BurnProver {
             var ZPrime = Z.add(u_x.mul(proof.tHat)); // corresponds to P' in protocol 1.
             var primeBase = new GeneratorParams(u_x, gs, hsPrime);
             var ipStatement = { 'primeBase': primeBase, 'P': ZPrime };
-            var ipWitness = {};
-            ipWitness['l'] = lPoly.evaluate(x);
-            ipWitness['r'] = rPoly.evaluate(x);
+            var ipWitness = { 'l': lPoly.evaluate(x), 'r': rPoly.evaluate(x) };
             proof.ipProof = ipProver.generateProof(ipStatement, ipWitness, o);
 
             return proof;

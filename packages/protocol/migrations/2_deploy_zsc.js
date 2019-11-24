@@ -4,7 +4,7 @@ var CashToken = artifacts.require("CashToken");
 var ZSC = artifacts.require("ZSC");
 
 // Using first two addresses of Ganache
-module.exports = function(deployer) {
+module.exports = (deployer) => {
     deployer.deploy(CashToken).then(() => {
         return deployer.deploy(ZetherVerifier, { gas: 470000000 });
     }).then(() => {

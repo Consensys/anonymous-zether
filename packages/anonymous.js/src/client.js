@@ -4,15 +4,18 @@ const utils = require('./utils/utils.js');
 const Service = require('./utils/service.js');
 const bn128 = require('./utils/bn128.js');
 
-var sleep = (wait) => new Promise((resolve) => setTimeout(resolve, wait));
+var sleep = (wait) => new Promise((resolve) => { setTimeout(resolve, wait); });
 
 class Client {
-    constructor(zsc, home, web3) {
+    constructor(web3, zsc, home) {
+        if (web3 === undefined)
+            throw "Constructor's first argument should be an initialized Web3 object.";
         if (zsc === undefined)
-            throw "Please provide an argument pointing to a deployed ZSC contract!";
+            throw "Constructor's second argument should be a deployed ZSC contract object.";
         if (home === undefined)
-            throw "Please specify an unlocked ethereum account.";
+            throw "Constructor's third argument should be the address of an unlocked Ethereum account.";
 
+        web3.transactionConfirmationBlocks = 1;
         var that = this;
         var match = (address, candidate) => {
             return address[0] == candidate[0] && address[1] == candidate[1];
@@ -35,7 +38,11 @@ class Client {
                         web3.eth.getBlock(blockNumber).then((block) => {
                             account._state = account._simulate(block.timestamp);
                             web3.eth.getTransaction(event.transactionHash).then((transaction) => {
-                                var inputs = zsc.jsonInterface.abi.methods.transfer.abiItem.inputs;
+                                var inputs;
+                                zsc._jsonInterface.forEach((element) => {
+                                    if (element['name'] == "transfer")
+                                        inputs = element['inputs'];
+                                });
                                 var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
                                 var value = utils.readBalance(bn128.unserialize(parameters['C'][i]).neg(), bn128.unserialize(parameters['D']).neg(), account.keypair['x']);
                                 if (value > 0) {
@@ -251,7 +258,7 @@ class Client {
                         var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
                         var throwaway = web3.eth.accounts.create();
                         var encoded = zsc.methods.transfer(C, D, y, u, proof).encodeABI();
-                        var tx = { 'to': zsc.address, 'data': encoded, 'gas': 547000000, 'nonce': 0 };
+                        var tx = { 'to': zsc._address, 'data': encoded, 'gas': 54700000, 'nonce': 0 };
                         web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                             web3.eth.sendSignedTransaction(signed.rawTransaction)
                                 .on('transactionHash', (hash) => {
@@ -304,7 +311,7 @@ class Client {
                         var CRn = simulated[1];
                         var proof = service.proveBurn(CLn, CRn, account.keypair['y'], value, state.lastRollOver, home, account.keypair['x'], state.available - value);
                         var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
-                        zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 547000000 })
+                        zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 54700000 })
                             .on('transactionHash', (hash) => {
                                 console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
                             })

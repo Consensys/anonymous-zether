@@ -6,8 +6,6 @@ This is a private payment system, an _anonymous_ extension of Bünz, Agrawal, Za
 
 The authors sketch an anonymous extension in their original manuscript. We develop an explicit proof protocol for this extension, described in the technical note [AnonZether.pdf](docs/AnonZether.pdf). We also fully implement this anonymous protocol (including verification contracts and a client / front-end with its own proof generator).
 
-Thanks go to Benedikt Bünz for discussions around this, as well as for the original Zether work. Also, Sergey Vasilyev's [range proof contracts](https://github.com/leanderdulac/BulletProofLib/blob/master/truffle/contracts/RangeProofVerifier.sol) served as a starting point for our [Zether verification contracts](packages/protocol/contracts).
-
 ## High-level overview
 
 Anonymous Zether is an private value-tracking system, in which an Ethereum smart contract maintains encrypted account balances. Each Zether Smart Contract (ZSC) must, upon deployment, "attach" to some already-deployed ERC-20 contract; once deployed, this contract establishes special "Zether" accounts into / out of which users may _deposit_ or _withdraw_ ERC-20 funds. Having credited funds to a Zether account, its owner may privately send these funds to other Zether accounts, _confidentially_ (transferred amounts are private) and _anonymously_ (identities of transactors are private). Only the owner of each account's secret key may spend its funds, and overdraws are impossible.
@@ -27,8 +25,9 @@ Anonymous Zether is not yet feasible for use in the Ethereum mainnet (see the [t
 To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make some anonymous transfers...
 
 ### Install prerequisites
-* [Yarn](https://yarnpkg.com/en/docs/install#mac-stable) tested with version 1.17.3
-* [Node.js](https://nodejs.org/en/download/) tested with version v12.9.1
+* [Yarn](https://yarnpkg.com/en/docs/install#mac-stable), tested with version v1.19.2
+* [Node.js](https://nodejs.org/en/download/), tested with version v12.13.1
+* [Truffle](https://www.trufflesuite.com/), tested with version v5.1.1 (optional, required for Truffle tests only)
 
 ### Setting things up
 
@@ -56,14 +55,14 @@ to assign the address of an unlocked account to the variable `home`.
 
 In the first window, Alice's let's say, execute
 ```javascript
-> var alice = new Client(deployed, home, web3)
+> var alice = new Client(web3, deployed, home)
 > alice.initialize()
 Promise { <pending> }
 New account generated.
 ```
 and in Bob's,
 ```javascript
-> var bob = new Client(deployed, home, web3)
+> var bob = new Client(web3, deployed, home)
 > bob.initialize()
 ```
 Do something similar for the other two.
@@ -125,9 +124,10 @@ The meaning of this syntax is that Carol and Dave are being included, along with
 In fact, you can see for yourself the perspective of Eve—an eavesdropper, let's say. In a new window (if you want), execute:
 
 ```javascript
-> var inputs = deployedZSC.jsonInterface.abi.methods.transfer.abiItem.inputs
+> var inputs
+> deployed._jsonInterface.forEach((element) => { if (element['name'] == "transfer") inputs = element['inputs']; })
 > var parsed
-> web3.eth.getBlock('latest').then((block) => web3.eth.getTransaction(block.transactions[0])).then((transaction) => parsed = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10)))
+> web3.eth.getTransaction('0x9b3f51f3511c6797789862ce745a81d5bdfb00304831a8f25cc8554ea7597860').then((transaction) => { parsed = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10)); })
 ```
 You will see a bunch of fields; in particular, `parsed['y']` will contain the list of public keys, while `parsed['C']`, `parsed['D']` and `parsed['proof']` will contain further bytes which conjecturally reveal nothing about the transaction.
 

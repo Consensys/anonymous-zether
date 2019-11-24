@@ -1,25 +1,51 @@
 const CashToken = artifacts.require("CashToken");
 const ZSC = artifacts.require("ZSC");
 const utils = require('../../anonymous.js/src/utils/utils.js');
+const Client = require('../../anonymous.js/src/client.js');
 
-contract("ZSC", async accounts => {
-    it("should allow depositing / funding", async () => {
+contract("ZSC", async (accounts) => {
+    let alice;
+    let bob;
+
+    it("should allow minting and approving", async () => {
         let cash = await CashToken.deployed();
         let zsc = await ZSC.deployed();
-        await cash.mint(accounts[0], 10000000);
+        await cash.mint(accounts[0], 1000);
+        await cash.approve(zsc.contract._address, 1000);
         let balance = await cash.balanceOf.call(accounts[0]);
         assert.equal(
             balance,
-            10000000,
-            "Minting failed."
+            1000,
+            "Minting failed"
         );
-        var y = utils.createAccount()['y'];
-        var resp = await zsc.register(y);
-        var receipt = await web3.eth.getTransactionReceipt(resp.tx);
-        assert.equal(
-            receipt.status,
-            "0x1",
-            "Registration failed."
-        ); // this might be necessary.
+    });
+
+    it("should allow initialization", async () => {
+        let zsc = await ZSC.deployed();
+        alice = new Client(web3, zsc.contract, accounts[0]);
+        await alice.initialize();
+        assert.exists(
+            alice._epochLength,
+            "Initialization failed"
+        );
+    });
+
+    it("should allow funding", async () => {
+        await alice.deposit(1000);
+    });
+
+    it("should allow withdrawing", async () => {
+        await alice.withdraw(100);
+    });
+
+    it("should allow transferring", async () => {
+        let zsc = await ZSC.deployed();
+        bob = new Client(web3, zsc.contract, accounts[0]);
+        await bob.initialize();
+        alice.friends.add("Bob", bob.account.public());
+        await alice.transfer("Bob", 100);
+        // bob won't actually receive the transfer, because truffle uses HttpProvider
+        // can't use websocket providers at this point, because of geth bugs. will fix
+        // https://github.com/trufflesuite/truffle/issues/1699
     });
 });

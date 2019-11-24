@@ -1,4 +1,4 @@
-const { AbiCoder } = require('web3-eth-abi');
+const ABICoder = require('web3-eth-abi');
 
 const { GeneratorParams, FieldVector } = require('./algebra.js');
 const bn128 = require('../utils/bn128.js');
@@ -23,8 +23,6 @@ class InnerProductProof {
 
 class InnerProductProver {
     constructor() {
-        var abiCoder = new AbiCoder();
-
         var generateProof = (base, P, as, bs, ls, rs, previousChallenge) => {
             var n = as.length();
             if (n == 1) {
@@ -54,7 +52,7 @@ class InnerProductProver {
             ls.push(L);
             rs.push(R);
 
-            var x = utils.hash(abiCoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(previousChallenge), bn128.serialize(L), bn128.serialize(R)]));
+            var x = utils.hash(ABICoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(previousChallenge), bn128.serialize(L), bn128.serialize(R)]));
             var xInv = x.redInvm();
             var gPrime = gLeft.times(xInv).add(gRight.times(x));
             var hPrime = hLeft.times(x).add(hRight.times(xInv));

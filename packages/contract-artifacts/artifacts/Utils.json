@@ -205,7 +205,7 @@
                       "name": "addmod",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 8585,
+                      "referencedDeclaration": 8393,
                       "src": "451:6:3",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_addmod_pure$_t_uint256_$_t_uint256_$_t_uint256_$returns$_t_uint256_$",
@@ -407,7 +407,7 @@
                       "name": "mulmod",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 8598,
+                      "referencedDeclaration": 8406,
                       "src": "573:6:3",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_mulmod_pure$_t_uint256_$_t_uint256_$_t_uint256_$returns$_t_uint256_$",
@@ -1722,7 +1722,7 @@
                       "name": "addmod",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 8585,
+                      "referencedDeclaration": 8393,
                       "src": "451:6:3",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_addmod_pure$_t_uint256_$_t_uint256_$_t_uint256_$returns$_t_uint256_$",
@@ -1924,7 +1924,7 @@
                       "name": "mulmod",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 8598,
+                      "referencedDeclaration": 8406,
                       "src": "573:6:3",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_mulmod_pure$_t_uint256_$_t_uint256_$_t_uint256_$returns$_t_uint256_$",
@@ -3047,8 +3047,8 @@
     "version": "0.5.4+commit.9549d8ff.Emscripten.clang"
   },
   "networks": {},
-  "schemaVersion": "3.0.9",
-  "updatedAt": "2019-11-19T00:39:27.144Z",
+  "schemaVersion": "3.0.19",
+  "updatedAt": "2019-11-26T01:17:49.347Z",
   "devdoc": {
     "methods": {}
   },

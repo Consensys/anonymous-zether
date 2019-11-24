@@ -333,7 +333,7 @@
         "id": 2013,
         "nodeType": "ImportDirective",
         "scope": 2017,
-        "sourceUnit": 8514,
+        "sourceUnit": 8322,
         "src": "0:71:1",
         "symbolAliases": [],
         "unitAlias": ""
@@ -347,10 +347,10 @@
               "id": 2014,
               "name": "ERC20Mintable",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 8513,
+              "referencedDeclaration": 8321,
               "src": "95:13:1",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_ERC20Mintable_$8513",
+                "typeIdentifier": "t_contract$_ERC20Mintable_$8321",
                 "typeString": "contract ERC20Mintable"
               }
             },
@@ -360,11 +360,11 @@
           }
         ],
         "contractDependencies": [
-          7705,
-          7893,
-          8485,
-          8513,
-          8582
+          7513,
+          7701,
+          8293,
+          8321,
+          8390
         ],
         "contractKind": "contract",
         "documentation": null,
@@ -372,11 +372,11 @@
         "id": 2016,
         "linearizedBaseContracts": [
           2016,
-          8513,
-          7893,
-          8485,
-          8582,
-          7705
+          8321,
+          7701,
+          8293,
+          8390,
+          7513
         ],
         "name": "CashToken",
         "nodeType": "ContractDefinition",
@@ -403,7 +403,7 @@
         "id": 2013,
         "nodeType": "ImportDirective",
         "scope": 2017,
-        "sourceUnit": 8514,
+        "sourceUnit": 8322,
         "src": "0:71:1",
         "symbolAliases": [],
         "unitAlias": ""
@@ -417,10 +417,10 @@
               "id": 2014,
               "name": "ERC20Mintable",
               "nodeType": "UserDefinedTypeName",
-              "referencedDeclaration": 8513,
+              "referencedDeclaration": 8321,
               "src": "95:13:1",
               "typeDescriptions": {
-                "typeIdentifier": "t_contract$_ERC20Mintable_$8513",
+                "typeIdentifier": "t_contract$_ERC20Mintable_$8321",
                 "typeString": "contract ERC20Mintable"
               }
             },
@@ -430,11 +430,11 @@
           }
         ],
         "contractDependencies": [
-          7705,
-          7893,
-          8485,
-          8513,
-          8582
+          7513,
+          7701,
+          8293,
+          8321,
+          8390
         ],
         "contractKind": "contract",
         "documentation": null,
@@ -442,11 +442,11 @@
         "id": 2016,
         "linearizedBaseContracts": [
           2016,
-          8513,
-          7893,
-          8485,
-          8582,
-          7705
+          8321,
+          7701,
+          8293,
+          8390,
+          7513
         ],
         "name": "CashToken",
         "nodeType": "ContractDefinition",
@@ -462,8 +462,8 @@
     "version": "0.5.4+commit.9549d8ff.Emscripten.clang"
   },
   "networks": {},
-  "schemaVersion": "3.0.9",
-  "updatedAt": "2019-11-19T00:39:27.144Z",
+  "schemaVersion": "3.0.19",
+  "updatedAt": "2019-11-26T01:17:49.346Z",
   "devdoc": {
     "methods": {
       "allowance(address,address)": {
