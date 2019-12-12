@@ -27,28 +27,28 @@ contract ZetherVerifier {
     }
 
     struct ZetherProof {
+        G1Point BA;
+        G1Point BS;
         G1Point A;
-        G1Point S;
-        G1Point P;
-        G1Point Q;
-        G1Point U;
-        G1Point V;
-        G1Point X;
-        G1Point Y;
+        G1Point B;
+        G1Point C;
+        G1Point D;
+        G1Point E;
+        G1Point F;
 
         G1Point[] CLnG;
         G1Point[] CRnG;
         G1Point[] C_0G;
+        G1Point[] DG;
         G1Point[] y_0G;
+        G1Point[] gG;
         G1Point[] C_XG;
         G1Point[] y_XG;
-        G1Point[] DG;
-        G1Point[] gG;
 
         uint256[] f;
-        uint256 z_P;
-        uint256 z_U;
-        uint256 z_X;
+        uint256 z_A;
+        uint256 z_C;
+        uint256 z_E;
 
         G1Point CPrime;
         G1Point DPrime;
@@ -69,12 +69,6 @@ contract ZetherVerifier {
         uint256 s_nuDiff;
 
         InnerProductProof ipProof;
-    }
-
-    struct SigmaProof {
-        uint256 c;
-        uint256 sX;
-        uint256 sR;
     }
 
     struct InnerProductProof {
@@ -151,7 +145,7 @@ contract ZetherVerifier {
         uint256 dPow;
         uint256 wPow;
         uint256[2][] f; // could just allocate extra space in the proof?
-        uint256[2][] poly; // each poly is an array of length N * 2.
+        uint256[2][] r; // each poly is an array of length N. evaluations of prods
         G1Point temp;
         G1Point CLnR;
         G1Point CRnR;
@@ -177,62 +171,61 @@ contract ZetherVerifier {
         uint256 statementHash = uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.C, statement.D, statement.y, statement.epoch))).mod();
 
         AnonAuxiliaries memory anonAuxiliaries;
-        anonAuxiliaries.d = uint256(keccak256(abi.encode(statementHash, proof.A, proof.S, proof.P, proof.Q, proof.U, proof.V, proof.X, proof.Y))).mod();
-        anonAuxiliaries.w = uint256(keccak256(abi.encode(anonAuxiliaries.d, proof.CLnG, proof.CRnG, proof.C_0G, proof.y_0G, proof.C_XG, proof.y_XG, proof.DG, proof.gG))).mod();
+        anonAuxiliaries.d = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.A, proof.B, proof.C, proof.D, proof.E, proof.F))).mod();
+        anonAuxiliaries.w = uint256(keccak256(abi.encode(anonAuxiliaries.d, proof.CLnG, proof.CRnG, proof.C_0G, proof.DG, proof.y_0G, proof.gG, proof.C_XG, proof.y_XG))).mod();
         anonAuxiliaries.m = proof.f.length / 2;
         anonAuxiliaries.N = 2 ** anonAuxiliaries.m;
         anonAuxiliaries.f = new uint256[2][](2 * anonAuxiliaries.m);
-        for (uint256 i = 0; i < 2 * anonAuxiliaries.m; i++) {
-            anonAuxiliaries.f[i][1] = proof.f[i];
-            anonAuxiliaries.f[i][0] = anonAuxiliaries.w.sub(proof.f[i]);
+        for (uint256 k = 0; k < 2 * anonAuxiliaries.m; k++) {
+            anonAuxiliaries.f[k][1] = proof.f[k];
+            anonAuxiliaries.f[k][0] = anonAuxiliaries.w.sub(proof.f[k]);
         }
 
-        for (uint256 i = 0; i < 2 * anonAuxiliaries.m; i++) {
-            anonAuxiliaries.temp = add(anonAuxiliaries.temp, mul(gs[i], anonAuxiliaries.f[i][0]));
-            anonAuxiliaries.temp = add(anonAuxiliaries.temp, mul(hs[i], anonAuxiliaries.f[i][1]));
+        for (uint256 k = 0; k < 2 * anonAuxiliaries.m; k++) {
+            anonAuxiliaries.temp = add(anonAuxiliaries.temp, mul(gs[k], anonAuxiliaries.f[k][1]));
         }
-        require(eq(add(mul(proof.Q, anonAuxiliaries.w), proof.P), add(anonAuxiliaries.temp, mul(h, proof.z_P))), "Recovery failure for Q^w * P.");
+        require(eq(add(mul(proof.B, anonAuxiliaries.w), proof.A), add(anonAuxiliaries.temp, mul(h, proof.z_A))), "Recovery failure for B^w * A.");
 
         anonAuxiliaries.temp = G1Point(0, 0);
-        for (uint256 i = 0; i < 2 * anonAuxiliaries.m; i++) { // danger... gs and hs need to be big enough.
-            anonAuxiliaries.temp = add(anonAuxiliaries.temp, mul(gs[i], anonAuxiliaries.f[i][0].mul(anonAuxiliaries.w.sub(anonAuxiliaries.f[i][0]))));
-            anonAuxiliaries.temp = add(anonAuxiliaries.temp, mul(hs[i], anonAuxiliaries.f[i][1].mul(anonAuxiliaries.w.sub(anonAuxiliaries.f[i][1]))));
+        for (uint256 k = 0; k < 2 * anonAuxiliaries.m; k++) { // danger... gs and hs need to be big enough.
+            anonAuxiliaries.temp = add(anonAuxiliaries.temp, mul(gs[k], anonAuxiliaries.f[k][1].mul(anonAuxiliaries.w.sub(anonAuxiliaries.f[k][1]))));
         }
-        require(eq(add(mul(proof.U, anonAuxiliaries.w), proof.V), add(anonAuxiliaries.temp, mul(h, proof.z_U))), "Recovery failure for U^w * V.");
+        require(eq(add(mul(proof.C, anonAuxiliaries.w), proof.D), add(anonAuxiliaries.temp, mul(h, proof.z_C))), "Recovery failure for C^w * D.");
 
-        anonAuxiliaries.temp = add(mul(gs[0], anonAuxiliaries.f[0][0].mul(anonAuxiliaries.f[anonAuxiliaries.m][0])), mul(hs[0], anonAuxiliaries.f[0][1].mul(anonAuxiliaries.f[anonAuxiliaries.m][1])));
-        require(eq(add(mul(proof.Y, anonAuxiliaries.w), proof.X), add(anonAuxiliaries.temp, mul(h, proof.z_X))), "Recovery failure for Y^w * X.");
+        anonAuxiliaries.temp = add(mul(gs[0], anonAuxiliaries.f[0][1].mul(anonAuxiliaries.f[anonAuxiliaries.m][1])), mul(gs[1], anonAuxiliaries.f[0][0].mul(anonAuxiliaries.f[anonAuxiliaries.m][0])));
+        require(eq(add(mul(proof.F, anonAuxiliaries.w), proof.E), add(anonAuxiliaries.temp, mul(h, proof.z_E))), "Recovery failure for F^w * E.");
 
-        anonAuxiliaries.poly = assemblePolynomials(anonAuxiliaries.f);
+        anonAuxiliaries.r = assemblePolynomials(anonAuxiliaries.f);
 
-        anonAuxiliaries.CR = assembleConvolutions(anonAuxiliaries.poly, statement.C);
-        anonAuxiliaries.yR = assembleConvolutions(anonAuxiliaries.poly, statement.y);
-        for (uint256 j = 0; j < anonAuxiliaries.N; j++) {
-            anonAuxiliaries.CLnR = add(anonAuxiliaries.CLnR, mul(statement.CLn[j], anonAuxiliaries.poly[j][0]));
-            anonAuxiliaries.CRnR = add(anonAuxiliaries.CRnR, mul(statement.CRn[j], anonAuxiliaries.poly[j][0]));
+        anonAuxiliaries.CR = assembleConvolutions(anonAuxiliaries.r, statement.C);
+        anonAuxiliaries.yR = assembleConvolutions(anonAuxiliaries.r, statement.y);
+        for (uint256 i = 0; i < anonAuxiliaries.N; i++) {
+            anonAuxiliaries.CLnR = add(anonAuxiliaries.CLnR, mul(statement.CLn[i], anonAuxiliaries.r[i][0]));
+            anonAuxiliaries.CRnR = add(anonAuxiliaries.CRnR, mul(statement.CRn[i], anonAuxiliaries.r[i][0]));
         }
         anonAuxiliaries.dPow = 1;
-        for (uint256 j = 0; j < anonAuxiliaries.N; j++) {
-            anonAuxiliaries.C_XR = add(anonAuxiliaries.C_XR, mul(anonAuxiliaries.CR[j / 2][j % 2], anonAuxiliaries.dPow));
-            anonAuxiliaries.y_XR = add(anonAuxiliaries.y_XR, mul(anonAuxiliaries.yR[j / 2][j % 2], anonAuxiliaries.dPow));
-            if (j > 0) {
+        for (uint256 i = 0; i < anonAuxiliaries.N; i++) {
+            anonAuxiliaries.C_XR = add(anonAuxiliaries.C_XR, mul(anonAuxiliaries.CR[i / 2][i % 2], anonAuxiliaries.dPow));
+            anonAuxiliaries.y_XR = add(anonAuxiliaries.y_XR, mul(anonAuxiliaries.yR[i / 2][i % 2], anonAuxiliaries.dPow));
+            if (i > 0) {
                 anonAuxiliaries.dPow = anonAuxiliaries.dPow.mul(anonAuxiliaries.d);
             }
         }
         anonAuxiliaries.wPow = 1;
-        for (uint256 i = 0; i < anonAuxiliaries.m; i++) {
-            anonAuxiliaries.CLnR = add(anonAuxiliaries.CLnR, mul(proof.CLnG[i], anonAuxiliaries.wPow.neg()));
-            anonAuxiliaries.CRnR = add(anonAuxiliaries.CRnR, mul(proof.CRnG[i], anonAuxiliaries.wPow.neg()));
-            anonAuxiliaries.CR[0][0] = add(anonAuxiliaries.CR[0][0], mul(proof.C_0G[i], anonAuxiliaries.wPow.neg()));
-            anonAuxiliaries.yR[0][0] = add(anonAuxiliaries.yR[0][0], mul(proof.y_0G[i], anonAuxiliaries.wPow.neg()));
-            anonAuxiliaries.C_XR = add(anonAuxiliaries.C_XR, mul(proof.C_XG[i], anonAuxiliaries.wPow.neg()));
-            anonAuxiliaries.y_XR = add(anonAuxiliaries.y_XR, mul(proof.y_XG[i], anonAuxiliaries.wPow.neg()));
-            anonAuxiliaries.DR = add(anonAuxiliaries.DR, mul(proof.DG[i], anonAuxiliaries.wPow.neg()));
-            anonAuxiliaries.gR = add(anonAuxiliaries.gR, mul(proof.gG[i], anonAuxiliaries.wPow.neg()));
+        for (uint256 k = 0; k < anonAuxiliaries.m; k++) {
+            anonAuxiliaries.CLnR = add(anonAuxiliaries.CLnR, mul(proof.CLnG[k], anonAuxiliaries.wPow.neg()));
+            anonAuxiliaries.CRnR = add(anonAuxiliaries.CRnR, mul(proof.CRnG[k], anonAuxiliaries.wPow.neg()));
+            anonAuxiliaries.CR[0][0] = add(anonAuxiliaries.CR[0][0], mul(proof.C_0G[k], anonAuxiliaries.wPow.neg()));
+            anonAuxiliaries.DR = add(anonAuxiliaries.DR, mul(proof.DG[k], anonAuxiliaries.wPow.neg()));
+            anonAuxiliaries.yR[0][0] = add(anonAuxiliaries.yR[0][0], mul(proof.y_0G[k], anonAuxiliaries.wPow.neg()));
+            anonAuxiliaries.gR = add(anonAuxiliaries.gR, mul(proof.gG[k], anonAuxiliaries.wPow.neg()));
+            anonAuxiliaries.C_XR = add(anonAuxiliaries.C_XR, mul(proof.C_XG[k], anonAuxiliaries.wPow.neg()));
+            anonAuxiliaries.y_XR = add(anonAuxiliaries.y_XR, mul(proof.y_XG[k], anonAuxiliaries.wPow.neg()));
+
             anonAuxiliaries.wPow = anonAuxiliaries.wPow.mul(anonAuxiliaries.w);
         }
-        anonAuxiliaries.gR = add(anonAuxiliaries.gR, mul(g, anonAuxiliaries.wPow));
         anonAuxiliaries.DR = add(anonAuxiliaries.DR, mul(statement.D, anonAuxiliaries.wPow));
+        anonAuxiliaries.gR = add(anonAuxiliaries.gR, mul(g, anonAuxiliaries.wPow));
 
         ZetherAuxiliaries memory zetherAuxiliaries;
         zetherAuxiliaries.y = uint256(keccak256(abi.encode(anonAuxiliaries.w, proof.CPrime, proof.DPrime, proof.CLnPrime, proof.CRnPrime))).mod();
@@ -271,7 +264,7 @@ contract ZetherVerifier {
         ipAuxiliaries.u_x = mul(g, ipAuxiliaries.o);
         ipAuxiliaries.hPrimes = hadamardInv(hs, zetherAuxiliaries.ys);
         ipAuxiliaries.hExp = addVectors(times(zetherAuxiliaries.ys, zetherAuxiliaries.z), zetherAuxiliaries.twoTimesZSquared);
-        ipAuxiliaries.P = add(add(add(proof.A, mul(proof.S, zetherAuxiliaries.x)), mul(sumPoints(gs), zetherAuxiliaries.z.neg())), commit(ipAuxiliaries.hPrimes, ipAuxiliaries.hExp));
+        ipAuxiliaries.P = add(add(add(proof.BA, mul(proof.BS, zetherAuxiliaries.x)), mul(sumPoints(gs), zetherAuxiliaries.z.neg())), commit(ipAuxiliaries.hPrimes, ipAuxiliaries.hExp));
         ipAuxiliaries.P = add(ipAuxiliaries.P, mul(h, proof.mu.neg()));
         ipAuxiliaries.P = add(ipAuxiliaries.P, mul(ipAuxiliaries.u_x, proof.tHat));
 
@@ -436,41 +429,41 @@ contract ZetherVerifier {
     }
 
     function unserialize(bytes memory arr) internal pure returns (ZetherProof memory proof) {
-        proof.A = G1Point(slice(arr, 0), slice(arr, 32));
-        proof.S = G1Point(slice(arr, 64), slice(arr, 96));
-        proof.P = G1Point(slice(arr, 128), slice(arr, 160));
-        proof.Q = G1Point(slice(arr, 192), slice(arr, 224));
-        proof.U = G1Point(slice(arr, 256), slice(arr, 288));
-        proof.V = G1Point(slice(arr, 320), slice(arr, 352));
-        proof.X = G1Point(slice(arr, 384), slice(arr, 416));
-        proof.Y = G1Point(slice(arr, 448), slice(arr, 480));
+        proof.BA = G1Point(slice(arr, 0), slice(arr, 32));
+        proof.BS = G1Point(slice(arr, 64), slice(arr, 96));
+        proof.A = G1Point(slice(arr, 128), slice(arr, 160));
+        proof.B = G1Point(slice(arr, 192), slice(arr, 224));
+        proof.C = G1Point(slice(arr, 256), slice(arr, 288));
+        proof.D = G1Point(slice(arr, 320), slice(arr, 352));
+        proof.E = G1Point(slice(arr, 384), slice(arr, 416));
+        proof.F = G1Point(slice(arr, 448), slice(arr, 480));
 
         uint256 m = (arr.length - 2144) / 576;
         proof.CLnG = new G1Point[](m);
         proof.CRnG = new G1Point[](m);
         proof.C_0G = new G1Point[](m);
+        proof.DG = new G1Point[](m);
         proof.y_0G = new G1Point[](m);
+        proof.gG = new G1Point[](m);
         proof.C_XG = new G1Point[](m);
         proof.y_XG = new G1Point[](m);
-        proof.DG = new G1Point[](m);
-        proof.gG = new G1Point[](m);
         proof.f = new uint256[](2 * m);
-        for (uint256 i = 0; i < m; i++) {
-            proof.CLnG[i] = G1Point(slice(arr, 512 + i * 64), slice(arr, 544 + i * 64));
-            proof.CRnG[i] = G1Point(slice(arr, 512 + (m + i) * 64), slice(arr, 544 + (m + i) * 64));
-            proof.C_0G[i] = G1Point(slice(arr, 512 + m * 128 + i * 64), slice(arr, 544 + m * 128 + i * 64));
-            proof.y_0G[i] = G1Point(slice(arr, 512 + m * 192 + i * 64), slice(arr, 544 + m * 192 + i * 64));
-            proof.C_XG[i] = G1Point(slice(arr, 512 + m * 256 + i * 64), slice(arr, 544 + m * 256 + i * 64));
-            proof.y_XG[i] = G1Point(slice(arr, 512 + m * 320 + i * 64), slice(arr, 544 + m * 320 + i * 64));
-            proof.DG[i] = G1Point(slice(arr, 512 + m * 384 + i * 64), slice(arr, 544 + m * 384 + i * 64));
-            proof.gG[i] = G1Point(slice(arr, 512 + m * 448 + i * 64), slice(arr, 544 + m * 448 + i * 64));
-            proof.f[i] = slice(arr, 512 + m * 512 + i * 32);
-            proof.f[i + m] = slice(arr, 512 + m * 544 + i * 32);
+        for (uint256 k = 0; k < m; k++) {
+            proof.CLnG[k] = G1Point(slice(arr, 512 + k * 64), slice(arr, 544 + k * 64));
+            proof.CRnG[k] = G1Point(slice(arr, 512 + (m + k) * 64), slice(arr, 544 + (m + k) * 64));
+            proof.C_0G[k] = G1Point(slice(arr, 512 + m * 128 + k * 64), slice(arr, 544 + m * 128 + k * 64));
+            proof.DG[k] = G1Point(slice(arr, 512 + m * 192 + k * 64), slice(arr, 544 + m * 192 + k * 64));
+            proof.y_0G[k] = G1Point(slice(arr, 512 + m * 256 + k * 64), slice(arr, 544 + m * 256 + k * 64));
+            proof.gG[k] = G1Point(slice(arr, 512 + m * 320 + k * 64), slice(arr, 544 + m * 320 + k * 64));
+            proof.C_XG[k] = G1Point(slice(arr, 512 + m * 384 + k * 64), slice(arr, 544 + m * 384 + k * 64));
+            proof.y_XG[k] = G1Point(slice(arr, 512 + m * 448 + k * 64), slice(arr, 544 + m * 448 + k * 64));
+            proof.f[k] = slice(arr, 512 + m * 512 + k * 32);
+            proof.f[k + m] = slice(arr, 512 + m * 544 + k * 32);
         }
         uint256 starting = m * 576;
-        proof.z_P = slice(arr, 512 + starting);
-        proof.z_U = slice(arr, 544 + starting);
-        proof.z_X = slice(arr, 576 + starting);
+        proof.z_A = slice(arr, 512 + starting);
+        proof.z_C = slice(arr, 544 + starting);
+        proof.z_E = slice(arr, 576 + starting);
 
         proof.CPrime = G1Point(slice(arr, 608 + starting), slice(arr, 640 + starting));
         proof.DPrime = G1Point(slice(arr, 672 + starting), slice(arr, 704 + starting));

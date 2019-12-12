@@ -67,11 +67,11 @@ class BurnProver {
             var aL = new FieldVector(witness['bDiff'].toString(2, 32).split("").reverse().map((i) => new BN(i, 2).toRed(bn128.q)));
             var aR = aL.plus(new BN(1).toRed(bn128.q).redNeg());
             var alpha = bn128.randomScalar();
-            proof.A = params.commit(aL, aR, alpha);
+            proof.A = params.commit(alpha, aL, aR);
             var sL = new FieldVector(Array.from({ length: 32 }).map(bn128.randomScalar));
             var sR = new FieldVector(Array.from({ length: 32 }).map(bn128.randomScalar));
             var rho = bn128.randomScalar(); // already reduced
-            proof.S = params.commit(sL, sR, rho);
+            proof.S = params.commit(rho, sL, sR);
 
             var gammaDiff = bn128.randomScalar();
             var zetaDiff = bn128.randomScalar();

@@ -23,28 +23,18 @@ class GeneratorParams {
         this.getGs = () => { return gs; };
         this.getHs = () => { return hs; };
 
-        this.commit = (gExp, hExp, blinding) => {
+        this.commit = (blinding, gExp, hExp) => {
             var result = h.mul(blinding);
             var gsVector = gs.getVector();
-            var hsVector = hs.getVector();
             gExp.getVector().forEach((gExp, i) => {
                 result = result.add(gsVector[i].mul(gExp));
             });
-            hExp.getVector().forEach((hExp, i) => { // swap the order and enclose this in an if (hExp) if block if you want it optional.
-                result = result.add(hsVector[i].mul(hExp));
-            });
-            return result;
-        };
-
-        this.commitRows = (exp, blinding) => { // exp is an m * 2 array...
-            var result = h.mul(blinding);
-            var gsVector = gs.getVector();
-            var hsVector = hs.getVector();
-            exp.forEach((exp_i, i) => {
-                var expVector = exp_i.getVector();
-                result = result.add(gsVector[i].mul(expVector[0]));
-                result = result.add(hsVector[i].mul(expVector[1]));
-            });
+            if (hExp) {
+                var hsVector = hs.getVector();
+                hExp.getVector().forEach((hExp, i) => { // swap the order and enclose this in an if (hExp) if block if you want it optional.
+                    result = result.add(hsVector[i].mul(hExp));
+                });
+            }
             return result;
         };
     }

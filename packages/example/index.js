@@ -21,12 +21,12 @@ const run = async () => {
 
     const alice = new Client(web3, deployed, accounts[0]);
     await alice.initialize();
-    await alice.deposit(1000);
-    await alice.withdraw(100);
+    await alice.deposit(100);
+    await alice.withdraw(10);
     const bob = new Client(web3, deployed, accounts[0]);
     await bob.initialize();
     alice.friends.add("Bob", bob.account.public());
-    await alice.transfer('Bob', 100);
+    await alice.transfer('Bob', 10);
 };
 
 run().catch(console.error);
