@@ -4,7 +4,7 @@
   "description": "",
   "main": "./lib",
   "dependencies": {
-    "bn.js": "^5.0.0",
+    "bn.js": "^5.1.1",
     "elliptic": "^6.5.1",
     "web3": "^1.2.4"
   },

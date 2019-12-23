@@ -11,8 +11,8 @@ contract ZetherVerifier {
     uint256 constant FIELD_ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
     uint256 constant UNITY = 9334303377689037989442018753807510978357674015322511348041267794643984346845; // primitive 2^28th root of unity modulo GROUP_ORDER (not field!)
 
-    G1Point[] gs; // warning: this and the below are not statically sized anymore
-    G1Point[] hs; // need to push to these if large anonsets are used.
+    G1Point[] gs;
+    G1Point[] hs;
     G1Point g;
     G1Point h;
 
@@ -22,7 +22,7 @@ contract ZetherVerifier {
         G1Point[] C;
         G1Point D;
         G1Point[] y;
-        uint256 epoch; // or uint8?
+        uint256 epoch;
         G1Point u;
     }
 
@@ -140,9 +140,9 @@ contract ZetherVerifier {
     struct AnonAuxiliaries {
         uint256 m;
         uint256 N;
-        uint256 d;
+        uint256 v;
         uint256 w;
-        uint256 dPow;
+        uint256 vPow;
         uint256 wPow;
         uint256[2][] f; // could just allocate extra space in the proof?
         uint256[2][] r; // each poly is an array of length N. evaluations of prods
@@ -171,8 +171,8 @@ contract ZetherVerifier {
         uint256 statementHash = uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.C, statement.D, statement.y, statement.epoch))).mod();
 
         AnonAuxiliaries memory anonAuxiliaries;
-        anonAuxiliaries.d = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.A, proof.B, proof.C, proof.D, proof.E, proof.F))).mod();
-        anonAuxiliaries.w = uint256(keccak256(abi.encode(anonAuxiliaries.d, proof.CLnG, proof.CRnG, proof.C_0G, proof.DG, proof.y_0G, proof.gG, proof.C_XG, proof.y_XG))).mod();
+        anonAuxiliaries.v = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.A, proof.B, proof.C, proof.D, proof.E, proof.F))).mod();
+        anonAuxiliaries.w = uint256(keccak256(abi.encode(anonAuxiliaries.v, proof.CLnG, proof.CRnG, proof.C_0G, proof.DG, proof.y_0G, proof.gG, proof.C_XG, proof.y_XG))).mod();
         anonAuxiliaries.m = proof.f.length / 2;
         anonAuxiliaries.N = 2 ** anonAuxiliaries.m;
         anonAuxiliaries.f = new uint256[2][](2 * anonAuxiliaries.m);
@@ -203,12 +203,12 @@ contract ZetherVerifier {
             anonAuxiliaries.CLnR = add(anonAuxiliaries.CLnR, mul(statement.CLn[i], anonAuxiliaries.r[i][0]));
             anonAuxiliaries.CRnR = add(anonAuxiliaries.CRnR, mul(statement.CRn[i], anonAuxiliaries.r[i][0]));
         }
-        anonAuxiliaries.dPow = 1;
+        anonAuxiliaries.vPow = 1;
         for (uint256 i = 0; i < anonAuxiliaries.N; i++) {
-            anonAuxiliaries.C_XR = add(anonAuxiliaries.C_XR, mul(anonAuxiliaries.CR[i / 2][i % 2], anonAuxiliaries.dPow));
-            anonAuxiliaries.y_XR = add(anonAuxiliaries.y_XR, mul(anonAuxiliaries.yR[i / 2][i % 2], anonAuxiliaries.dPow));
+            anonAuxiliaries.C_XR = add(anonAuxiliaries.C_XR, mul(anonAuxiliaries.CR[i / 2][i % 2], anonAuxiliaries.vPow));
+            anonAuxiliaries.y_XR = add(anonAuxiliaries.y_XR, mul(anonAuxiliaries.yR[i / 2][i % 2], anonAuxiliaries.vPow));
             if (i > 0) {
-                anonAuxiliaries.dPow = anonAuxiliaries.dPow.mul(anonAuxiliaries.d);
+                anonAuxiliaries.vPow = anonAuxiliaries.vPow.mul(anonAuxiliaries.v);
             }
         }
         anonAuxiliaries.wPow = 1;

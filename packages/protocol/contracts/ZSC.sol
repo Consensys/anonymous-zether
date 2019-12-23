@@ -10,7 +10,6 @@ contract ZSC {
     BurnVerifier burnverifier;
     uint256 public epochLength; // now in milliseconds.
 
-    uint256 bTotal = 0; // could use erc20.balanceOf(this), but (even pure / view) calls cost gas during EVM execution
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
     mapping(bytes32 => bytes32[2][2]) acc; // main account mapping
     mapping(bytes32 => bytes32[2][2]) pTransfers; // storage for pending transfers
@@ -37,7 +36,7 @@ contract ZSC {
         uint256 size = y.length;
         accounts = new bytes32[2][2][](size);
         for (uint256 i = 0; i < size; i++) {
-            bytes32 yHash = keccak256(abi.encodePacked(y[i]));
+            bytes32 yHash = keccak256(abi.encode(y[i]));
             accounts[i] = acc[yHash];
             if (lastRollOver[yHash] < epoch) {
                 bytes32[2][2] memory scratch = pTransfers[yHash];
@@ -94,18 +93,15 @@ contract ZSC {
     }
 
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
-        bytes32 yHash = keccak256(abi.encodePacked(y));
+        bytes32 yHash = keccak256(abi.encode(y));
         rollOver(yHash);
 
-        // registration check here would be redundant, as any `transferFrom` the 0 address will necessarily fail. save an sload
         require(bTransfer <= MAX, "Deposit amount out of range."); // uint, so other way not necessary?
-        require(bTransfer + bTotal <= MAX, "Fund pushes contract past maximum value.");
-        // if pTransfers[yHash] == [0, 0, 0, 0] then an add and a write will be equivalent...
+
         bytes32[2] memory scratch = pTransfers[yHash][0];
-        // won't let me assign this array using literals / casts
         assembly {
-            let m := mload(0x40)
             let result := 1
+            let m := mload(0x40)
             mstore(m, mload(scratch))
             mstore(add(m, 0x20), mload(add(scratch, 0x20)))
             mstore(add(m, 0x40), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
@@ -119,7 +115,7 @@ contract ZSC {
         }
         pTransfers[yHash][0] = scratch;
         require(coin.transferFrom(msg.sender, address(this), bTransfer), "Transfer from sender failed.");
-        bTotal += bTransfer;
+        require(coin.balanceOf(address(this)) <= MAX, "Fund pushes contract past maximum value.");
     }
 
     function transfer(bytes32[2][] memory C, bytes32[2] memory D, bytes32[2][] memory y, bytes32[2] memory u, bytes memory proof) public {
@@ -127,12 +123,13 @@ contract ZSC {
         bytes32[2][] memory CLn = new bytes32[2][](size);
         bytes32[2][] memory CRn = new bytes32[2][](size);
         require(C.length == size, "Input array length mismatch!");
-        uint256 result = 1;
-        for (uint256 i = 0; i < y.length; i++) {
-            bytes32 yHash = keccak256(abi.encodePacked(y[i]));
+
+        for (uint256 i = 0; i < size; i++) {
+            bytes32 yHash = keccak256(abi.encode(y[i]));
             rollOver(yHash);
             bytes32[2][2] memory scratch = pTransfers[yHash];
             assembly {
+                let result := 1
                 let m := mload(0x40)
                 mstore(m, mload(mload(scratch)))
                 mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
@@ -148,10 +145,14 @@ contract ZSC {
                 mstore(add(m, 0x40), mload(D))
                 mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(D, 0x20)))) // invert!
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(scratch, 0x20)), 0x40))
+                if iszero(result) {
+                    revert(0, 0)
+                }
             }
             pTransfers[yHash] = scratch; // credit / debit / neither y's account.
             scratch = acc[yHash];
             assembly {
+                let result := 1
                 let m := mload(0x40)
                 mstore(m, mload(mload(scratch)))
                 mstore(add(m, 0x20), mload(add(mload(scratch), 0x20)))
@@ -163,12 +164,14 @@ contract ZSC {
                 mstore(add(m, 0x40), mload(D))
                 mstore(add(m, 0x60), sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(add(D, 0x20))))
                 result := and(result, staticcall(gas, 0x06, m, 0x80, mload(add(add(CRn, 0x20), mul(i, 0x20))), 0x40))
+                if iszero(result) {
+                    revert(0, 0)
+                }
             }
         }
-        require(result == 1, "Elliptic curve operations failure. Bad points?");
 
         bool seen = false;
-        bytes32 uHash = keccak256(abi.encodePacked(u));
+        bytes32 uHash = keccak256(abi.encode(u));
         for (uint256 i = 0; i < nonceSet.length; i++) {
             if (nonceSet[i] == uHash) {
                 seen = true;
@@ -183,7 +186,7 @@ contract ZSC {
     }
 
     function burn(bytes32[2] memory y, uint256 bTransfer, bytes32[2] memory u, bytes memory proof) public {
-        bytes32 yHash = keccak256(abi.encodePacked(y));
+        bytes32 yHash = keccak256(abi.encode(y));
         rollOver(yHash);
 
         require(0 <= bTransfer && bTransfer <= MAX, "Transfer amount out of range.");
@@ -220,7 +223,7 @@ contract ZSC {
             }
         }
         bool seen = false;
-        bytes32 uHash = keccak256(abi.encodePacked(u));
+        bytes32 uHash = keccak256(abi.encode(u));
         for (uint256 i = 0; i < nonceSet.length; i++) {
             if (nonceSet[i] == uHash) { // does this have to repeat the sload for each iteration?!? revisit
                 seen = true;
@@ -230,7 +233,6 @@ contract ZSC {
         require(!seen, "Nonce already seen!");
         require(burnverifier.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, msg.sender, proof), "Burn proof verification failed!");
         require(coin.transfer(msg.sender, bTransfer), "This shouldn't fail... Something went severely wrong.");
-        bTotal -= bTransfer;
         nonceSet.push(uHash);
     }
 }

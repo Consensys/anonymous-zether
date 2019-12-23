@@ -142,7 +142,7 @@ class ZetherProver {
             proof.E = params.commit(r_E, new FieldVector([a.getVector()[0].redMul(a.getVector()[m]), a.getVector()[0].redMul(a.getVector()[m])]));
             proof.F = params.commit(r_F, new FieldVector([a.getVector()[b.getVector()[0].toNumber() * m], a.getVector()[b.getVector()[m].toNumber() * m].redNeg()]));
 
-            var d = utils.hash(ABICoder.encodeParameters([
+            var v = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
                 'bytes32[2]',
                 'bytes32[2]',
@@ -184,13 +184,13 @@ class ZetherProver {
             proof.gG = Array.from({ length: m }).map((_, k) => params.getG().mul(sigma[k]));
             proof.C_XG = Array.from({ length: m }).map((_, k) => statement['D'].mul(omega[k]));
             proof.y_XG = Array.from({ length: m }).map((_, k) => params.getG().mul(omega[k]));
-            var dPow = new BN(1).toRed(bn128.q);
+            var vPow = new BN(1).toRed(bn128.q);
             for (var i = 0; i < N; i++) { // could turn this into a complicated reduce, but...
-                var temp = params.getG().mul(witness['bTransfer'].redMul(dPow));
+                var temp = params.getG().mul(witness['bTransfer'].redMul(vPow));
                 var poly = i % 2 ? Q : P; // clunky, i know, etc. etc.
                 proof.C_XG = proof.C_XG.map((C_XG_k, k) => C_XG_k.add(temp.mul(poly[k].getVector()[(witness['index'][0] + N - (i - i % 2)) % N].redSub(poly[k].getVector()[(witness['index'][1] + N - (i - i % 2)) % N]))));
                 if (i != 0)
-                    dPow = dPow.redMul(d);
+                    vPow = vPow.redMul(v);
             }
 
             var w = utils.hash(ABICoder.encodeParameters([
@@ -204,7 +204,7 @@ class ZetherProver {
                 'bytes32[2][]',
                 'bytes32[2][]',
             ], [
-                bn128.bytes(d),
+                bn128.bytes(v),
                 proof.CLnG.map(bn128.serialize),
                 proof.CRnG.map(bn128.serialize),
                 proof.C_0G.map(bn128.serialize),
@@ -249,12 +249,12 @@ class ZetherProver {
             var convolver = new Convolver();
             var y_p = convolver.convolution(p, statement['y']);
             var y_q = convolver.convolution(q, statement['y']);
-            dPow = new BN(1).toRed(bn128.q);
+            vPow = new BN(1).toRed(bn128.q);
             for (var i = 0; i < N; i++) {
                 var y_poly = i % 2 ? y_q : y_p;
-                y_XR = y_XR.add(y_poly.getVector()[Math.floor(i / 2)].mul(dPow));
-                if (i != 0)
-                    dPow = dPow.redMul(d);
+                y_XR = y_XR.add(y_poly.getVector()[Math.floor(i / 2)].mul(vPow));
+                if (i > 0)
+                    vPow = vPow.redMul(v);
             }
 
             var gammaTransfer = bn128.randomScalar();

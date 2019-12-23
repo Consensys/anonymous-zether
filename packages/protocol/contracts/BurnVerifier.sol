@@ -26,8 +26,8 @@ contract BurnVerifier {
     }
 
     struct BurnProof {
-        G1Point A;
-        G1Point S;
+        G1Point BA;
+        G1Point BS;
 
         G1Point CLnPrime;
         G1Point CRnPrime;
@@ -114,7 +114,7 @@ contract BurnVerifier {
         uint256 statementHash = uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.y, statement.bTransfer, statement.epoch, statement.sender))).mod(); // stacktoodeep?
 
         BurnAuxiliaries memory burnAuxiliaries;
-        burnAuxiliaries.y = uint256(keccak256(abi.encode(statementHash, proof.A, proof.S, proof.CLnPrime, proof.CRnPrime))).mod();
+        burnAuxiliaries.y = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.CLnPrime, proof.CRnPrime))).mod();
         burnAuxiliaries.ys = powers(burnAuxiliaries.y);
         burnAuxiliaries.z = uint256(keccak256(abi.encode(burnAuxiliaries.y))).mod();
         burnAuxiliaries.zs = [burnAuxiliaries.z.exp(2)];
@@ -145,7 +145,7 @@ contract BurnVerifier {
         ipAuxiliaries.u_x = mul(g, ipAuxiliaries.o);
         ipAuxiliaries.hPrimes = hadamardInv(hs, burnAuxiliaries.ys);
         ipAuxiliaries.hExp = addVectors(times(burnAuxiliaries.ys, burnAuxiliaries.z), burnAuxiliaries.twoTimesZSquared);
-        ipAuxiliaries.P = add(add(add(proof.A, mul(proof.S, burnAuxiliaries.x)), mul(sumPoints(gs), burnAuxiliaries.z.neg())), commit(ipAuxiliaries.hPrimes, ipAuxiliaries.hExp));
+        ipAuxiliaries.P = add(add(add(proof.BA, mul(proof.BS, burnAuxiliaries.x)), mul(sumPoints(gs), burnAuxiliaries.z.neg())), commit(ipAuxiliaries.hPrimes, ipAuxiliaries.hExp));
         ipAuxiliaries.P = add(ipAuxiliaries.P, mul(h, proof.mu.neg()));
         ipAuxiliaries.P = add(ipAuxiliaries.P, mul(ipAuxiliaries.u_x, proof.tHat));
 
@@ -200,8 +200,8 @@ contract BurnVerifier {
     }
 
     function unserialize(bytes memory arr) internal pure returns (BurnProof memory proof) {
-        proof.A = G1Point(slice(arr, 0), slice(arr, 32));
-        proof.S = G1Point(slice(arr, 64), slice(arr, 96));
+        proof.BA = G1Point(slice(arr, 0), slice(arr, 32));
+        proof.BS = G1Point(slice(arr, 64), slice(arr, 96));
 
         proof.CLnPrime = G1Point(slice(arr, 128), slice(arr, 160));
         proof.CRnPrime = G1Point(slice(arr, 192), slice(arr, 224));

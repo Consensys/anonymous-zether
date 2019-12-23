@@ -10,8 +10,8 @@ class BurnProof {
     constructor() {
         this.serialize = () => { // please initialize this before calling this method...
             var result = "0x";
-            result += bn128.representation(this.A).slice(2);
-            result += bn128.representation(this.S).slice(2);
+            result += bn128.representation(this.BA).slice(2);
+            result += bn128.representation(this.BS).slice(2);
 
             result += bn128.representation(this.CLnPrime).slice(2);
             result += bn128.representation(this.CRnPrime).slice(2);
@@ -67,11 +67,11 @@ class BurnProver {
             var aL = new FieldVector(witness['bDiff'].toString(2, 32).split("").reverse().map((i) => new BN(i, 2).toRed(bn128.q)));
             var aR = aL.plus(new BN(1).toRed(bn128.q).redNeg());
             var alpha = bn128.randomScalar();
-            proof.A = params.commit(alpha, aL, aR);
+            proof.BA = params.commit(alpha, aL, aR);
             var sL = new FieldVector(Array.from({ length: 32 }).map(bn128.randomScalar));
             var sR = new FieldVector(Array.from({ length: 32 }).map(bn128.randomScalar));
             var rho = bn128.randomScalar(); // already reduced
-            proof.S = params.commit(rho, sL, sR);
+            proof.BS = params.commit(rho, sL, sR);
 
             var gammaDiff = bn128.randomScalar();
             var zetaDiff = bn128.randomScalar();
@@ -86,8 +86,8 @@ class BurnProver {
                 'bytes32[2]',
             ], [
                 bn128.bytes(statementHash),
-                bn128.serialize(proof.A),
-                bn128.serialize(proof.S),
+                bn128.serialize(proof.BA),
+                bn128.serialize(proof.BS),
                 bn128.serialize(proof.CLnPrime),
                 bn128.serialize(proof.CRnPrime),
             ]));
@@ -157,7 +157,7 @@ class BurnProver {
             var gs = params.getGs();
             var hsPrime = params.getHs().hadamard(ys.invert());
             var hExp = ys.times(z).add(twoTimesZs);
-            var Z = proof.A.add(proof.S.mul(x)).add(gs.sum().mul(z.redNeg())).add(hsPrime.commit(hExp)); // rename of P
+            var Z = proof.BA.add(proof.BS.mul(x)).add(gs.sum().mul(z.redNeg())).add(hsPrime.commit(hExp)); // rename of P
             Z = Z.add(params.getH().mul(proof.mu.redNeg())); // Statement P of protocol 1. should this be included in the calculation of v...?
 
             var o = utils.hash(ABICoder.encodeParameters([
