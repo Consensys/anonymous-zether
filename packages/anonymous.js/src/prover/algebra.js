@@ -13,7 +13,7 @@ class GeneratorParams {
                 gsInnards.push(utils.mapInto(soliditySha3("G", i)));
                 hsInnards.push(utils.mapInto(soliditySha3("H", i)));
             }
-            h = utils.mapInto(soliditySha3("V"));
+            h = utils.mapInto(soliditySha3("H"));
             gs = new GeneratorVector(gsInnards);
             hs = new GeneratorVector(hsInnards);
         }

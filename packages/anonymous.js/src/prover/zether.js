@@ -368,10 +368,10 @@ class ZetherProver {
             proof.s_nuDiff = k_nuDiff.redAdd(proof.c.redMul(gammaDiff.redMul(wPow)));
 
             var gs = params.getGs();
-            var hsPrime = params.getHs().hadamard(ys.invert());
+            var hPrimes = params.getHs().hadamard(ys.invert());
             var hExp = ys.times(z).add(twoTimesZs);
-            var Z = proof.BA.add(proof.BS.mul(x)).add(gs.sum().mul(z.redNeg())).add(hsPrime.commit(hExp)); // rename of P
-            Z = Z.add(params.getH().mul(proof.mu.redNeg())); // Statement P of protocol 1. should this be included in the calculation of v...?
+            var P = proof.BA.add(proof.BS.mul(x)).add(gs.sum().mul(z.redNeg())).add(hPrimes.commit(hExp)); // rename of P
+            P = P.add(params.getH().mul(proof.mu.redNeg())); // Statement P of protocol 1. should this be included in the calculation of v...?
 
             var o = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
@@ -380,9 +380,9 @@ class ZetherProver {
             ]));
 
             var u_x = params.getG().mul(o); // Begin Protocol 1. this is u^x in Protocol 1. use our g for their u, our o for their x.
-            var ZPrime = Z.add(u_x.mul(proof.tHat)); // corresponds to P' in protocol 1.
-            var primeBase = new GeneratorParams(u_x, gs, hsPrime);
-            var ipStatement = { 'primeBase': primeBase, 'P': ZPrime };
+            P = P.add(u_x.mul(proof.tHat)); // corresponds to P' in protocol 1.
+            var primeBase = new GeneratorParams(u_x, gs, hPrimes);
+            var ipStatement = { 'primeBase': primeBase, 'P': P };
             var ipWitness = { 'l': lPoly.evaluate(x), 'r': rPoly.evaluate(x) };
             proof.ipProof = ipProver.generateProof(ipStatement, ipWitness, o);
 

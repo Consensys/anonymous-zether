@@ -11,12 +11,15 @@ const run = async () => {
     const accounts = await web3.eth.getAccounts();
 
     var deployer = new Deployer(accounts);
-    const zether = (await deployer.deployZetherVerifier()).contractAddress;
-    const burn = (await deployer.deployBurnVerifier()).contractAddress;
-    const cash = (await deployer.deployCashToken()).contractAddress;
-    await deployer.mintCashToken(cash, 1000);
-    const zsc = (await deployer.deployZSC(cash, zether, burn, 6)).contractAddress; // epoch length in seconds.
-    await deployer.approveCashToken(cash, zsc, 1000)
+    const [
+        cash, [zether, burn]
+    ] = await Promise.all([deployer.deployCashToken().then((result) => result.contractAddress), deployer.deployInnerProductVerifier().then((result) => {
+        ip = result.contractAddress;
+        return Promise.all([deployer.deployZetherVerifier(ip), deployer.deployBurnVerifier(ip)]).then((results) => results.map((result) => result.contractAddress));
+    })]);
+
+    const zsc = await Promise.all([deployer.deployZSC(cash, zether, burn, 6), deployer.mintCashToken(cash, 1000)]).then((results) => results[0].contractAddress);
+    await deployer.approveCashToken(cash, zsc, 1000);
     const deployed = new web3.eth.Contract(ZSC.abi, zsc);
 
     const alice = new Client(web3, deployed, accounts[0]);

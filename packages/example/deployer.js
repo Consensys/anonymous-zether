@@ -1,4 +1,5 @@
 const Web3 = require("web3");
+const InnerProductVerifier = require("../contract-artifacts/artifacts/InnerProductVerifier.json");
 const ZetherVerifier = require("../contract-artifacts/artifacts/ZetherVerifier.json");
 const BurnVerifier = require("../contract-artifacts/artifacts/BurnVerifier.json");
 const CashToken = require("../contract-artifacts/artifacts/CashToken.json");
@@ -9,10 +10,24 @@ class Deployer {
         const web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:22000"))
         web3.transactionConfirmationBlocks = 1;
 
-        this.deployZetherVerifier = () => {
+        this.deployInnerProductVerifier = () => {
+            const contract = new web3.eth.Contract(InnerProductVerifier.abi);
+            return new Promise((resolve, reject) => {
+                contract.deploy({ data: InnerProductVerifier.bytecode }).send({ from: accounts[0], gas: 4700000 })
+                    .on("receipt", (receipt) => {
+                        console.log("Inner product verifier mined (address = \"" + receipt.contractAddress + "\").");
+                        resolve(receipt);
+                    })
+                    .on("error", (error) => {
+                        reject(error);
+                    });
+            });
+        }
+
+        this.deployZetherVerifier = (ip) => {
             const contract = new web3.eth.Contract(ZetherVerifier.abi);
             return new Promise((resolve, reject) => {
-                contract.deploy({ data: ZetherVerifier.bytecode }).send({ from: accounts[0], gas: 470000000 })
+                contract.deploy({ data: ZetherVerifier.bytecode, arguments: [ip] }).send({ from: accounts[0], gas: 8000000 })
                     .on("receipt", (receipt) => {
                         console.log("Zether verifier mined (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);
@@ -23,10 +38,10 @@ class Deployer {
             });
         };
 
-        this.deployBurnVerifier = () => {
+        this.deployBurnVerifier = (ip) => {
             const contract = new web3.eth.Contract(BurnVerifier.abi);
             return new Promise((resolve, reject) => {
-                contract.deploy({ data: BurnVerifier.bytecode }).send({ from: accounts[0], gas: 470000000 })
+                contract.deploy({ data: BurnVerifier.bytecode, arguments: [ip] }).send({ from: accounts[0], gas: 4700000 })
                     .on("receipt", (receipt) => {
                         console.log("Burn verifier mined (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);
@@ -40,9 +55,9 @@ class Deployer {
         this.deployCashToken = () => {
             const contract = new web3.eth.Contract(CashToken.abi);
             return new Promise((resolve, reject) => {
-                contract.deploy({ data: CashToken.bytecode }).send({ from: accounts[0], gas: 470000000 })
+                contract.deploy({ data: CashToken.bytecode }).send({ from: accounts[0], gas: 4700000 })
                     .on("receipt", (receipt) => {
-                        console.log("ERC20 contact mined (address = \"" + receipt.contractAddress + "\").");
+                        console.log("Cash token contact mined (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);
                     })
                     .on("error", (error) => {
@@ -54,7 +69,7 @@ class Deployer {
         this.mintCashToken = (cash, amount) => {
             const contract = new web3.eth.Contract(CashToken.abi, cash);
             return new Promise((resolve, reject) => {
-                contract.methods.mint(accounts[0], amount).send({ from: accounts[0], gas: 470000000 })
+                contract.methods.mint(accounts[0], amount).send({ from: accounts[0], gas: 4700000 })
                     .on("receipt", (receipt) => {
                         contract.methods.balanceOf(accounts[0]).call()
                             .then((result) => {
@@ -71,7 +86,7 @@ class Deployer {
         this.approveCashToken = (cash, zsc, amount) => {
             const contract = new web3.eth.Contract(CashToken.abi, cash);
             return new Promise((resolve, reject) => {
-                contract.methods.approve(zsc, amount).send({ from: accounts[0], gas: 470000000 })
+                contract.methods.approve(zsc, amount).send({ from: accounts[0], gas: 4700000 })
                     .on("receipt", (receipt) => {
                         contract.methods.allowance(accounts[0], zsc).call()
                             .then((result) => {
@@ -88,7 +103,7 @@ class Deployer {
         this.deployZSC = (cash, zether, burn, epochLength) => {
             const contract = new web3.eth.Contract(ZSC.abi);
             return new Promise((resolve, reject) => {
-                contract.deploy({ data: ZSC.bytecode, arguments: [cash, zether, burn, epochLength] }).send({ from: accounts[0], gas: 470000000 })
+                contract.deploy({ data: ZSC.bytecode, arguments: [cash, zether, burn, epochLength] }).send({ from: accounts[0], gas: 4700000 })
                     .on("receipt", (receipt) => {
                         console.log("ZSC main contract deployed (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);

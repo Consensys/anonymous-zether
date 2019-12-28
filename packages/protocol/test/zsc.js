@@ -31,11 +31,11 @@ contract("ZSC", async (accounts) => {
     });
 
     it("should allow funding", async () => {
-        await alice.deposit(1000);
+        await alice.deposit(100);
     });
 
     it("should allow withdrawing", async () => {
-        await alice.withdraw(100);
+        await alice.withdraw(10);
     });
 
     it("should allow transferring", async () => {
@@ -43,7 +43,7 @@ contract("ZSC", async (accounts) => {
         bob = new Client(web3, zsc.contract, accounts[0]);
         await bob.initialize();
         alice.friends.add("Bob", bob.account.public());
-        await alice.transfer("Bob", 100);
+        await alice.transfer("Bob", 10);
         // bob won't actually receive the transfer, because truffle uses HttpProvider
         // can't use websocket providers at this point, because of geth bugs. will fix
         // https://github.com/trufflesuite/truffle/issues/1699
