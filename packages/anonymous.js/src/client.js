@@ -1,4 +1,4 @@
-const BN = require('BN.js');
+const BN = require('bn.js');
 
 const utils = require('./utils/utils.js');
 const Service = require('./utils/service.js');
