@@ -258,7 +258,7 @@ class PolyCommitment {
     }
 }
 
-Polynomial = class {
+class Polynomial {
     constructor(coefficients) {
         this.coefficients = coefficients ? coefficients : [new BN(1).toRed(bn128.q)]; // vector of coefficients, _little_ endian.
 

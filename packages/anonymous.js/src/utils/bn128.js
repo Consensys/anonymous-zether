@@ -8,7 +8,6 @@ const B_MAX = 4294967295;
 
 const bn128 = {};
 
-// The elliptic.js curve object
 bn128.curve = new EC.curve.short({
     a: '0',
     b: '3',

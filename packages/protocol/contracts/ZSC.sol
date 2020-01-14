@@ -92,8 +92,46 @@ contract ZSC {
         }
     }
 
+    function registered(bytes32 yHash) internal returns (bool) {
+        return acc[yHash][0][0] != 0 || acc[yHash][0][1] != 0 || acc[yHash][1][0] != 0 || acc[yHash][1][1] != 0 || pTransfers[yHash][0][0] != 0 || pTransfers[yHash][0][1] != 0 || pTransfers[yHash][1][0] != 0 || pTransfers[yHash][1][1] != 0;
+    }
+
+    function register(bytes32[2] calldata y, uint256 c, uint256 s) external {
+        // allows y to participate. c, s should be a Schnorr signature on "this"
+        bytes32[2][2] memory scratch;
+        assembly {
+            let result := 1
+            let m := mload(0x40)
+            mstore(m, 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
+            mstore(add(m, 0x20), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
+            mstore(add(m, 0x40), s)
+            result := and(result, staticcall(gas, 0x07, m, 0x60, m, 0x40)) // m := g^s
+            calldatacopy(add(m, 0x40), 0x04, 0x40)
+            mstore(add(m, 0x80), sub(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001, c)) // negate c in F_q
+            result := and(result, staticcall(gas, 0x07, add(m, 0x40), 0x60, add(m, 0x40), 0x40)) // m := g^s
+            result := and(result, staticcall(gas, 0x06, m, 0x80, mload(scratch), 0x40)) // K := g^s * y^-c
+            if iszero(result) {
+                revert(0, 0)
+            }
+        }
+        uint256 challenge = uint256(keccak256(abi.encode(address(this), y, scratch[0])));
+        assembly {
+            challenge := mod(challenge, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001) // better way...?
+        }
+        require(challenge == c, "Invalid registration signature!");
+        bytes32 yHash = keccak256(abi.encode(y));
+        require(!registered(yHash), "Account already registered!");
+        assembly {
+            calldatacopy(mload(scratch), 0x04, 0x40) // scratch[0] = y
+            mstore(mload(add(scratch, 0x20)), 0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4)
+            mstore(add(mload(add(scratch, 0x20)), 0x20), 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875)
+        }
+        pTransfers[yHash] = scratch; // register y. pTransfers[y] = [y, g]
+    }
+
     function fund(bytes32[2] calldata y, uint256 bTransfer) external {
         bytes32 yHash = keccak256(abi.encode(y));
+        require(registered(yHash), "Account not yet registered.");
         rollOver(yHash);
 
         require(bTransfer <= MAX, "Deposit amount out of range."); // uint, so other way not necessary?
@@ -126,6 +164,7 @@ contract ZSC {
 
         for (uint256 i = 0; i < size; i++) {
             bytes32 yHash = keccak256(abi.encode(y[i]));
+            require(registered(yHash), "Account not yet registered.");
             rollOver(yHash);
             bytes32[2][2] memory scratch = pTransfers[yHash];
             assembly {
@@ -187,6 +226,7 @@ contract ZSC {
 
     function burn(bytes32[2] memory y, uint256 bTransfer, bytes32[2] memory u, bytes memory proof) public {
         bytes32 yHash = keccak256(abi.encode(y));
+        require(registered(yHash), "Account not yet registered.");
         rollOver(yHash);
 
         require(0 <= bTransfer && bTransfer <= MAX, "Transfer amount out of range.");

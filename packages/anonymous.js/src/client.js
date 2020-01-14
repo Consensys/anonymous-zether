@@ -123,7 +123,7 @@ class Client {
             };
         };
 
-        this.initialize = (secret) => {
+        this.register = (secret) => {
             return new Promise((resolve, reject) => {
                 zsc.methods.epochLength().call()
                     .then((result) => {
@@ -131,17 +131,28 @@ class Client {
                         if (secret === undefined) {
                             var keypair = utils.createAccount();
                             that.account.keypair = keypair;
-                            console.log("New account generated.");
-                            resolve();
+                            var [c, s] = utils.sign(zsc._address, keypair);
+                            zsc.methods.register(keypair['y'], c, s).send({ from: home, gas: 5470000 })
+                                .on('transactionHash', (hash) => {
+                                    console.log("Registration submitted (txHash = \"" + hash + "\").");
+                                })
+                                .on('receipt', (receipt) => {
+                                    console.log("Registration successful.");
+                                    resolve(receipt);
+                                })
+                                .on('error', (error) => {
+                                    console.log("Registration failed: " + error);
+                                    reject(error);
+                                });
                         } else {
                             var x = new BN(secret.slice(2), 16).toRed(bn128.q);
-                            that.account.keypair = { 'x': x, 'y': utils.determinePublicKey(x) };
+                            that.account.keypair = { 'x': x, 'y': bn128.serialize(bn128.curve.g.mul(x)) };
                             zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
                                 .then((result) => {
                                     var simulated = result[0];
-                                    that.account._state.available = utils.readBalance(bn128.unserialize(simulated[0]), bn128.unserialize(simulated[1]), that.account.keypair['x']);
+                                    that.account._state.available = utils.readBalance(bn128.unserialize(simulated[0]), bn128.unserialize(simulated[1]), x);
                                     console.log("Account recovered successfully.");
-                                    resolve();
+                                    resolve(); // warning: won't register you. assuming you registered when you first created the account.
                                 });
                         }
                     });
@@ -247,11 +258,14 @@ class Client {
             return new Promise((resolve, reject) => {
                 zsc.methods.simulateAccounts(y, this._getEpoch()).call()
                     .then((result) => {
+                        var unserialized = result.map((account) => [bn128.unserialize(account[0]), bn128.unserialize(account[1])]);
+                        if (unserialized.some((account) => account[0].eq(bn128.zero) && account[1].eq(bn128.zero)))
+                            return reject(new Error("Please make sure all parties (including decoys) are registered.")); // todo: better error message, i.e., which friend?
                         var r = bn128.randomScalar();
                         var C = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(value) : i == index[1] ? new BN(-value) : new BN(0)).add(bn128.unserialize(party).mul(r)));
                         var D = bn128.curve.g.mul(r);
-                        var CLn = result.map((simulated, i) => bn128.serialize(bn128.unserialize(simulated[0]).add(C[i].neg())));
-                        var CRn = result.map((simulated) => bn128.serialize(bn128.unserialize(simulated[1]).add(D.neg())));
+                        var CLn = unserialized.map((account, i) => bn128.serialize(account[0].add(C[i].neg())));
+                        var CRn = unserialized.map((account) => bn128.serialize(account[1].add(D.neg())));
                         C = C.map(bn128.serialize);
                         D = bn128.serialize(D);
                         var proof = service.proveTransfer(CLn, CRn, C, D, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);

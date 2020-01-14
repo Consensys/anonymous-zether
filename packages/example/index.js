@@ -23,11 +23,11 @@ const run = async () => {
     const deployed = new web3.eth.Contract(ZSC.abi, zsc);
 
     const alice = new Client(web3, deployed, accounts[0]);
-    await alice.initialize();
+    await alice.register();
     await alice.deposit(100);
     await alice.withdraw(10);
     const bob = new Client(web3, deployed, accounts[0]);
-    await bob.initialize();
+    await bob.register();
     alice.friends.add("Bob", bob.account.public());
     await alice.transfer('Bob', 10);
 };

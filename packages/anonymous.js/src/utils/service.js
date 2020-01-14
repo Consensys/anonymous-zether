@@ -5,11 +5,8 @@ class Service {
     constructor() {
         var zether = new ZetherProver();
         var burn = new BurnProver();
-        // this class is sort of useless? revisit it.
 
-        this.proveTransfer = (CLn, CRn, C, D, y, epoch, sk, r, bTransfer, bDiff, index) => { // no longer async.
-            // CLn, CRn, Y, x are "live" (point, BN etc)
-            // epoch, bTransfer, bDiff, index are "plain / primitive" JS types.
+        this.proveTransfer = (CLn, CRn, C, D, y, epoch, sk, r, bTransfer, bDiff, index) => {
             var statement = {};
             statement['CLn'] = CLn;
             statement['CRn'] = CRn;

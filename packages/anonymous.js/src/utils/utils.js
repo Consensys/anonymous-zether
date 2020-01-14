@@ -1,17 +1,14 @@
 const bn128 = require('./bn128.js')
 const BN = require('bn.js')
+const ABICoder = require('web3-eth-abi');
 const { soliditySha3 } = require('web3-utils');
 
 const utils = {};
 
-utils.determinePublicKey = (x) => {
-    return bn128.serialize(bn128.curve.g.mul(x));
-}
-
 // no "start" parameter for now.
 // CL and CR are "flat", x is a BN.
 utils.readBalance = (CL, CR, x) => {
-    var gB = CL.add(CR.mul(x.neg()));
+    var gB = CL.add(CR.mul(x.redNeg()));
 
     var accumulator = bn128.zero;
     for (var i = 0; i < bn128.B_MAX; i++) {
@@ -22,9 +19,26 @@ utils.readBalance = (CL, CR, x) => {
     }
 };
 
+utils.sign = (address, keypair) => {
+    var k = bn128.randomScalar();
+    var K = bn128.curve.g.mul(k);
+    var c = utils.hash(ABICoder.encodeParameters([
+        'address',
+        'bytes32[2]',
+        'bytes32[2]',
+    ], [
+        address,
+        keypair['y'],
+        bn128.serialize(K),
+    ]));
+
+    var s = c.redMul(keypair['x']).redAdd(k);
+    return [bn128.bytes(c), bn128.bytes(s)];
+}
+
 utils.createAccount = () => {
     var x = bn128.randomScalar();
-    var y = utils.determinePublicKey(x);
+    var y = bn128.serialize(bn128.curve.g.mul(x));
     return { 'x': x, 'y': y };
 };
 
@@ -49,8 +63,8 @@ utils.u = (epoch, x) => {
     return utils.gEpoch(epoch).mul(x);
 };
 
-utils.hash = (...args) => { // ags are serialized
-    return new BN(soliditySha3(...args).slice(2), 16).toRed(bn128.q);
+utils.hash = (encoded) => { // ags are serialized
+    return new BN(soliditySha3(encoded).slice(2), 16).toRed(bn128.q);
 };
 
 module.exports = utils;
