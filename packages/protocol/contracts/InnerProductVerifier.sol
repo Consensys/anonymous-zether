@@ -29,14 +29,6 @@ contract InnerProductVerifier {
         return verify(statement, proof, salt);
     }
 
-    function g() external pure returns (Utils.G1Point memory) {
-        return Utils.G1Point(0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4, 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875);
-    }
-
-    function h() external pure returns (Utils.G1Point memory) {
-        return Utils.G1Point(0x01b7de3dcf359928dd19f643d54dc487478b68a5b2634f9f1903c9fb78331aef, 0x2bda7d3ae6a557c716477c108be0d0f94abc6c4dc6b1bd93caccbcceaaa71d6b);
-    }
-
     function gs(uint256 i) public pure returns (Utils.G1Point memory result) {
         if (i == 0) return Utils.G1Point(0x0d1fff31f8dfb29333568b00628a0f92a752e8dee420dfede1be731810a807b9, 0x06c3001c74387dae9deddc75b76959ef5f98f1be48b0d9fc8ff6d7d76106b41b);
         if (i == 1) return Utils.G1Point(0x06e1b58cb1420e3d12020c5be2c4e48955efc64310ab10002164d0e2a767018e, 0x229facdebea78bd67f5b332bcdab7d692d0c4b18d77e92a8b3ffaee450c797c7);

@@ -3,8 +3,8 @@ pragma experimental ABIEncoderV2;
 
 library Utils {
 
-    uint256 constant GROUP_ORDER = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-    uint256 constant FIELD_ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 constant GROUP_ORDER = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
+    uint256 constant FIELD_ORDER = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
 
     function add(uint256 x, uint256 y) internal pure returns (uint256) {
         return addmod(x, y, GROUP_ORDER);
@@ -65,8 +65,8 @@ library Utils {
     }
 
     struct G1Point {
-        uint256 x;
-        uint256 y;
+        bytes32 x;
+        bytes32 y;
     }
 
     function add(G1Point memory p1, G1Point memory p2) internal view returns (G1Point memory r) {
@@ -95,11 +95,19 @@ library Utils {
     }
 
     function neg(G1Point memory p) internal pure returns (G1Point memory) {
-        return G1Point(p.x, FIELD_ORDER - (p.y % FIELD_ORDER)); // p.y should already be reduced mod P?
+        return G1Point(p.x, bytes32(FIELD_ORDER - uint256(p.y))); // p.y should already be reduced mod P?
     }
 
     function eq(G1Point memory p1, G1Point memory p2) internal pure returns (bool) {
         return p1.x == p2.x && p1.y == p2.y;
+    }
+
+    function g() internal pure returns (G1Point memory) {
+        return G1Point(0x077da99d806abd13c9f15ece5398525119d11e11e9836b2ee7d23f6159ad87d4, 0x01485efa927f2ad41bff567eec88f32fb0a0f706588b4e41a8d587d008b7f875);
+    }
+
+    function h() internal pure returns (G1Point memory) {
+        return G1Point(0x01b7de3dcf359928dd19f643d54dc487478b68a5b2634f9f1903c9fb78331aef, 0x2bda7d3ae6a557c716477c108be0d0f94abc6c4dc6b1bd93caccbcceaaa71d6b);
     }
 
     function mapInto(uint256 seed) internal view returns (G1Point memory) {
@@ -112,7 +120,7 @@ library Utils {
             }
             seed += 1;
         }
-        return G1Point(seed, y);
+        return G1Point(bytes32(seed), bytes32(y));
     }
 
     function mapInto(string memory input) internal view returns (G1Point memory) {
@@ -123,7 +131,7 @@ library Utils {
         return mapInto(uint256(keccak256(abi.encodePacked(input, i))) % FIELD_ORDER);
     }
 
-    function slice(bytes memory input, uint256 start) internal pure returns (uint256 result) { // extracts exactly 32 bytes
+    function slice(bytes memory input, uint256 start) internal pure returns (bytes32 result) {
         assembly {
             let m := mload(0x40)
             mstore(m, mload(add(add(input, 0x20), start))) // why only 0x20?

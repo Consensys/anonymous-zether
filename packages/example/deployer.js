@@ -13,7 +13,7 @@ class Deployer {
         this.deployInnerProductVerifier = () => {
             const contract = new web3.eth.Contract(InnerProductVerifier.abi);
             return new Promise((resolve, reject) => {
-                contract.deploy({ data: InnerProductVerifier.bytecode }).send({ from: accounts[0], gas: 4700000 })
+                contract.deploy({ data: InnerProductVerifier.bytecode }).send({ from: accounts[0], gas: 8000000 })
                     .on("receipt", (receipt) => {
                         console.log("Inner product verifier mined (address = \"" + receipt.contractAddress + "\").");
                         resolve(receipt);
