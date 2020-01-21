@@ -110,13 +110,13 @@ contract ZSC {
             require(registered(yHash), "Account not yet registered.");
             rollOver(yHash);
             Utils.G1Point[2] memory scratch = pending[yHash];
-            pending[yHash][0] = scratch[0].add(C[i].neg());
-            pending[yHash][1] = scratch[1].add(D.neg());
+            pending[yHash][0] = scratch[0].add(C[i]);
+            pending[yHash][1] = scratch[1].add(D);
             // pending[yHash] = scratch; // can't do this, so have to use 2 sstores _anyway_ (as in above)
 
             scratch = acc[yHash];
-            CLn[i] = scratch[0].add(C[i].neg());
-            CRn[i] = scratch[1].add(D.neg());
+            CLn[i] = scratch[0].add(C[i]);
+            CRn[i] = scratch[1].add(D);
         }
 
         bytes32 uHash = keccak256(abi.encode(u));

@@ -323,7 +323,7 @@
   },
   "networks": {},
   "schemaVersion": "3.0.19",
-  "updatedAt": "2020-01-15T21:30:37.296Z",
+  "updatedAt": "2020-01-20T00:39:17.589Z",
   "devdoc": {
     "methods": {
       "allowance(address,address)": {

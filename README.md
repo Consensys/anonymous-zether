@@ -2,7 +2,7 @@
 
 # Anonymous Zether
 
-This is a private payment system, an _anonymous_ extension of Bünz, Agrawal, Zamani and Boneh's [Zether protocol](https://crypto.stanford.edu/~buenz/papers/zether.pdf).
+This is a private payment system, an _anonymous_ extension of Bünz, Agrawal, Zamani and Boneh's [Zether protocol](https://eprint.iacr.org/2019/191.pdf).
 
 The authors sketch an anonymous extension in their original manuscript. We develop an explicit proof protocol for this extension, described in the technical paper [AnonZether.pdf](docs/AnonZether.pdf). We also fully implement this anonymous protocol (including verification contracts and a client / front-end with its own proof generator).
 
@@ -12,13 +12,13 @@ Anonymous Zether is an private value-tracking system, in which an Ethereum smart
 
 To enhance their privacy, users should conduct as much business as possible within the ZSC.
 
-The (anonymous) Zether Smart Contract operates roughly as follows (see the [original Zether paper](https://crypto.stanford.edu/~buenz/papers/zether.pdf) for more details). Each account consists of an ElGamal ciphertext, which encrypts the account's balance under its own public key. To send funds, Alice publishes an ordered list of public keys—which contains herself and the recipient, among other arbitrarily chosen parties—together with a corresponding list of ElGamal ciphertexts, which respectively encrypt (under the appropriate public keys) the amounts by which Alice intends to adjust these various accounts' balances. The ZSC applies these adjustments using the homomomorphic property of ElGamal encryption (with "message in the exponent"). Alice finally publishes a zero-knowledge proof which asserts that she knows her own secret key, that she owns enough to cover her deduction, that she deducted funds only from herself, and credited them only to Bob (and by the same amount she debited, no less); she of course also demonstrates that she did not alter those balances other than her own and Bob's. These adjustment ciphertexts—opaque to any outside observer—conceal who sent funds to whom, and how much was sent.
+The (anonymous) Zether Smart Contract operates roughly as follows (see the [original Zether paper](https://eprint.iacr.org/2019/191.pdf) for more details). Each account consists of an ElGamal ciphertext, which encrypts the account's balance under its own public key. To send funds, Alice publishes an ordered list of public keys—which contains herself and the recipient, among other arbitrarily chosen parties—together with a corresponding list of ElGamal ciphertexts, which respectively encrypt (under the appropriate public keys) the amounts by which Alice intends to adjust these various accounts' balances. The ZSC applies these adjustments using the homomomorphic property of ElGamal encryption (with "message in the exponent"). Alice finally publishes a zero-knowledge proof which asserts that she knows her own secret key, that she owns enough to cover her deduction, that she deducted funds only from herself, and credited them only to Bob (and by the same amount she debited, no less); she of course also demonstrates that she did not alter those balances other than her own and Bob's. These adjustment ciphertexts—opaque to any outside observer—conceal who sent funds to whom, and how much was sent.
 
 Users need _never_ interact directly with the ZSC; rather, our front-end client streamlines its use.
 
-Our theoretical contribution is a zero-knowledge proof protocol for the anonymous transfer statement (8) of [Bünz, et al.](https://crypto.stanford.edu/~buenz/papers/zether.pdf), which moreover has appealing asymptotic performance characteristics; details on our techniques can be found in our [paper](docs/AnonZether.pdf). We also of course provide this implementation.
+Our theoretical contribution is a zero-knowledge proof protocol for the anonymous transfer statement (8) of [Bünz, et al.](https://eprint.iacr.org/2019/191.pdf), which moreover has appealing asymptotic performance characteristics; details on our techniques can be found in our [paper](docs/AnonZether.pdf). We also of course provide this implementation.
 
-Anonymous Zether is feasible for mainnet use, as of [EIP-1108](https://eips.ethereum.org/EIPS/eip-1108). With that said, _funding_ throwaway accounts (i.e., to pay for gas) represents a privacy challenge (as discussed in the [original Zether paper](https://crypto.stanford.edu/~buenz/papers/zether.pdf)). We don't yet endorse Anonymous Zether for use on the mainnet.
+Anonymous Zether is feasible for mainnet use, as of [EIP-1108](https://eips.ethereum.org/EIPS/eip-1108). With that said, _funding_ throwaway accounts (i.e., to pay for gas) represents a privacy challenge (as discussed in the [original Zether paper](https://eprint.iacr.org/2019/191.pdf)). We don't yet endorse Anonymous Zether for use on the mainnet.
 
 ## Quickstart
 

@@ -44,7 +44,7 @@ class Client {
                                         inputs = element['inputs'];
                                 });
                                 var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
-                                var value = utils.readBalance(bn128.unserialize(parameters['C'][i]).neg(), bn128.unserialize(parameters['D']).neg(), account.keypair['x']);
+                                var value = utils.readBalance(parameters['C'][i], parameters['D'], account.keypair['x']);
                                 if (value > 0) {
                                     account._state.pending += value;
                                     console.log("Transfer of " + value + " received! Balance now " + (account._state.available + account._state.pending) + ".");
@@ -150,7 +150,7 @@ class Client {
                             zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
                                 .then((result) => {
                                     var simulated = result[0];
-                                    that.account._state.available = utils.readBalance(bn128.unserialize(simulated[0]), bn128.unserialize(simulated[1]), x);
+                                    that.account._state.available = utils.readBalance(simulated[0], simulated[1], x);
                                     console.log("Account recovered successfully.");
                                     resolve(); // warning: won't register you. assuming you registered when you first created the account.
                                 });
@@ -262,10 +262,10 @@ class Client {
                         if (unserialized.some((account) => account[0].eq(bn128.zero) && account[1].eq(bn128.zero)))
                             return reject(new Error("Please make sure all parties (including decoys) are registered.")); // todo: better error message, i.e., which friend?
                         var r = bn128.randomScalar();
-                        var C = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(value) : i == index[1] ? new BN(-value) : new BN(0)).add(bn128.unserialize(party).mul(r)));
+                        var C = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.unserialize(party).mul(r)));
                         var D = bn128.curve.g.mul(r);
-                        var CLn = unserialized.map((account, i) => bn128.serialize(account[0].add(C[i].neg())));
-                        var CRn = unserialized.map((account) => bn128.serialize(account[1].add(D.neg())));
+                        var CLn = unserialized.map((account, i) => bn128.serialize(account[0].add(C[i])));
+                        var CRn = unserialized.map((account) => bn128.serialize(account[1].add(D)));
                         C = C.map(bn128.serialize);
                         D = bn128.serialize(D);
                         var proof = service.proveTransfer(CLn, CRn, C, D, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);

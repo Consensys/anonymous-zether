@@ -13,20 +13,16 @@ class BurnProof {
             result += bn128.representation(this.BA).slice(2);
             result += bn128.representation(this.BS).slice(2);
 
-            result += bn128.representation(this.CLnPrime).slice(2);
-            result += bn128.representation(this.CRnPrime).slice(2);
-
             this.tCommits.getVector().forEach((commit) => {
                 result += bn128.representation(commit).slice(2);
             });
             result += bn128.bytes(this.tHat).slice(2);
-            result += bn128.bytes(this.tauX).slice(2);
             result += bn128.bytes(this.mu).slice(2);
 
             result += bn128.bytes(this.c).slice(2);
             result += bn128.bytes(this.s_sk).slice(2);
-            result += bn128.bytes(this.s_vDiff).slice(2);
-            result += bn128.bytes(this.s_nuDiff).slice(2);
+            result += bn128.bytes(this.s_b).slice(2);
+            result += bn128.bytes(this.s_tau).slice(2);
 
             result += this.ipProof.serialize().slice(2);
 
@@ -73,23 +69,14 @@ class BurnProver {
             var rho = bn128.randomScalar(); // already reduced
             proof.BS = params.commit(rho, sL, sR);
 
-            var gammaDiff = bn128.randomScalar();
-            var zetaDiff = bn128.randomScalar();
-            proof.CLnPrime = params.getH().mul(gammaDiff).add(statement['y'].mul(zetaDiff));
-            proof.CRnPrime = params.getG().mul(zetaDiff);
-
             var y = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
-                'bytes32[2]',
-                'bytes32[2]',
                 'bytes32[2]',
                 'bytes32[2]',
             ], [
                 bn128.bytes(statementHash),
                 bn128.serialize(proof.BA),
                 bn128.serialize(proof.BS),
-                bn128.serialize(proof.CLnPrime),
-                bn128.serialize(proof.CRnPrime),
             ]));
 
             var ys = [new BN(1).toRed(bn128.q)];
@@ -107,7 +94,7 @@ class BurnProver {
             var lPoly = new FieldVectorPolynomial(aL.plus(z.redNeg()), sL);
             var rPoly = new FieldVectorPolynomial(ys.hadamard(aR.plus(z)).add(twoTimesZs), sR.hadamard(ys));
             var tPolyCoefficients = lPoly.innerProduct(rPoly); // just an array of BN Reds... should be length 3
-            var polyCommitment = new PolyCommitment(params, tPolyCoefficients, zs[0].redMul(gammaDiff));
+            var polyCommitment = new PolyCommitment(params, tPolyCoefficients);
             proof.tCommits = new GeneratorVector(polyCommitment.getCommitments()); // just 2 of them
 
             var x = utils.hash(ABICoder.encodeParameters([
@@ -121,18 +108,17 @@ class BurnProver {
 
             var evalCommit = polyCommitment.evaluate(x);
             proof.tHat = evalCommit.getX();
-            proof.tauX = evalCommit.getR();
+            var tauX = evalCommit.getR();
             proof.mu = alpha.redAdd(rho.redMul(x));
 
             var k_sk = bn128.randomScalar();
-            var k_vDiff = bn128.randomScalar(); // v "corresponds to" b
-            var k_nuDiff = bn128.randomScalar(); // nu "corresponds to" gamma
+            var k_b = bn128.randomScalar();
+            var k_tau = bn128.randomScalar();
 
             var A_y = params.getG().mul(k_sk);
+            var A_b = params.getG().mul(k_b).add(statement['CRn'].mul(zs[0]).mul(k_sk));
+            var A_t = params.getG().mul(k_b.redNeg()).add(params.getH().mul(k_tau));
             var A_u = utils.gEpoch(statement['epoch']).mul(k_sk);
-            var A_t = statement['CRn'].add(proof.CRnPrime).mul(zs[0]).mul(k_sk);
-            var A_CLn = params.getG().mul(k_vDiff).add(statement['CRn'].mul(k_sk));
-            var A_CLnPrime = params.getH().mul(k_nuDiff).add(proof.CRnPrime.mul(k_sk));
 
             proof.c = utils.hash(ABICoder.encodeParameters([
                 'bytes32',
@@ -140,19 +126,17 @@ class BurnProver {
                 'bytes32[2]',
                 'bytes32[2]',
                 'bytes32[2]',
-                'bytes32[2]',
             ], [
                 bn128.bytes(x),
                 bn128.serialize(A_y),
-                bn128.serialize(A_u),
+                bn128.serialize(A_b),
                 bn128.serialize(A_t),
-                bn128.serialize(A_CLn),
-                bn128.serialize(A_CLnPrime),
+                bn128.serialize(A_u),
             ]));
 
             proof.s_sk = k_sk.redAdd(proof.c.redMul(witness['sk']));
-            proof.s_vDiff = k_vDiff.redAdd(proof.c.redMul(witness['bDiff']));
-            proof.s_nuDiff = k_nuDiff.redAdd(proof.c.redMul(gammaDiff));
+            proof.s_b = k_b.redAdd(proof.c.redMul(witness['bDiff'].redMul(zs[0])));
+            proof.s_tau = k_tau.redAdd(proof.c.redMul(tauX));
 
             var gs = params.getGs();
             var hPrimes = params.getHs().hadamard(ys.invert());

@@ -24,18 +24,14 @@ contract BurnVerifier {
         Utils.G1Point BA;
         Utils.G1Point BS;
 
-        Utils.G1Point CLnPrime;
-        Utils.G1Point CRnPrime;
-
         Utils.G1Point[2] tCommits;
         uint256 tHat;
-        uint256 tauX;
         uint256 mu;
 
         uint256 c;
         uint256 s_sk;
-        uint256 s_vDiff;
-        uint256 s_nuDiff;
+        uint256 s_b;
+        uint256 s_tau;
 
         InnerProductVerifier.InnerProductProof ipProof;
     }
@@ -75,12 +71,10 @@ contract BurnVerifier {
     struct SigmaAuxiliaries {
         uint256 c;
         Utils.G1Point A_y;
+        Utils.G1Point A_b;
+        Utils.G1Point A_t;
         Utils.G1Point gEpoch;
         Utils.G1Point A_u;
-        Utils.G1Point c_commit;
-        Utils.G1Point A_t;
-        Utils.G1Point A_CLn;
-        Utils.G1Point A_CLnPrime;
     }
 
     struct IPAuxiliaries {
@@ -99,7 +93,7 @@ contract BurnVerifier {
         uint256 statementHash = uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.y, statement.bTransfer, statement.epoch, statement.sender))).mod(); // stacktoodeep?
 
         BurnAuxiliaries memory burnAuxiliaries;
-        burnAuxiliaries.y = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.CLnPrime, proof.CRnPrime))).mod();
+        burnAuxiliaries.y = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS))).mod();
         burnAuxiliaries.ys[0] = 1;
         burnAuxiliaries.k = 1;
         for (uint256 i = 1; i < 32; i++) {
@@ -120,14 +114,12 @@ contract BurnVerifier {
 
         SigmaAuxiliaries memory sigmaAuxiliaries;
         sigmaAuxiliaries.A_y = Utils.g().mul(proof.s_sk).add(statement.y.mul(proof.c.neg()));
+        sigmaAuxiliaries.A_b = Utils.g().mul(proof.s_b).add(statement.CRn.mul(proof.s_sk).add(statement.CLn.mul(proof.c.neg())).mul(burnAuxiliaries.zs[0]));
+        sigmaAuxiliaries.A_t = Utils.g().mul(burnAuxiliaries.t).add(burnAuxiliaries.tEval.neg()).mul(proof.c).add(Utils.h().mul(proof.s_tau)).add(Utils.g().mul(proof.s_b.neg()));
         sigmaAuxiliaries.gEpoch = Utils.mapInto("Zether", statement.epoch);
         sigmaAuxiliaries.A_u = sigmaAuxiliaries.gEpoch.mul(proof.s_sk).add(statement.u.mul(proof.c.neg()));
-        sigmaAuxiliaries.c_commit = statement.CRn.add(proof.CRnPrime).mul(proof.s_sk).add(statement.CLn.add(proof.CLnPrime).mul(proof.c.neg())).mul(burnAuxiliaries.zs[0]);
-        sigmaAuxiliaries.A_t = Utils.g().mul(burnAuxiliaries.t).add(Utils.h().mul(proof.tauX)).add(burnAuxiliaries.tEval.neg()).mul(proof.c).add(sigmaAuxiliaries.c_commit);
-        sigmaAuxiliaries.A_CLn = Utils.g().mul(proof.s_vDiff).add(statement.CRn.mul(proof.s_sk).add(statement.CLn.mul(proof.c.neg())));
-        sigmaAuxiliaries.A_CLnPrime = Utils.h().mul(proof.s_nuDiff).add(proof.CRnPrime.mul(proof.s_sk).add(proof.CLnPrime.mul(proof.c.neg())));
 
-        sigmaAuxiliaries.c = uint256(keccak256(abi.encode(burnAuxiliaries.x, sigmaAuxiliaries.A_y, sigmaAuxiliaries.A_u, sigmaAuxiliaries.A_t, sigmaAuxiliaries.A_CLn, sigmaAuxiliaries.A_CLnPrime))).mod();
+        sigmaAuxiliaries.c = uint256(keccak256(abi.encode(burnAuxiliaries.x, sigmaAuxiliaries.A_y, sigmaAuxiliaries.A_b, sigmaAuxiliaries.A_t, sigmaAuxiliaries.A_u))).mod();
         require(sigmaAuxiliaries.c == proof.c, "Sigma protocol challenge equality failure.");
 
         IPAuxiliaries memory ipAuxiliaries;
@@ -150,28 +142,24 @@ contract BurnVerifier {
         proof.BA = Utils.G1Point(Utils.slice(arr, 0), Utils.slice(arr, 32));
         proof.BS = Utils.G1Point(Utils.slice(arr, 64), Utils.slice(arr, 96));
 
-        proof.CLnPrime = Utils.G1Point(Utils.slice(arr, 128), Utils.slice(arr, 160));
-        proof.CRnPrime = Utils.G1Point(Utils.slice(arr, 192), Utils.slice(arr, 224));
+        proof.tCommits = [Utils.G1Point(Utils.slice(arr, 128), Utils.slice(arr, 160)), Utils.G1Point(Utils.slice(arr, 192), Utils.slice(arr, 224))];
+        proof.tHat = uint256(Utils.slice(arr, 256));
+        proof.mu = uint256(Utils.slice(arr, 288));
 
-        proof.tCommits = [Utils.G1Point(Utils.slice(arr, 256), Utils.slice(arr, 288)), Utils.G1Point(Utils.slice(arr, 320), Utils.slice(arr, 352))];
-        proof.tHat = uint256(Utils.slice(arr, 384));
-        proof.tauX = uint256(Utils.slice(arr, 416));
-        proof.mu = uint256(Utils.slice(arr, 448));
-
-        proof.c = uint256(Utils.slice(arr, 480));
-        proof.s_sk = uint256(Utils.slice(arr, 512));
-        proof.s_vDiff = uint256(Utils.slice(arr, 544));
-        proof.s_nuDiff = uint256(Utils.slice(arr, 576));
+        proof.c = uint256(Utils.slice(arr, 320));
+        proof.s_sk = uint256(Utils.slice(arr, 352));
+        proof.s_b = uint256(Utils.slice(arr, 384));
+        proof.s_tau = uint256(Utils.slice(arr, 416));
 
         InnerProductVerifier.InnerProductProof memory ipProof;
         ipProof.ls = new Utils.G1Point[](5);
         ipProof.rs = new Utils.G1Point[](5);
         for (uint256 i = 0; i < 5; i++) { // 2^5 = 32.
-            ipProof.ls[i] = Utils.G1Point(Utils.slice(arr, 608 + i * 64), Utils.slice(arr, 640 + i * 64));
-            ipProof.rs[i] = Utils.G1Point(Utils.slice(arr, 608 + (5 + i) * 64), Utils.slice(arr, 640 + (5 + i) * 64));
+            ipProof.ls[i] = Utils.G1Point(Utils.slice(arr, 448 + i * 64), Utils.slice(arr, 480 + i * 64));
+            ipProof.rs[i] = Utils.G1Point(Utils.slice(arr, 448 + (5 + i) * 64), Utils.slice(arr, 480 + (5 + i) * 64));
         }
-        ipProof.a = uint256(Utils.slice(arr, 608 + 5 * 128));
-        ipProof.b = uint256(Utils.slice(arr, 640 + 5 * 128));
+        ipProof.a = uint256(Utils.slice(arr, 448 + 5 * 128));
+        ipProof.b = uint256(Utils.slice(arr, 480 + 5 * 128));
         proof.ipProof = ipProof;
 
         return proof;

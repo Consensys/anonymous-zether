@@ -29,7 +29,7 @@ contract InnerProductVerifier {
         return verify(statement, proof, salt);
     }
 
-    function gs(uint256 i) public pure returns (Utils.G1Point memory result) {
+    function gs(uint256 i) public pure returns (Utils.G1Point memory) {
         if (i == 0) return Utils.G1Point(0x0d1fff31f8dfb29333568b00628a0f92a752e8dee420dfede1be731810a807b9, 0x06c3001c74387dae9deddc75b76959ef5f98f1be48b0d9fc8ff6d7d76106b41b);
         if (i == 1) return Utils.G1Point(0x06e1b58cb1420e3d12020c5be2c4e48955efc64310ab10002164d0e2a767018e, 0x229facdebea78bd67f5b332bcdab7d692d0c4b18d77e92a8b3ffaee450c797c7);
         if (i == 2) return Utils.G1Point(0x22f32c65b43f3e770b793ea6e31c85d1aea2c41ea3204fc08a036004e5adef3a, 0x1d63e3737f864f05f62e2be0a6b7528b76cdabcda9703edc304c015480fb5543);
