@@ -44,13 +44,11 @@ class BurnProver {
                 'bytes32[2]',
                 'bytes32[2]',
                 'uint256',
-                'uint256',
                 'address',
             ], [
                 statement['CLn'],
                 statement['CRn'],
                 statement['y'],
-                statement['bTransfer'],
                 statement['epoch'],
                 statement['sender'],
             ])); // useless to break this out up top. "psychologically" easier

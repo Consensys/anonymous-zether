@@ -14,7 +14,6 @@ contract BurnVerifier {
         Utils.G1Point CLn;
         Utils.G1Point CRn;
         Utils.G1Point y;
-        uint256 bTransfer;
         uint256 epoch; // or uint8?
         address sender;
         Utils.G1Point u;
@@ -40,14 +39,13 @@ contract BurnVerifier {
         ip = InnerProductVerifier(_ip);
     }
 
-    function verifyBurn(Utils.G1Point memory CLn, Utils.G1Point memory CRn, Utils.G1Point memory y, uint256 bTransfer, uint256 epoch, Utils.G1Point memory u, address sender, bytes memory proof) public view returns (bool) {
+    function verifyBurn(Utils.G1Point memory CLn, Utils.G1Point memory CRn, Utils.G1Point memory y, uint256 epoch, Utils.G1Point memory u, address sender, bytes memory proof) public view returns (bool) {
         BurnStatement memory statement; // WARNING: if this is called directly in the console,
         // and your strings are less than 64 characters, they will be padded on the right, not the left. should hopefully not be an issue,
         // as this will typically be called simply by the other contract. still though, beware
         statement.CLn = CLn;
         statement.CRn = CRn;
         statement.y = y;
-        statement.bTransfer = bTransfer;
         statement.epoch = epoch;
         statement.u = u;
         statement.sender = sender;
@@ -90,7 +88,7 @@ contract BurnVerifier {
     }
 
     function verify(BurnStatement memory statement, BurnProof memory proof) internal view returns (bool) {
-        uint256 statementHash = uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.y, statement.bTransfer, statement.epoch, statement.sender))).mod(); // stacktoodeep?
+        uint256 statementHash = uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.y, statement.epoch, statement.sender))).mod(); // stacktoodeep?
 
         BurnAuxiliaries memory burnAuxiliaries;
         burnAuxiliaries.y = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS))).mod();

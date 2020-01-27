@@ -147,7 +147,7 @@ contract ZSC {
         }
         nonceSet.push(uHash);
 
-        require(burnverifier.verifyBurn(scratch[0], scratch[1], y, bTransfer, lastGlobalUpdate, u, msg.sender, proof), "Burn proof verification failed!");
+        require(burnverifier.verifyBurn(scratch[0], scratch[1], y, lastGlobalUpdate, u, msg.sender, proof), "Burn proof verification failed!");
         require(coin.transfer(msg.sender, bTransfer), "This shouldn't fail... Something went severely wrong.");
     }
 }

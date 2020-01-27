@@ -323,7 +323,7 @@ class Client {
                         var simulated = result[0];
                         var CLn = bn128.serialize(bn128.unserialize(simulated[0]).add(bn128.curve.g.mul(new BN(-value))));
                         var CRn = simulated[1];
-                        var proof = service.proveBurn(CLn, CRn, account.keypair['y'], value, state.lastRollOver, home, account.keypair['x'], state.available - value);
+                        var proof = service.proveBurn(CLn, CRn, account.keypair['y'], state.lastRollOver, home, account.keypair['x'], state.available - value);
                         var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
                         zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 54700000 })
                             .on('transactionHash', (hash) => {

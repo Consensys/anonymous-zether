@@ -25,12 +25,11 @@ class Service {
             return zether.generateProof(statement, witness).serialize();
         }
 
-        this.proveBurn = (CLn, CRn, y, bTransfer, epoch, sender, sk, bDiff) => {
+        this.proveBurn = (CLn, CRn, y, epoch, sender, sk, bDiff) => {
             var statement = {};
             statement['CLn'] = CLn;
             statement['CRn'] = CRn;
             statement['y'] = y;
-            statement['bTransfer'] = bTransfer;
             statement['epoch'] = epoch;
             statement['sender'] = sender;
 
