@@ -130,13 +130,13 @@ class Client {
                         that._epochLength = result;
                         if (secret === undefined) {
                             var keypair = utils.createAccount();
-                            that.account.keypair = keypair;
                             var [c, s] = utils.sign(zsc._address, keypair);
                             zsc.methods.register(keypair['y'], c, s).send({ from: home, gas: 5470000 })
                                 .on('transactionHash', (hash) => {
                                     console.log("Registration submitted (txHash = \"" + hash + "\").");
                                 })
                                 .on('receipt', (receipt) => {
+                                    that.account.keypair = keypair;
                                     console.log("Registration successful.");
                                     resolve(receipt);
                                 })
@@ -161,7 +161,7 @@ class Client {
 
         this.deposit = (value) => {
             if (this.account.keypair === undefined)
-                throw "Client's account is not yet initialized!";
+                throw "Client's account is not yet registered!";
             var account = this.account;
             console.log("Initiating deposit.");
             return new Promise((resolve, reject) => {
@@ -192,7 +192,7 @@ class Client {
 
         this.transfer = (name, value, decoys) => {
             if (this.account.keypair === undefined)
-                throw "Client's account is not yet initialized!";
+                throw "Client's account is not yet registered!";
             decoys = decoys ? decoys : [];
             var account = this.account;
             var state = account._simulate();
@@ -297,7 +297,7 @@ class Client {
 
         this.withdraw = (value) => {
             if (this.account.keypair === undefined)
-                throw "Client's account is not yet initialized!";
+                throw "Client's account is not yet registered!";
             var account = this.account;
             var state = account._simulate();
             if (value > state.available + state.pending)
