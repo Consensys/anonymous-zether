@@ -1,11 +1,11 @@
 pragma solidity 0.5.4;
 pragma experimental ABIEncoderV2;
 
-import './CashToken.sol';
-import './Utils.sol';
+import "./CashToken.sol";
+import "./Utils.sol";
 import "./InnerProductVerifier.sol";
-import './ZetherVerifier.sol';
-import './BurnVerifier.sol';
+import "./ZetherVerifier.sol";
+import "./BurnVerifier.sol";
 
 contract ZSC {
     using Utils for uint256;
