@@ -149,7 +149,7 @@ class BurnProver {
             ]));
 
             var u_x = params.getG().mul(o); // Begin Protocol 1. this is u^x in Protocol 1. use our g for their u, our o for their x.
-            var P = P.add(u_x.mul(proof.tHat)); // corresponds to P' in protocol 1.
+            P = P.add(u_x.mul(proof.tHat)); // corresponds to P' in protocol 1.
             var primeBase = new GeneratorParams(u_x, gs, hPrimes);
             var ipStatement = { 'primeBase': primeBase, 'P': P };
             var ipWitness = { 'l': lPoly.evaluate(x), 'r': rPoly.evaluate(x) };
