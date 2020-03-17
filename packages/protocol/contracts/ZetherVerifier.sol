@@ -27,10 +27,6 @@ contract ZetherVerifier {
         Utils.G1Point BS;
         Utils.G1Point A;
         Utils.G1Point B;
-        Utils.G1Point C;
-        Utils.G1Point D;
-        Utils.G1Point E;
-        Utils.G1Point F;
 
         Utils.G1Point[] CLnG;
         Utils.G1Point[] CRnG;
@@ -136,7 +132,7 @@ contract ZetherVerifier {
         uint256 statementHash = uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.C, statement.D, statement.y, statement.epoch))).mod();
 
         AnonAuxiliaries memory anonAuxiliaries;
-        anonAuxiliaries.v = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.A, proof.B, proof.C, proof.D, proof.E, proof.F))).mod();
+        anonAuxiliaries.v = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.A, proof.B))).mod();
         anonAuxiliaries.w = uint256(keccak256(abi.encode(anonAuxiliaries.v, proof.CLnG, proof.CRnG, proof.C_0G, proof.DG, proof.y_0G, proof.gG, proof.C_XG, proof.y_XG))).mod();
         anonAuxiliaries.m = proof.f.length / 2;
         anonAuxiliaries.N = 2 ** anonAuxiliaries.m;
@@ -148,17 +144,10 @@ contract ZetherVerifier {
 
         for (uint256 k = 0; k < 2 * anonAuxiliaries.m; k++) {
             anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.gs(k).mul(anonAuxiliaries.f[k][1]));
+            anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.gs(k + 2 * anonAuxiliaries.m).mul(anonAuxiliaries.f[k][1].mul(anonAuxiliaries.w.sub(anonAuxiliaries.f[k][1]))));
         }
+        anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.gs(4 * anonAuxiliaries.m).mul(anonAuxiliaries.f[0][1].mul(anonAuxiliaries.f[anonAuxiliaries.m][1])).add(ip.gs(1 + 4 * anonAuxiliaries.m).mul(anonAuxiliaries.f[0][0].mul(anonAuxiliaries.f[anonAuxiliaries.m][0]))));
         require(proof.B.mul(anonAuxiliaries.w).add(proof.A).eq(anonAuxiliaries.temp.add(Utils.h().mul(proof.z_A))), "Recovery failure for B^w * A.");
-
-        anonAuxiliaries.temp = Utils.G1Point(0, 0);
-        for (uint256 k = 0; k < 2 * anonAuxiliaries.m; k++) {
-            anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.gs(k).mul(anonAuxiliaries.f[k][1].mul(anonAuxiliaries.w.sub(anonAuxiliaries.f[k][1]))));
-        }
-        require(proof.C.mul(anonAuxiliaries.w).add(proof.D).eq(anonAuxiliaries.temp.add(Utils.h().mul(proof.z_C))), "Recovery failure for C^w * D.");
-
-        anonAuxiliaries.temp = ip.gs(0).mul(anonAuxiliaries.f[0][1].mul(anonAuxiliaries.f[anonAuxiliaries.m][1])).add(ip.gs(1).mul(anonAuxiliaries.f[0][0].mul(anonAuxiliaries.f[anonAuxiliaries.m][0])));
-        require(proof.F.mul(anonAuxiliaries.w).add(proof.E).eq(anonAuxiliaries.temp.add(Utils.h().mul(proof.z_E))), "Recovery failure for F^w * E.");
 
         anonAuxiliaries.r = assemblePolynomials(anonAuxiliaries.f);
 
@@ -368,12 +357,8 @@ contract ZetherVerifier {
         proof.BS = Utils.G1Point(Utils.slice(arr, 64), Utils.slice(arr, 96));
         proof.A = Utils.G1Point(Utils.slice(arr, 128), Utils.slice(arr, 160));
         proof.B = Utils.G1Point(Utils.slice(arr, 192), Utils.slice(arr, 224));
-        proof.C = Utils.G1Point(Utils.slice(arr, 256), Utils.slice(arr, 288));
-        proof.D = Utils.G1Point(Utils.slice(arr, 320), Utils.slice(arr, 352));
-        proof.E = Utils.G1Point(Utils.slice(arr, 384), Utils.slice(arr, 416));
-        proof.F = Utils.G1Point(Utils.slice(arr, 448), Utils.slice(arr, 480));
 
-        uint256 m = (arr.length - 1792) / 576;
+        uint256 m = (arr.length - 1472) / 576;
         proof.CLnG = new Utils.G1Point[](m);
         proof.CRnG = new Utils.G1Point[](m);
         proof.C_0G = new Utils.G1Point[](m);
@@ -384,41 +369,39 @@ contract ZetherVerifier {
         proof.y_XG = new Utils.G1Point[](m);
         proof.f = new uint256[](2 * m);
         for (uint256 k = 0; k < m; k++) {
-            proof.CLnG[k] = Utils.G1Point(Utils.slice(arr, 512 + k * 64), Utils.slice(arr, 544 + k * 64));
-            proof.CRnG[k] = Utils.G1Point(Utils.slice(arr, 512 + (m + k) * 64), Utils.slice(arr, 544 + (m + k) * 64));
-            proof.C_0G[k] = Utils.G1Point(Utils.slice(arr, 512 + m * 128 + k * 64), Utils.slice(arr, 544 + m * 128 + k * 64));
-            proof.DG[k] = Utils.G1Point(Utils.slice(arr, 512 + m * 192 + k * 64), Utils.slice(arr, 544 + m * 192 + k * 64));
-            proof.y_0G[k] = Utils.G1Point(Utils.slice(arr, 512 + m * 256 + k * 64), Utils.slice(arr, 544 + m * 256 + k * 64));
-            proof.gG[k] = Utils.G1Point(Utils.slice(arr, 512 + m * 320 + k * 64), Utils.slice(arr, 544 + m * 320 + k * 64));
-            proof.C_XG[k] = Utils.G1Point(Utils.slice(arr, 512 + m * 384 + k * 64), Utils.slice(arr, 544 + m * 384 + k * 64));
-            proof.y_XG[k] = Utils.G1Point(Utils.slice(arr, 512 + m * 448 + k * 64), Utils.slice(arr, 544 + m * 448 + k * 64));
-            proof.f[k] = uint256(Utils.slice(arr, 512 + m * 512 + k * 32));
-            proof.f[k + m] = uint256(Utils.slice(arr, 512 + m * 544 + k * 32));
+            proof.CLnG[k] = Utils.G1Point(Utils.slice(arr, 256 + k * 64), Utils.slice(arr, 288 + k * 64));
+            proof.CRnG[k] = Utils.G1Point(Utils.slice(arr, 256 + (m + k) * 64), Utils.slice(arr, 288 + (m + k) * 64));
+            proof.C_0G[k] = Utils.G1Point(Utils.slice(arr, 256 + m * 128 + k * 64), Utils.slice(arr, 288 + m * 128 + k * 64));
+            proof.DG[k] = Utils.G1Point(Utils.slice(arr, 256 + m * 192 + k * 64), Utils.slice(arr, 288 + m * 192 + k * 64));
+            proof.y_0G[k] = Utils.G1Point(Utils.slice(arr, 256 + m * 256 + k * 64), Utils.slice(arr, 288 + m * 256 + k * 64));
+            proof.gG[k] = Utils.G1Point(Utils.slice(arr, 256 + m * 320 + k * 64), Utils.slice(arr, 288 + m * 320 + k * 64));
+            proof.C_XG[k] = Utils.G1Point(Utils.slice(arr, 256 + m * 384 + k * 64), Utils.slice(arr, 288 + m * 384 + k * 64));
+            proof.y_XG[k] = Utils.G1Point(Utils.slice(arr, 256 + m * 448 + k * 64), Utils.slice(arr, 288 + m * 448 + k * 64));
+            proof.f[k] = uint256(Utils.slice(arr, 256 + m * 512 + k * 32));
+            proof.f[k + m] = uint256(Utils.slice(arr, 256 + m * 544 + k * 32));
         }
         uint256 starting = m * 576;
-        proof.z_A = uint256(Utils.slice(arr, 512 + starting));
-        proof.z_C = uint256(Utils.slice(arr, 544 + starting));
-        proof.z_E = uint256(Utils.slice(arr, 576 + starting));
+        proof.z_A = uint256(Utils.slice(arr, 256 + starting));
 
-        proof.tCommits = [Utils.G1Point(Utils.slice(arr, 608 + starting), Utils.slice(arr, 640 + starting)), Utils.G1Point(Utils.slice(arr, 672 + starting), Utils.slice(arr, 704 + starting))];
-        proof.tHat = uint256(Utils.slice(arr, 736 + starting));
-        proof.mu = uint256(Utils.slice(arr, 768 + starting));
+        proof.tCommits = [Utils.G1Point(Utils.slice(arr, 288 + starting), Utils.slice(arr, 320 + starting)), Utils.G1Point(Utils.slice(arr, 352 + starting), Utils.slice(arr, 384 + starting))];
+        proof.tHat = uint256(Utils.slice(arr, 416 + starting));
+        proof.mu = uint256(Utils.slice(arr, 448 + starting));
 
-        proof.c = uint256(Utils.slice(arr, 800 + starting));
-        proof.s_sk = uint256(Utils.slice(arr, 832 + starting));
-        proof.s_r = uint256(Utils.slice(arr, 864 + starting));
-        proof.s_b = uint256(Utils.slice(arr, 896 + starting));
-        proof.s_tau = uint256(Utils.slice(arr, 928 + starting));
+        proof.c = uint256(Utils.slice(arr, 480 + starting));
+        proof.s_sk = uint256(Utils.slice(arr, 512 + starting));
+        proof.s_r = uint256(Utils.slice(arr, 544 + starting));
+        proof.s_b = uint256(Utils.slice(arr, 576 + starting));
+        proof.s_tau = uint256(Utils.slice(arr, 608 + starting));
 
         InnerProductVerifier.InnerProductProof memory ipProof;
         ipProof.ls = new Utils.G1Point[](6);
         ipProof.rs = new Utils.G1Point[](6);
         for (uint256 i = 0; i < 6; i++) { // 2^6 = 64.
-            ipProof.ls[i] = Utils.G1Point(Utils.slice(arr, 960 + starting + i * 64), Utils.slice(arr, 992 + starting + i * 64));
-            ipProof.rs[i] = Utils.G1Point(Utils.slice(arr, 960 + starting + (6 + i) * 64), Utils.slice(arr, 992 + starting + (6 + i) * 64));
+            ipProof.ls[i] = Utils.G1Point(Utils.slice(arr, 640 + starting + i * 64), Utils.slice(arr, 672 + starting + i * 64));
+            ipProof.rs[i] = Utils.G1Point(Utils.slice(arr, 640 + starting + (6 + i) * 64), Utils.slice(arr, 672 + starting + (6 + i) * 64));
         }
-        ipProof.a = uint256(Utils.slice(arr, 960 + starting + 6 * 128));
-        ipProof.b = uint256(Utils.slice(arr, 992 + starting + 6 * 128));
+        ipProof.a = uint256(Utils.slice(arr, 640 + starting + 6 * 128));
+        ipProof.b = uint256(Utils.slice(arr, 672 + starting + 6 * 128));
         proof.ipProof = ipProof;
 
         return proof;
