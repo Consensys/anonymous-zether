@@ -1,5 +1,3 @@
-**WARNING**: The security of this cryptographic protocol has not yet been formally audited. This repository should not be considered suitable for production use.
-
 # Anonymous Zether
 
 This is a private payment system, an _anonymous_ extension of Bünz, Agrawal, Zamani and Boneh's [Zether protocol](https://eprint.iacr.org/2019/191.pdf).
