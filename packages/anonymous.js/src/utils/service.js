@@ -1,44 +1,36 @@
-const ZetherProver = require('../prover/zether.js');
-const BurnProver = require('../prover/burn.js');
+const ZetherProof = require('../prover/zether.js');
+const BurnProof = require('../prover/burn.js');
 
 class Service {
-    constructor() {
-        var zether = new ZetherProver();
-        var burn = new BurnProver();
+    static proveTransfer(Cn, C, y, epoch, sk, r, bTransfer, bDiff, index) {
+        const statement = {};
+        statement['Cn'] = Cn;
+        statement['C'] = C;
+        statement['y'] = y;
+        statement['epoch'] = epoch;
 
-        this.proveTransfer = (CLn, CRn, C, D, y, epoch, sk, r, bTransfer, bDiff, index) => {
-            var statement = {};
-            statement['CLn'] = CLn;
-            statement['CRn'] = CRn;
-            statement['C'] = C;
-            statement['D'] = D;
-            statement['y'] = y;
-            statement['epoch'] = epoch;
+        const witness = {};
+        witness['sk'] = sk;
+        witness['r'] = r;
+        witness['bTransfer'] = bTransfer;
+        witness['bDiff'] = bDiff;
+        witness['index'] = index;
 
-            var witness = {};
-            witness['sk'] = sk;
-            witness['r'] = r;
-            witness['bTransfer'] = bTransfer;
-            witness['bDiff'] = bDiff;
-            witness['index'] = index;
+        return ZetherProof.prove(statement, witness).serialize();
+    };
 
-            return zether.generateProof(statement, witness).serialize();
-        }
+    static proveBurn(Cn, y, epoch, sender, sk, bDiff) {
+        const statement = {};
+        statement['Cn'] = Cn;
+        statement['y'] = y;
+        statement['epoch'] = epoch;
+        statement['sender'] = sender;
 
-        this.proveBurn = (CLn, CRn, y, epoch, sender, sk, bDiff) => {
-            var statement = {};
-            statement['CLn'] = CLn;
-            statement['CRn'] = CRn;
-            statement['y'] = y;
-            statement['epoch'] = epoch;
-            statement['sender'] = sender;
+        const witness = {};
+        witness['sk'] = sk;
+        witness['bDiff'] = bDiff;
 
-            var witness = {};
-            witness['sk'] = sk;
-            witness['bDiff'] = bDiff;
-
-            return burn.generateProof(statement, witness).serialize();
-        }
+        return BurnProof.prove(statement, witness).serialize();
     }
 }
 

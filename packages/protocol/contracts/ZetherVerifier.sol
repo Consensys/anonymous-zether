@@ -139,26 +139,24 @@ contract ZetherVerifier {
         anonAuxiliaries.f = new uint256[2][](2 * anonAuxiliaries.m);
         for (uint256 k = 0; k < 2 * anonAuxiliaries.m; k++) {
             anonAuxiliaries.f[k][1] = proof.f[k];
-            anonAuxiliaries.f[k][0] = anonAuxiliaries.w.sub(proof.f[k]);
+            anonAuxiliaries.f[k][0] = anonAuxiliaries.w.sub(proof.f[k]); // is it wasteful to store / keep all these in memory?
         }
 
         for (uint256 k = 0; k < 2 * anonAuxiliaries.m; k++) {
             anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.gs(k).mul(anonAuxiliaries.f[k][1]));
-            anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.gs(k + 2 * anonAuxiliaries.m).mul(anonAuxiliaries.f[k][1].mul(anonAuxiliaries.w.sub(anonAuxiliaries.f[k][1]))));
+            anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.hs(k).mul(anonAuxiliaries.f[k][1].mul(anonAuxiliaries.f[k][0])));
         }
-        anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.gs(4 * anonAuxiliaries.m).mul(anonAuxiliaries.f[0][1].mul(anonAuxiliaries.f[anonAuxiliaries.m][1])).add(ip.gs(1 + 4 * anonAuxiliaries.m).mul(anonAuxiliaries.f[0][0].mul(anonAuxiliaries.f[anonAuxiliaries.m][0]))));
+        anonAuxiliaries.temp = anonAuxiliaries.temp.add(ip.hs(2 * anonAuxiliaries.m).mul(anonAuxiliaries.f[0][1].mul(anonAuxiliaries.f[anonAuxiliaries.m][1])).add(ip.hs(2 * anonAuxiliaries.m + 1).mul(anonAuxiliaries.f[0][0].mul(anonAuxiliaries.f[anonAuxiliaries.m][0]))));
         require(proof.B.mul(anonAuxiliaries.w).add(proof.A).eq(anonAuxiliaries.temp.add(Utils.h().mul(proof.z_A))), "Recovery failure for B^w * A.");
 
         anonAuxiliaries.r = assemblePolynomials(anonAuxiliaries.f);
 
         anonAuxiliaries.CR = assembleConvolutions(anonAuxiliaries.r, statement.C);
         anonAuxiliaries.yR = assembleConvolutions(anonAuxiliaries.r, statement.y);
+        anonAuxiliaries.vPow = 1;
         for (uint256 i = 0; i < anonAuxiliaries.N; i++) {
             anonAuxiliaries.CLnR = anonAuxiliaries.CLnR.add(statement.CLn[i].mul(anonAuxiliaries.r[i][0]));
             anonAuxiliaries.CRnR = anonAuxiliaries.CRnR.add(statement.CRn[i].mul(anonAuxiliaries.r[i][0]));
-        }
-        anonAuxiliaries.vPow = 1;
-        for (uint256 i = 0; i < anonAuxiliaries.N; i++) {
             anonAuxiliaries.C_XR = anonAuxiliaries.C_XR.add(anonAuxiliaries.CR[i / 2][i % 2].mul(anonAuxiliaries.vPow));
             anonAuxiliaries.y_XR = anonAuxiliaries.y_XR.add(anonAuxiliaries.yR[i / 2][i % 2].mul(anonAuxiliaries.vPow));
             if (i > 0) {
@@ -190,7 +188,7 @@ contract ZetherVerifier {
             zetherAuxiliaries.k = zetherAuxiliaries.k.add(zetherAuxiliaries.ys[i]);
         }
         zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
-        zetherAuxiliaries.zs = [zetherAuxiliaries.z.exp(2), zetherAuxiliaries.z.exp(3)];        
+        zetherAuxiliaries.zs = [zetherAuxiliaries.z.exp(2), zetherAuxiliaries.z.exp(3)];
         zetherAuxiliaries.zSum = zetherAuxiliaries.zs[0].add(zetherAuxiliaries.zs[1]).mul(zetherAuxiliaries.z);
         zetherAuxiliaries.k = zetherAuxiliaries.k.mul(zetherAuxiliaries.z.sub(zetherAuxiliaries.zs[0])).sub(zetherAuxiliaries.zSum.mul(2 ** 32).sub(zetherAuxiliaries.zSum));
         zetherAuxiliaries.t = proof.tHat.sub(zetherAuxiliaries.k); // t = tHat - delta(y, z)
@@ -216,7 +214,7 @@ contract ZetherVerifier {
 
         IPAuxiliaries memory ipAuxiliaries;
         ipAuxiliaries.o = uint256(keccak256(abi.encode(sigmaAuxiliaries.c))).mod();
-        ipAuxiliaries.u_x = Utils.g().mul(ipAuxiliaries.o);
+        ipAuxiliaries.u_x = Utils.h().mul(ipAuxiliaries.o);
         ipAuxiliaries.hPrimes = new Utils.G1Point[](64);
         for (uint256 i = 0; i < 64; i++) {
             ipAuxiliaries.hPrimes[i] = ip.hs(i).mul(zetherAuxiliaries.ys[i].inv());

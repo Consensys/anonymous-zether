@@ -1,10 +1,12 @@
+const crypto = require('crypto');
 const BN = require('bn.js');
 
 const utils = require('./utils/utils.js');
+const { ElGamal } = require('./utils/algebra.js');
 const Service = require('./utils/service.js');
 const bn128 = require('./utils/bn128.js');
 
-var sleep = (wait) => new Promise((resolve) => { setTimeout(resolve, wait); });
+const sleep = (wait) => new Promise((resolve) => { setTimeout(resolve, wait); });
 
 class Client {
     constructor(web3, zsc, home) {
@@ -16,12 +18,7 @@ class Client {
             throw "Constructor's third argument should be the address of an unlocked Ethereum account.";
 
         web3.transactionConfirmationBlocks = 1;
-        var that = this;
-        var match = (address, candidate) => {
-            return address[0] == candidate[0] && address[1] == candidate[1];
-        };
-
-        var service = new Service();
+        const that = this;
 
         this._transfers = new Set();
         zsc.events.TransferOccurred({}) // i guess this will just filter for "from here on out."
@@ -31,20 +28,20 @@ class Client {
                     that._transfers.delete(event.transactionHash);
                     return;
                 }
-                var account = that.account;
+                const account = that.account;
                 event.returnValues['parties'].forEach((party, i) => {
-                    if (match(account.keypair['y'], party)) {
-                        var blockNumber = event.blockNumber;
+                    if (account.keypair['y'].eq(bn128.deserialize(party))) {
+                        const blockNumber = event.blockNumber;
                         web3.eth.getBlock(blockNumber).then((block) => {
                             account._state = account._simulate(block.timestamp);
                             web3.eth.getTransaction(event.transactionHash).then((transaction) => {
-                                var inputs;
+                                let inputs;
                                 zsc._jsonInterface.forEach((element) => {
-                                    if (element['name'] == "transfer")
+                                    if (element['name'] === "transfer")
                                         inputs = element['inputs'];
                                 });
-                                var parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
-                                var value = utils.readBalance(parameters['C'][i], parameters['D'], account.keypair['x']);
+                                const parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
+                                const value = utils.readBalance(parameters['C'][i], parameters['D'], account.keypair['x']);
                                 if (value > 0) {
                                     account._state.pending += value;
                                     console.log("Transfer of " + value + " received! Balance now " + (account._state.available + account._state.pending) + ".");
@@ -63,7 +60,7 @@ class Client {
             return Math.floor((timestamp === undefined ? (new Date).getTime() / 1000 : timestamp) / this._epochLength);
         };
         this._away = () => { // returns ms away from next epoch change
-            var current = (new Date).getTime();
+            const current = (new Date).getTime();
             return Math.ceil(current / (this._epochLength * 1000)) * (this._epochLength * 1000) - current;
         };
 
@@ -77,7 +74,7 @@ class Client {
             };
 
             this._simulate = (timestamp) => {
-                var updated = {};
+                const updated = {};
                 updated.available = this._state.available;
                 updated.pending = this._state.pending;
                 updated.nonceUsed = this._state.nonceUsed;
@@ -90,31 +87,20 @@ class Client {
                 return updated;
             };
 
-            this.balance = () => {
-                return this._state.available + this._state.pending;
-            };
-
-            this.public = () => {
-                return this.keypair['y'];
-            };
-
-            this.secret = () => {
-                return bn128.bytes(this.keypair['x']);
-            };
+            this.balance = () => this._state.available + this._state.pending;
+            this.public = () => bn128.serialize(this.keypair['y']);
+            this.secret = () => "0x" + this.keypair['x'].toString(16, 64);
         };
 
         this.friends = new function() {
-            var friends = {};
+            const friends = {};
             this.add = (name, pubkey) => {
                 // todo: checks that these are properly formed, of the right types, etc...
-                friends[name] = pubkey;
+                friends[name] = bn128.deserialize(pubkey);
                 return "Friend added.";
             };
 
-            this.show = () => {
-                return friends;
-            };
-
+            this.show = () => friends;
             this.remove = (name) => {
                 if (!(name in friends))
                     throw "Friend " + name + " not found in directory!";
@@ -129,9 +115,9 @@ class Client {
                     .then((result) => {
                         that._epochLength = result;
                         if (secret === undefined) {
-                            var keypair = utils.createAccount();
-                            var [c, s] = utils.sign(zsc._address, keypair);
-                            zsc.methods.register(keypair['y'], c, s).send({ from: home, gas: 5470000 })
+                            const keypair = utils.createAccount();
+                            const [c, s] = utils.sign(zsc._address, keypair);
+                            zsc.methods.register(bn128.serialize(keypair['y']), c, s).send({ from: home, gas: 5470000 })
                                 .on('transactionHash', (hash) => {
                                     console.log("Registration submitted (txHash = \"" + hash + "\").");
                                 })
@@ -145,11 +131,11 @@ class Client {
                                     reject(error);
                                 });
                         } else {
-                            var x = new BN(secret.slice(2), 16).toRed(bn128.q);
-                            that.account.keypair = { 'x': x, 'y': bn128.serialize(bn128.curve.g.mul(x)) };
-                            zsc.methods.simulateAccounts([that.account.keypair['y']], that._getEpoch() + 1).call()
+                            const x = new BN(secret.slice(2), 16).toRed(bn128.q);
+                            that.account.keypair = { 'x': x, 'y': bn128.curve.g.mul(x) };
+                            zsc.methods.simulateAccounts([bn128.serialize(that.account.keypair['y'])], that._getEpoch() + 1).call()
                                 .then((result) => {
-                                    var simulated = result[0];
+                                    const simulated = result[0];
                                     that.account._state.available = utils.readBalance(simulated[0], simulated[1], x);
                                     console.log("Account recovered successfully.");
                                     resolve(); // warning: won't register you. assuming you registered when you first created the account.
@@ -162,10 +148,10 @@ class Client {
         this.deposit = (value) => {
             if (this.account.keypair === undefined)
                 throw "Client's account is not yet registered!";
-            var account = this.account;
+            const account = this.account;
             console.log("Initiating deposit.");
             return new Promise((resolve, reject) => {
-                zsc.methods.fund(account.keypair['y'], value).send({ from: home, gas: 5470000 })
+                zsc.methods.fund(bn128.serialize(account.keypair['y']), value).send({ from: home, gas: 5470000 })
                     .on('transactionHash', (hash) => {
                         console.log("Deposit submitted (txHash = \"" + hash + "\").");
                     })
@@ -182,7 +168,7 @@ class Client {
             });
         };
 
-        var estimate = (size, contract) => {
+        const estimate = (size, contract) => {
             // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size
             // this function should hopefully give you good epoch lengths also for 8, 16, 32, etc... if you have very heavy traffic, may need to bump it up (many verifications)
             // i calibrated this on _my machine_. if you are getting transfer failures, you might need to bump up the constants, recalibrate yourself, etc.
@@ -194,13 +180,13 @@ class Client {
             if (this.account.keypair === undefined)
                 throw "Client's account is not yet registered!";
             decoys = decoys ? decoys : [];
-            var account = this.account;
-            var state = account._simulate();
+            const account = this.account;
+            const state = account._simulate();
             if (value > state.available + state.pending)
                 throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-            var wait = this._away();
-            var seconds = Math.ceil(wait / 1000);
-            var plural = seconds == 1 ? "" : "s";
+            const wait = this._away();
+            const seconds = Math.ceil(wait / 1000);
+            const plural = seconds === 1 ? "" : "s";
             if (value > state.available) {
                 console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...");
                 return sleep(wait).then(() => this.transfer(name, value, decoys));
@@ -209,8 +195,8 @@ class Client {
                 console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
                 return sleep(wait).then(() => this.transfer(name, value, decoys));
             }
-            var size = 2 + decoys.length;
-            var estimated = estimate(size, false); // see notes above
+            const size = 2 + decoys.length;
+            const estimated = estimate(size, false); // see notes above
             if (estimated > this._epochLength * 1000)
                 throw "The anonset size (" + size + ") you've requested might take longer than the epoch length (" + this._epochLength + " seconds) to prove. Consider re-deploying, with an epoch length at least " + Math.ceil(estimate(size, true) / 1000) + " seconds.";
             if (estimated > wait) {
@@ -218,61 +204,59 @@ class Client {
                 return sleep(wait).then(() => this.transfer(name, value, decoys));
             }
             if (size & (size - 1)) {
-                var previous = 1;
-                var next = 2;
+                let previous = 1;
+                let next = 2;
                 while (next < size) {
                     previous *= 2;
                     next *= 2;
                 }
                 throw "Anonset's size (including you and the recipient) must be a power of two. Add " + (next - size) + " or remove " + (size - previous) + ".";
             }
-            var friends = that.friends.show();
+            const friends = that.friends.show();
             if (!(name in friends))
                 throw "Name \"" + name + "\" hasn't been friended yet!";
-            if (match(friends[name], account.keypair['y']))
+            if (account.keypair['y'].eq(friends[name]))
                 throw "Sending to yourself is currently unsupported (and useless!)."
-            var y = [account.keypair['y']].concat([friends[name]]); // not yet shuffled
+            const y = [account.keypair['y'], friends[name]]; // not yet shuffled
             decoys.forEach((decoy) => {
                 if (!(decoy in friends))
                     throw "Decoy \"" + decoy + "\" is unknown in friends directory!";
                 y.push(friends[decoy]);
             });
-            var index = [];
-            var m = y.length;
-            while (m != 0) { // https://bost.ocks.org/mike/shuffle/
-                var i = Math.floor(Math.random() * m--);
-                var temp = y[i];
+            const index = [];
+            let m = y.length;
+            while (m !== 0) { // https://bost.ocks.org/mike/shuffle/
+                const i = crypto.randomBytes(1).readUInt8() % m--; // warning: N should be <= 256. also modulo bias.
+                const temp = y[i];
                 y[i] = y[m];
                 y[m] = temp;
-                if (match(temp, account.keypair['y']))
-                    index[0] = m;
-                else if (match(temp, friends[name]))
-                    index[1] = m;
+                if (account.keypair['y'].eq(temp)) index[0] = m;
+                else if (friends[name].eq(temp)) index[1] = m;
             } // shuffle the array of y's
-            if (index[0] % 2 == index[1] % 2) {
-                var temp = y[index[1]];
-                y[index[1]] = y[index[1] + (index[1] % 2 == 0 ? 1 : -1)];
-                y[index[1] + (index[1] % 2 == 0 ? 1 : -1)] = temp;
-                index[1] = index[1] + (index[1] % 2 == 0 ? 1 : -1);
+            if (index[0] % 2 === index[1] % 2) {
+                const temp = y[index[1]];
+                y[index[1]] = y[index[1] + (index[1] % 2 === 0 ? 1 : -1)];
+                y[index[1] + (index[1] % 2 === 0 ? 1 : -1)] = temp;
+                index[1] = index[1] + (index[1] % 2 === 0 ? 1 : -1);
             } // make sure you and your friend have opposite parity
             return new Promise((resolve, reject) => {
-                zsc.methods.simulateAccounts(y, this._getEpoch()).call()
+                zsc.methods.simulateAccounts(y.map(bn128.serialize), this._getEpoch()).call()
                     .then((result) => {
-                        var unserialized = result.map((account) => [bn128.unserialize(account[0]), bn128.unserialize(account[1])]);
-                        if (unserialized.some((account) => account[0].eq(bn128.zero) && account[1].eq(bn128.zero)))
+                        const deserialized = result.map((account) => ElGamal.deserialize(account));
+                        if (deserialized.some((account) => account.zero()))
                             return reject(new Error("Please make sure all parties (including decoys) are registered.")); // todo: better error message, i.e., which friend?
-                        var r = bn128.randomScalar();
-                        var C = y.map((party, i) => bn128.curve.g.mul(i == index[0] ? new BN(-value) : i == index[1] ? new BN(value) : new BN(0)).add(bn128.unserialize(party).mul(r)));
-                        var D = bn128.curve.g.mul(r);
-                        var CLn = unserialized.map((account, i) => bn128.serialize(account[0].add(C[i])));
-                        var CRn = unserialized.map((account) => bn128.serialize(account[1].add(D)));
-                        C = C.map(bn128.serialize);
-                        D = bn128.serialize(D);
-                        var proof = service.proveTransfer(CLn, CRn, C, D, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
-                        var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
-                        var throwaway = web3.eth.accounts.create();
-                        var encoded = zsc.methods.transfer(C, D, y, u, proof).encodeABI();
-                        var tx = { 'to': zsc._address, 'data': encoded, 'gas': 54700000, 'nonce': 0 };
+                        const r = bn128.randomScalar();
+                        const D = bn128.curve.g.mul(r);
+                        const C = y.map((party, i) => {
+                            const left = ElGamal.base['g'].mul(new BN(i === index[0] ? -value : i === index[1] ? value : 0)).add(party.mul(r))
+                            return new ElGamal(left, D)
+                        });
+                        const Cn = deserialized.map((account, i) => account.add(C[i]));
+                        const proof = Service.proveTransfer(Cn, C, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
+                        const u = utils.u(state.lastRollOver, account.keypair['x']);
+                        const throwaway = web3.eth.accounts.create();
+                        const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof).encodeABI();
+                        const tx = { 'to': zsc._address, 'data': encoded, 'gas': 54700000, 'nonce': 0 };
                         web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                             web3.eth.sendSignedTransaction(signed.rawTransaction)
                                 .on('transactionHash', (hash) => {
@@ -298,13 +282,13 @@ class Client {
         this.withdraw = (value) => {
             if (this.account.keypair === undefined)
                 throw "Client's account is not yet registered!";
-            var account = this.account;
-            var state = account._simulate();
+            const account = this.account;
+            const state = account._simulate();
             if (value > state.available + state.pending)
                 throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-            var wait = this._away();
-            var seconds = Math.ceil(wait / 1000);
-            var plural = seconds == 1 ? "" : "s";
+            const wait = this._away();
+            const seconds = Math.ceil(wait / 1000);
+            const plural = seconds === 1 ? "" : "s";
             if (value > state.available) {
                 console.log("Your withdrawal has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...");
                 return sleep(wait).then(() => this.withdraw(value));
@@ -318,14 +302,13 @@ class Client {
                 return sleep(wait).then(() => this.withdraw(value));
             }
             return new Promise((resolve, reject) => {
-                zsc.methods.simulateAccounts([account.keypair['y']], this._getEpoch()).call()
+                zsc.methods.simulateAccounts([bn128.serialize(account.keypair['y'])], this._getEpoch()).call()
                     .then((result) => {
-                        var simulated = result[0];
-                        var CLn = bn128.serialize(bn128.unserialize(simulated[0]).add(bn128.curve.g.mul(new BN(-value))));
-                        var CRn = simulated[1];
-                        var proof = service.proveBurn(CLn, CRn, account.keypair['y'], state.lastRollOver, home, account.keypair['x'], state.available - value);
-                        var u = bn128.serialize(utils.u(state.lastRollOver, account.keypair['x']));
-                        zsc.methods.burn(account.keypair['y'], value, u, proof).send({ from: home, gas: 54700000 })
+                        const deserialized = ElGamal.deserialize(result[0]);
+                        const C = deserialized.plus(new BN(-value));
+                        const proof = Service.proveBurn(C, account.keypair['y'], state.lastRollOver, home, account.keypair['x'], state.available - value);
+                        const u = utils.u(state.lastRollOver, account.keypair['x']);
+                        zsc.methods.burn(bn128.serialize(account.keypair['y']), value, bn128.serialize(u), proof).send({ from: home, gas: 54700000 })
                             .on('transactionHash', (hash) => {
                                 console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
                             })
@@ -344,6 +327,5 @@ class Client {
         };
     }
 }
-
 
 module.exports = Client;

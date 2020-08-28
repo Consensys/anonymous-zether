@@ -122,7 +122,7 @@ contract BurnVerifier {
 
         IPAuxiliaries memory ipAuxiliaries;
         ipAuxiliaries.o = uint256(keccak256(abi.encode(sigmaAuxiliaries.c))).mod();
-        ipAuxiliaries.u_x = Utils.g().mul(ipAuxiliaries.o);
+        ipAuxiliaries.u_x = Utils.h().mul(ipAuxiliaries.o);
         ipAuxiliaries.hPrimes = new Utils.G1Point[](32);
         for (uint256 i = 0; i < 32; i++) {
             ipAuxiliaries.hPrimes[i] = ip.hs(i).mul(burnAuxiliaries.ys[i].inv());

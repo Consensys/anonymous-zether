@@ -1,74 +1,73 @@
 const ABICoder = require('web3-eth-abi');
-
-const { GeneratorParams, FieldVector } = require('./algebra.js');
+const { PedersenVectorCommitment } = require('../utils/algebra.js');
 const bn128 = require('../utils/bn128.js');
 const utils = require('../utils/utils.js');
 
 class InnerProductProof {
     constructor() {
         this.serialize = () => {
-            var result = "0x";
-            this.L.forEach((l) => {
-                result += bn128.representation(l).slice(2);
-            });
-            this.R.forEach((r) => {
-                result += bn128.representation(r).slice(2);
-            });
+            let result = "0x";
+            this.L.forEach((l) => { result += bn128.representation(l).slice(2); });
+            this.R.forEach((r) => { result += bn128.representation(r).slice(2); });
             result += bn128.bytes(this.a).slice(2);
             result += bn128.bytes(this.b).slice(2);
             return result;
         };
     }
-}
 
-class InnerProductProver {
-    constructor() {
-        var generateProof = (base, P, as, bs, ls, rs, previousChallenge) => {
-            var n = as.length();
-            if (n == 1) {
-                var proof = new InnerProductProof();
-                proof.L = ls;
-                proof.R = rs;
-                proof.a = as.getVector()[0];
-                proof.b = bs.getVector()[0];
-                return proof;
+    static prove(commitment, salt) { // arg: a vector commitment which was decommited.
+        const result = new InnerProductProof();
+        result.L = [];
+        result.R = [];
+
+        const recursiveProof = (result, as, bs, previousChallenge) => { // ref to result
+            const n = as.length();
+            if (as.length() === 1) {
+                result.a = as.getVector()[0];
+                result.b = bs.getVector()[0];
+                return;
             }
-            var nPrime = n / 2;
-            var asLeft = as.slice(0, nPrime);
-            var asRight = as.slice(nPrime);
-            var bsLeft = bs.slice(0, nPrime);
-            var bsRight = bs.slice(nPrime);
-            var gLeft = base.getGs().slice(0, nPrime);
-            var gRight = base.getGs().slice(nPrime);
-            var hLeft = base.getHs().slice(0, nPrime);
-            var hRight = base.getHs().slice(nPrime);
+            const nPrime = n / 2; // what if this is not an integer?!?
+            const asLeft = as.slice(0, nPrime);
+            const asRight = as.slice(nPrime);
+            const bsLeft = bs.slice(0, nPrime);
+            const bsRight = bs.slice(nPrime);
+            const gsLeft = PedersenVectorCommitment.base['gs'].slice(0, nPrime);
+            const gsRight = PedersenVectorCommitment.base['gs'].slice(nPrime);
+            const hsLeft = PedersenVectorCommitment.base['hs'].slice(0, nPrime);
+            const hsRight = PedersenVectorCommitment.base['hs'].slice(nPrime);
 
-            var cL = asLeft.innerProduct(bsRight);
-            var cR = asRight.innerProduct(bsLeft);
+            const cL = asLeft.innerProduct(bsRight);
+            const cR = asRight.innerProduct(bsLeft);
+            const L = gsRight.multiExponentiate(asLeft).add(hsLeft.multiExponentiate(bsRight)).add(PedersenVectorCommitment.base['h'].mul(cL));
+            const R = gsLeft.multiExponentiate(asRight).add(hsRight.multiExponentiate(bsLeft)).add(PedersenVectorCommitment.base['h'].mul(cR));
+            result.L.push(L);
+            result.R.push(R);
 
-            var u = base.getH();
-            var L = gRight.commit(asLeft).add(hLeft.commit(bsRight)).add(u.mul(cL));
-            var R = gLeft.commit(asRight).add(hRight.commit(bsLeft)).add(u.mul(cR));
-            ls.push(L);
-            rs.push(R);
+            const x = utils.hash(ABICoder.encodeParameters([
+                'bytes32',
+                'bytes32[2]',
+                'bytes32[2]',
+            ], [
+                bn128.bytes(previousChallenge),
+                bn128.serialize(L),
+                bn128.serialize(R),
+            ]));
 
-            var x = utils.hash(ABICoder.encodeParameters(['bytes32', 'bytes32[2]', 'bytes32[2]'], [bn128.bytes(previousChallenge), bn128.serialize(L), bn128.serialize(R)]));
-            var xInv = x.redInvm();
-            var gPrime = gLeft.times(xInv).add(gRight.times(x));
-            var hPrime = hLeft.times(x).add(hRight.times(xInv));
-            var aPrime = asLeft.times(x).add(asRight.times(xInv));
-            var bPrime = bsLeft.times(xInv).add(bsRight.times(x));
+            const xInv = x.redInvm();
+            PedersenVectorCommitment.base['gs'] = gsLeft.times(xInv).add(gsRight.times(x));
+            PedersenVectorCommitment.base['hs'] = hsLeft.times(x).add(hsRight.times(xInv));
+            const asPrime = asLeft.times(x).add(asRight.times(xInv));
+            const bsPrime = bsLeft.times(xInv).add(bsRight.times(x));
 
-            var PPrime = L.mul(x.redMul(x)).add(R.mul(xInv.redMul(xInv))).add(P);
-            var basePrime = new GeneratorParams(u, gPrime, hPrime);
+            recursiveProof(result, asPrime, bsPrime, x);
 
-            return generateProof(basePrime, PPrime, aPrime, bPrime, ls, rs, x);
+            PedersenVectorCommitment.base['gs'] = gsLeft.concat(gsRight);
+            PedersenVectorCommitment.base['hs'] = hsLeft.concat(hsRight); // clean up
         };
-
-        this.generateProof = (statement, witness, salt) => {
-            return generateProof(statement['primeBase'], statement['P'], witness['l'], witness['r'], [], [], salt);
-        };
+        recursiveProof(result, commitment.gValues, commitment.hValues, salt);
+        return result;
     }
 }
 
-module.exports = InnerProductProver;
+module.exports = InnerProductProof;
