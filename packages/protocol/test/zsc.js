@@ -8,11 +8,11 @@ contract("ZSC", async (accounts) => {
     let bob;
 
     it("should allow minting and approving", async () => {
-        let cash = await CashToken.deployed();
-        let zsc = await ZSC.deployed();
+        const cash = await CashToken.deployed();
+        const zsc = await ZSC.deployed();
         await cash.mint(accounts[0], 1000);
         await cash.approve(zsc.contract._address, 1000);
-        let balance = await cash.balanceOf.call(accounts[0]);
+        const balance = await cash.balanceOf.call(accounts[0]);
         assert.equal(
             balance,
             1000,
@@ -21,9 +21,9 @@ contract("ZSC", async (accounts) => {
     });
 
     it("should allow initialization", async () => {
-        let zsc = await ZSC.deployed();
+        const zsc = await ZSC.deployed();
         alice = new Client(web3, zsc.contract, accounts[0]);
-        await alice.initialize();
+        await alice.register();
         assert.exists(
             alice._epochLength,
             "Initialization failed"
@@ -39,9 +39,9 @@ contract("ZSC", async (accounts) => {
     });
 
     it("should allow transferring", async () => {
-        let zsc = await ZSC.deployed();
+        const zsc = await ZSC.deployed();
         bob = new Client(web3, zsc.contract, accounts[0]);
-        await bob.initialize();
+        await bob.register();
         alice.friends.add("Bob", bob.account.public());
         await alice.transfer("Bob", 10);
         // bob won't actually receive the transfer, because truffle uses HttpProvider
