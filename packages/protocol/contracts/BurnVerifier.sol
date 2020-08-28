@@ -1,4 +1,5 @@
-pragma solidity 0.5.4;
+// SPDX-License-Identifier: Apache License 2.0
+pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./Utils.sol";
@@ -23,7 +24,8 @@ contract BurnVerifier {
         Utils.G1Point BA;
         Utils.G1Point BS;
 
-        Utils.G1Point[2] tCommits;
+        Utils.G1Point T_1;
+        Utils.G1Point T_2;
         uint256 tHat;
         uint256 mu;
 
@@ -35,7 +37,7 @@ contract BurnVerifier {
         InnerProductVerifier.InnerProductProof ipProof;
     }
 
-    constructor(address _ip) public {
+    constructor(address _ip) {
         ip = InnerProductVerifier(_ip);
     }
 
@@ -107,8 +109,8 @@ contract BurnVerifier {
             burnAuxiliaries.twoTimesZSquared[i] = burnAuxiliaries.zs[0].mul(2 ** i);
         }
 
-        burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.tCommits))).mod();
-        burnAuxiliaries.tEval = proof.tCommits[0].mul(burnAuxiliaries.x).add(proof.tCommits[1].mul(burnAuxiliaries.x.mul(burnAuxiliaries.x))); // replace with "commit"?
+        burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.T_1, proof.T_2))).mod();
+        burnAuxiliaries.tEval = proof.T_1.mul(burnAuxiliaries.x).add(proof.T_2.mul(burnAuxiliaries.x.mul(burnAuxiliaries.x))); // replace with "commit"?
 
         SigmaAuxiliaries memory sigmaAuxiliaries;
         sigmaAuxiliaries.A_y = Utils.g().mul(proof.s_sk).add(statement.y.mul(proof.c.neg()));
@@ -140,7 +142,8 @@ contract BurnVerifier {
         proof.BA = Utils.G1Point(Utils.slice(arr, 0), Utils.slice(arr, 32));
         proof.BS = Utils.G1Point(Utils.slice(arr, 64), Utils.slice(arr, 96));
 
-        proof.tCommits = [Utils.G1Point(Utils.slice(arr, 128), Utils.slice(arr, 160)), Utils.G1Point(Utils.slice(arr, 192), Utils.slice(arr, 224))];
+        proof.T_1 = Utils.G1Point(Utils.slice(arr, 128), Utils.slice(arr, 160));
+        proof.T_2 = Utils.G1Point(Utils.slice(arr, 192), Utils.slice(arr, 224));
         proof.tHat = uint256(Utils.slice(arr, 256));
         proof.mu = uint256(Utils.slice(arr, 288));
 

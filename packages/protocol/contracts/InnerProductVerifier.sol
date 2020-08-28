@@ -1,4 +1,5 @@
-pragma solidity 0.5.4;
+// SPDX-License-Identifier: Apache License 2.0
+pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./Utils.sol";

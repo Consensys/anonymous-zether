@@ -1,4 +1,5 @@
-pragma solidity 0.5.4;
+// SPDX-License-Identifier: Apache License 2.0
+pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./Utils.sol";
@@ -39,10 +40,9 @@ contract ZetherVerifier {
 
         uint256[] f;
         uint256 z_A;
-        uint256 z_C;
-        uint256 z_E;
 
-        Utils.G1Point[2] tCommits;
+        Utils.G1Point T_1;
+        Utils.G1Point T_2;
         uint256 tHat;
         uint256 mu;
 
@@ -55,7 +55,7 @@ contract ZetherVerifier {
         InnerProductVerifier.InnerProductProof ipProof;
     }
 
-    constructor(address _ip) public {
+    constructor(address _ip) {
         ip = InnerProductVerifier(_ip);
     }
 
@@ -130,7 +130,6 @@ contract ZetherVerifier {
 
     function verify(ZetherStatement memory statement, ZetherProof memory proof) internal view returns (bool) {
         uint256 statementHash = uint256(keccak256(abi.encode(statement.CLn, statement.CRn, statement.C, statement.D, statement.y, statement.epoch))).mod();
-
         AnonAuxiliaries memory anonAuxiliaries;
         anonAuxiliaries.v = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.A, proof.B))).mod();
         anonAuxiliaries.w = uint256(keccak256(abi.encode(anonAuxiliaries.v, proof.CLnG, proof.CRnG, proof.C_0G, proof.DG, proof.y_0G, proof.gG, proof.C_XG, proof.y_XG))).mod();
@@ -153,10 +152,12 @@ contract ZetherVerifier {
 
         anonAuxiliaries.CR = assembleConvolutions(anonAuxiliaries.r, statement.C);
         anonAuxiliaries.yR = assembleConvolutions(anonAuxiliaries.r, statement.y);
-        anonAuxiliaries.vPow = 1;
         for (uint256 i = 0; i < anonAuxiliaries.N; i++) {
             anonAuxiliaries.CLnR = anonAuxiliaries.CLnR.add(statement.CLn[i].mul(anonAuxiliaries.r[i][0]));
             anonAuxiliaries.CRnR = anonAuxiliaries.CRnR.add(statement.CRn[i].mul(anonAuxiliaries.r[i][0]));
+        }
+        anonAuxiliaries.vPow = 1;
+        for (uint256 i = 0; i < anonAuxiliaries.N; i++) {
             anonAuxiliaries.C_XR = anonAuxiliaries.C_XR.add(anonAuxiliaries.CR[i / 2][i % 2].mul(anonAuxiliaries.vPow));
             anonAuxiliaries.y_XR = anonAuxiliaries.y_XR.add(anonAuxiliaries.yR[i / 2][i % 2].mul(anonAuxiliaries.vPow));
             if (i > 0) {
@@ -197,8 +198,8 @@ contract ZetherVerifier {
             zetherAuxiliaries.twoTimesZSquared[i + 32] = zetherAuxiliaries.zs[1].mul(2 ** i);
         }
 
-        zetherAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.z, proof.tCommits))).mod();
-        zetherAuxiliaries.tEval = proof.tCommits[0].mul(zetherAuxiliaries.x).add(proof.tCommits[1].mul(zetherAuxiliaries.x.mul(zetherAuxiliaries.x))); // replace with "commit"?
+        zetherAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.z, proof.T_1, proof.T_2))).mod();
+        zetherAuxiliaries.tEval = proof.T_1.mul(zetherAuxiliaries.x).add(proof.T_2.mul(zetherAuxiliaries.x.mul(zetherAuxiliaries.x))); // replace with "commit"?
 
         SigmaAuxiliaries memory sigmaAuxiliaries;
         sigmaAuxiliaries.A_y = anonAuxiliaries.gR.mul(proof.s_sk).add(anonAuxiliaries.yR[0][0].mul(proof.c.neg()));
@@ -224,6 +225,7 @@ contract ZetherVerifier {
         ipAuxiliaries.P = ipAuxiliaries.P.add(Utils.h().mul(proof.mu.neg()));
         ipAuxiliaries.P = ipAuxiliaries.P.add(ipAuxiliaries.u_x.mul(proof.tHat));
         require(ip.verifyInnerProduct(ipAuxiliaries.hPrimes, ipAuxiliaries.u_x, ipAuxiliaries.P, proof.ipProof, ipAuxiliaries.o), "Inner product proof verification failed.");
+
 
         return true;
     }
@@ -381,7 +383,8 @@ contract ZetherVerifier {
         uint256 starting = m * 576;
         proof.z_A = uint256(Utils.slice(arr, 256 + starting));
 
-        proof.tCommits = [Utils.G1Point(Utils.slice(arr, 288 + starting), Utils.slice(arr, 320 + starting)), Utils.G1Point(Utils.slice(arr, 352 + starting), Utils.slice(arr, 384 + starting))];
+        proof.T_1 = Utils.G1Point(Utils.slice(arr, 288 + starting), Utils.slice(arr, 320 + starting));
+        proof.T_2 = Utils.G1Point(Utils.slice(arr, 352 + starting), Utils.slice(arr, 384 + starting));
         proof.tHat = uint256(Utils.slice(arr, 416 + starting));
         proof.mu = uint256(Utils.slice(arr, 448 + starting));
 

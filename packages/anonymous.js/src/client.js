@@ -117,7 +117,7 @@ class Client {
                         if (secret === undefined) {
                             const keypair = utils.createAccount();
                             const [c, s] = utils.sign(zsc._address, keypair);
-                            zsc.methods.register(bn128.serialize(keypair['y']), c, s).send({ from: home, gas: 5470000 })
+                            zsc.methods.register(bn128.serialize(keypair['y']), c, s).send({ 'from': home, 'gas': 8000000 })
                                 .on('transactionHash', (hash) => {
                                     console.log("Registration submitted (txHash = \"" + hash + "\").");
                                 })
@@ -151,7 +151,7 @@ class Client {
             const account = this.account;
             console.log("Initiating deposit.");
             return new Promise((resolve, reject) => {
-                zsc.methods.fund(bn128.serialize(account.keypair['y']), value).send({ from: home, gas: 5470000 })
+                zsc.methods.fund(bn128.serialize(account.keypair['y']), value).send({ 'from': home, 'gas': 8000000 })
                     .on('transactionHash', (hash) => {
                         console.log("Deposit submitted (txHash = \"" + hash + "\").");
                     })
@@ -256,7 +256,7 @@ class Client {
                         const u = utils.u(state.lastRollOver, account.keypair['x']);
                         const throwaway = web3.eth.accounts.create();
                         const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof).encodeABI();
-                        const tx = { 'to': zsc._address, 'data': encoded, 'gas': 54700000, 'nonce': 0 };
+                        const tx = { 'to': zsc._address, 'data': encoded, 'gas': 8000000, 'nonce': 0 };
                         web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                             web3.eth.sendSignedTransaction(signed.rawTransaction)
                                 .on('transactionHash', (hash) => {
@@ -308,7 +308,7 @@ class Client {
                         const C = deserialized.plus(new BN(-value));
                         const proof = Service.proveBurn(C, account.keypair['y'], state.lastRollOver, home, account.keypair['x'], state.available - value);
                         const u = utils.u(state.lastRollOver, account.keypair['x']);
-                        zsc.methods.burn(bn128.serialize(account.keypair['y']), value, bn128.serialize(u), proof).send({ from: home, gas: 54700000 })
+                        zsc.methods.burn(bn128.serialize(account.keypair['y']), value, bn128.serialize(u), proof).send({ 'from': home, 'gas': 8000000 })
                             .on('transactionHash', (hash) => {
                                 console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
                             })

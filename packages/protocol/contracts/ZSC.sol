@@ -1,4 +1,5 @@
-pragma solidity 0.5.4;
+// SPDX-License-Identifier: Apache License 2.0
+pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "./CashToken.sol";
@@ -14,7 +15,7 @@ contract ZSC {
     CashToken coin;
     ZetherVerifier zetherverifier;
     BurnVerifier burnverifier;
-    uint256 public epochLength; // now in milliseconds.
+    uint256 public epochLength;
 
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
     mapping(bytes32 => Utils.G1Point[2]) acc; // main account mapping
@@ -27,7 +28,7 @@ contract ZSC {
     event TransferOccurred(Utils.G1Point[] parties); // all parties will be notified, client can determine whether it was real or not.
     // arg is still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
 
-    constructor(address _coin, address _zether, address _burn, uint256 _epochLength) public {
+    constructor(address _coin, address _zether, address _burn, uint256 _epochLength) { // visibiility won't be needed in 7.0
         // epoch length, like block.time, is in _seconds_. 4 is the minimum!!! (To allow a withdrawal to go through.)
         coin = CashToken(_coin);
         zetherverifier = ZetherVerifier(_zether);
@@ -114,7 +115,7 @@ contract ZSC {
             pending[yHash][1] = scratch[1].add(D);
             // pending[yHash] = scratch; // can't do this, so have to use 2 sstores _anyway_ (as in above)
 
-            scratch = acc[yHash];
+            scratch = acc[yHash]; // trying to save an sload, i guess.
             CLn[i] = scratch[0].add(C[i]);
             CRn[i] = scratch[1].add(D);
         }

@@ -1,11 +1,9 @@
 const CashToken = artifacts.require("CashToken");
 const ZSC = artifacts.require("ZSC");
-const utils = require('../../anonymous.js/src/utils/utils.js');
 const Client = require('../../anonymous.js/src/client.js');
 
 contract("ZSC", async (accounts) => {
-    let alice;
-    let bob;
+    let alice; // will reuse...
 
     it("should allow minting and approving", async () => {
         const cash = await CashToken.deployed();
@@ -40,11 +38,21 @@ contract("ZSC", async (accounts) => {
 
     it("should allow transferring", async () => {
         const zsc = await ZSC.deployed();
-        bob = new Client(web3, zsc.contract, accounts[0]);
-        await bob.register();
+        const bob = new Client(web3, zsc.contract, accounts[0]);
+        const carol = new Client(web3, zsc.contract, accounts[0]);
+        const dave = new Client(web3, zsc.contract, accounts[0]);
+        await Promise.all([bob.register(), carol.register(), dave.register()]);
         alice.friends.add("Bob", bob.account.public());
-        await alice.transfer("Bob", 10);
-        // bob won't actually receive the transfer, because truffle uses HttpProvider
+        alice.friends.add("Carol", carol.account.public());
+        alice.friends.add("Dave", dave.account.public());
+        await alice.transfer("Bob", 10, ["Carol", "Dave"]);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        assert.equal(
+            bob.account.balance(),
+            10,
+            "Transfer failed"
+        );
+        // bob (and carol and dave) won't actually receive the transfer, because truffle uses HttpProvider
         // can't use websocket providers at this point, because of geth bugs. will fix
         // https://github.com/trufflesuite/truffle/issues/1699
     });

@@ -1,5 +1,5 @@
-pragma solidity 0.5.4;
-pragma experimental ABIEncoderV2;
+// SPDX-License-Identifier: Apache License 2.0
+pragma solidity ^0.7.0;
 
 library Utils {
 
@@ -40,7 +40,7 @@ library Utils {
             mstore(add(m, 0x60), base)
             mstore(add(m, 0x80), exponent)
             mstore(add(m, 0xa0), order)
-            if iszero(staticcall(gas, 0x05, m, 0xc0, m, 0x20)) { // staticcall or call?
+            if iszero(staticcall(gas(), 0x05, m, 0xc0, m, 0x20)) { // staticcall or call?
                 revert(0, 0)
             }
             output := mload(m)
@@ -57,7 +57,7 @@ library Utils {
             mstore(add(m, 0x60), base)
             mstore(add(m, 0x80), exponent)
             mstore(add(m, 0xa0), order)
-            if iszero(staticcall(gas, 0x05, m, 0xc0, m, 0x20)) { // staticcall or call?
+            if iszero(staticcall(gas(), 0x05, m, 0xc0, m, 0x20)) { // staticcall or call?
                 revert(0, 0)
             }
             output := mload(m)
@@ -76,7 +76,7 @@ library Utils {
             mstore(add(m, 0x20), mload(add(p1, 0x20)))
             mstore(add(m, 0x40), mload(p2))
             mstore(add(m, 0x60), mload(add(p2, 0x20)))
-            if iszero(staticcall(gas, 0x06, m, 0x80, r, 0x40)) {
+            if iszero(staticcall(gas(), 0x06, m, 0x80, r, 0x40)) {
                 revert(0, 0)
             }
         }
@@ -88,7 +88,7 @@ library Utils {
             mstore(m, mload(p))
             mstore(add(m, 0x20), mload(add(p, 0x20)))
             mstore(add(m, 0x40), s)
-            if iszero(staticcall(gas, 0x07, m, 0x60, r, 0x40)) {
+            if iszero(staticcall(gas(), 0x07, m, 0x60, r, 0x40)) {
                 revert(0, 0)
             }
         }

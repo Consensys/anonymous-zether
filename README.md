@@ -16,35 +16,38 @@ Users need _never_ interact directly with the ZSC; rather, our front-end client 
 
 Our theoretical contribution is a zero-knowledge proof protocol for the anonymous transfer statement (8) of [Bünz, et al.](https://eprint.iacr.org/2019/191.pdf), which moreover has appealing asymptotic performance characteristics; details on our techniques can be found in our [paper](docs/AnonZether.pdf). We also of course provide this implementation.
 
-Anonymous Zether is feasible for mainnet use, as of [EIP-1108](https://eips.ethereum.org/EIPS/eip-1108). With that said, _funding_ throwaway accounts (i.e., to pay for gas) represents a privacy challenge (as discussed in the [original Zether paper](https://eprint.iacr.org/2019/191.pdf)). We don't yet endorse Anonymous Zether for use on the mainnet.
+## Prerequisites
 
-## Quickstart
+Anonymous Zether can be deployed and tested easily using [Truffle](https://www.trufflesuite.com/truffle) and [Ganache](https://www.trufflesuite.com/ganache).
 
-To deploy the ZSC (Zether Smart Contract) to a running Quorum cluster and make some anonymous transfers...
+### Required utilities
+* [Yarn](https://yarnpkg.com/en/docs/install#mac-stable), tested with version v1.22.4.
+* [Node.js](https://nodejs.org/en/download/), tested with version v12.18.3. (Unfortunately, currently, Node.js v14 has certain incompatibilities with Truffle; see [this issue](https://github.com/trufflesuite/ganache-cli/issues/732).)
 
-### Install prerequisites
-* [Yarn](https://yarnpkg.com/en/docs/install#mac-stable), tested with version v1.19.2
-* [Node.js](https://nodejs.org/en/download/), tested with version v12.13.1
-* [Truffle](https://www.trufflesuite.com/), tested with version v5.1.1 (optional, required for Truffle tests only)
+Run the following commands:
+```bash
+npm install -g truffle
+npm install -g ganache-cli
+```
+In the main directory, type `yarn`.
 
-### Setting things up
+## Running Tests
 
-* Spin up a Quorum cluster (e.g., follow the steps of [the 7nodes example](https://github.com/jpmorganchase/quorum-examples/tree/master/examples/7nodes)).
-    * For the Node.js example in this project to work, Quorum / geth needs to be run with Websockets enabled (i.e., use the flags `--ws`, `--wsport 23000`, `--wsorigins=*` on your first geth node).
-    * The code as currently written only supports IBFT consensus (with `--istanbul.blockperiod 1`). The reason is that Raft reports block time differently (in nanoseconds, as opposed to milliseconds), an idiosyncrasy which interferes with epoch measurements. We don't plan on maintaining support for Raft at this time.
-* In the main `anonymous-zether` directory, type `yarn`.
+Navigate to the [protocol](./packages/protocol) directory. Type `yarn`.
 
-### Run the Node.js demo
-
-The Node.js [example project](packages/example) in this repo will first deploy the necessary contracts: [InnerProductVerifier.sol](packages/protocol/contracts/InnerProductVerifier.sol), [ZetherVerifier.sol](packages/protocol/contracts/ZetherVerifier.sol), [BurnVerifier.sol](packages/protocol/contracts/BurnVerifier.sol), and finally [ZCS.sol](packages/protocol/contracts/ZSC.sol) (which depends on these previous contracts).
-
-Having done this, the Node.js application will fund an account, add a "friend", and make an anonymous transfer.
-
-Simply navigate to the main directory and type `node packages/example`.
+Now, in one window, type
+```bash
+ganache-cli --gasPrice 0 --gasLimit 8000000
+```
+In a second window, type
+```bash
+truffle test
+```
+This command should compile and deploy all necessary contracts, as well as run some example code. You can see this example code in the test file [zsc.js](./packages/protocol/test/zsc.js).
 
 ## Detailed usage example
 
-Let's assume that `Client` has been imported and that all contracts have been deployed, as in [packages/example/index.js#L13-L23](packages/example/index.js#L13-L23). In four separate `node` consoles, point `web3` to four separate Quorum nodes (make sure to use WebSocket or IPC providers); for each one, execute
+Let's assume that `Client` has been imported and that all contracts have been deployed, and that, in four separate `node` consoles, `web3` is initialized with an appropriate provider (make sure to use a WebSocket or IPC provider). In each window, type:
 ```javascript
 > var home
 > web3.eth.getAccounts().then((accounts) => { home = accounts[accounts.length - 1]; })
@@ -53,7 +56,7 @@ to assign the address of an unlocked account to the variable `home`.
 
 In the first window, Alice's let's say, execute
 ```javascript
-> var alice = new Client(web3, deployed, home)
+> const alice = new Client(web3, deployed, home)
 > alice.register()
 Promise { <pending> }
 Registration submitted (txHash = "0xe4295b5116eb1fe6c40a40352f4bf609041f93e763b5b27bd28c866f3f4ce2b2").
@@ -61,10 +64,10 @@ Registration successful.
 ```
 and in Bob's,
 ```javascript
-> var bob = new Client(web3, deployed, home)
+> const bob = new Client(web3, deployed, home)
 > bob.register()
 ```
-Do something similar for the other two.
+Here, `deployed` refers to an already-deployed ZSC `Web3.eth.Contract` object. Do something similar for the other two.
 
 The two functions `deposit` and `withdraw` take a single numerical parameter. For example, in Alice's window, type
 ```javascript
@@ -122,9 +125,9 @@ The meaning of this syntax is that Carol and Dave are being included, along with
 In fact, you can see for yourself the perspective of Eve—an eavesdropper, let's say. In a new window (if you want), execute:
 
 ```javascript
-> var inputs
+> let inputs
 > deployed._jsonInterface.forEach((element) => { if (element['name'] == "transfer") inputs = element['inputs']; })
-> var parsed
+> let parsed
 > web3.eth.getTransaction('0x9b3f51f3511c6797789862ce745a81d5bdfb00304831a8f25cc8554ea7597860').then((transaction) => { parsed = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10)); })
 ```
 You will see a bunch of fields; in particular, `parsed['y']` will contain the list of public keys, while `parsed['C']`, `parsed['D']` and `parsed['proof']` will contain further bytes which reveal nothing about the transaction.
