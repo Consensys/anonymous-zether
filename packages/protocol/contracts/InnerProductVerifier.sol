@@ -15,8 +15,8 @@ contract InnerProductVerifier {
     }
 
     struct InnerProductProof {
-        Utils.G1Point[] ls;
-        Utils.G1Point[] rs;
+        Utils.G1Point[] L;
+        Utils.G1Point[] R;
         uint256 a;
         uint256 b;
     }
@@ -167,48 +167,48 @@ contract InnerProductVerifier {
     struct IPAuxiliaries {
         uint256 o;
         uint256[] challenges;
-        uint256[] otherExponents;
+        uint256[] s;
     }
 
     function verify(InnerProductStatement memory statement, InnerProductProof memory proof, uint256 salt) internal view returns (bool) {
-        uint256 log_n = proof.ls.length;
-        uint256 n = 2 ** log_n;
+        uint256 log_n = proof.L.length;
+        uint256 n = 1 << log_n;
 
         IPAuxiliaries memory ipAuxiliaries; // for stacktoodeep
         ipAuxiliaries.o = salt; // could probably just access / overwrite the parameter directly.
         ipAuxiliaries.challenges = new uint256[](log_n);
         for (uint256 i = 0; i < log_n; i++) {
-            ipAuxiliaries.o = uint256(keccak256(abi.encode(ipAuxiliaries.o, proof.ls[i], proof.rs[i]))).mod(); // overwrites
+            ipAuxiliaries.o = uint256(keccak256(abi.encode(ipAuxiliaries.o, proof.L[i], proof.R[i]))).mod(); // overwrites
             ipAuxiliaries.challenges[i] = ipAuxiliaries.o;
-            statement.P = statement.P.add(proof.ls[i].mul(ipAuxiliaries.o.exp(2)).add(proof.rs[i].mul(ipAuxiliaries.o.inv().exp(2))));
+            uint256 inverse = ipAuxiliaries.o.inv();
+            statement.P = statement.P.add(proof.L[i].mul(ipAuxiliaries.o.mul(ipAuxiliaries.o)).add(proof.R[i].mul(inverse.mul(inverse))));
         }
 
-        ipAuxiliaries.otherExponents = new uint256[](n);
-        ipAuxiliaries.otherExponents[0] = 1;
-        for (uint256 i = 0; i < log_n; i++) {
-            ipAuxiliaries.otherExponents[0] = ipAuxiliaries.otherExponents[0].mul(ipAuxiliaries.challenges[i]);
-        }
+        ipAuxiliaries.s = new uint256[](n);
+        ipAuxiliaries.s[0] = 1;
+        // credit to https://github.com/leanderdulac/BulletProofLib/blob/master/truffle/contracts/EfficientInnerProductVerifier.sol for the below block.
+        // it is an unusual and clever variant of what we already do in ZetherVerifier.sol:234-249, but with the special property that it requires only 1 inversion.
+        // indeed, that algorithm computes the same function as this, yet its use here would require log(N) modular inversions. inversions turn out to be expensive.
+        // of course in that case don't have to invert, but rather to do x minus, etc., so in that case we might as well just use the simpler algorithm.
+        for (uint256 i = 0; i < log_n; i++) ipAuxiliaries.s[0] = ipAuxiliaries.s[0].mul(ipAuxiliaries.challenges[i]);
+        ipAuxiliaries.s[0] = ipAuxiliaries.s[0].inv(); // here.
         bool[] memory bitSet = new bool[](n);
-
-        ipAuxiliaries.otherExponents[0] = ipAuxiliaries.otherExponents[0].inv();
-        for (uint256 i = 0; i < n / 2; ++i) {
-            for (uint256 j = 0; (1 << j) + i < n; ++j) {
-                uint256 i1 = i + (1 << j);
-                if (!bitSet[i1]) {
-                    uint256 temp = ipAuxiliaries.challenges[log_n - 1 - j].exp(2);
-                    ipAuxiliaries.otherExponents[i1] = ipAuxiliaries.otherExponents[i].mul(temp);
-                    bitSet[i1] = true;
+        for (uint256 i = 0; i < n / 2; i++) {
+            for (uint256 j = 0; (1 << j) + i < n; j++) {
+                uint256 k = i + (1 << j);
+                if (!bitSet[k]) {
+                    ipAuxiliaries.s[k] = ipAuxiliaries.s[i].mul(ipAuxiliaries.challenges[log_n - 1 - j]).mul(ipAuxiliaries.challenges[log_n - 1 - j]);
+                    bitSet[k] = true;
                 }
             }
         }
 
-        Utils.G1Point memory gTemp;
-        Utils.G1Point memory hTemp;
+        Utils.G1Point memory temp = statement.u.mul(proof.a.mul(proof.b));
         for (uint256 i = 0; i < n; i++) {
-            gTemp = gTemp.add(gs(i).mul(ipAuxiliaries.otherExponents[i]));
-            hTemp = hTemp.add(statement.hs[i].mul(ipAuxiliaries.otherExponents[n - 1 - i]));
+            temp = temp.add(gs(i).mul(ipAuxiliaries.s[i].mul(proof.a)));
+            temp = temp.add(statement.hs[i].mul(ipAuxiliaries.s[n - 1 - i].mul(proof.b)));
         }
-        require(gTemp.mul(proof.a).add(hTemp.mul(proof.b)).add(statement.u.mul(proof.a.mul(proof.b))).eq(statement.P), "Inner product equality check failure.");
+        require(temp.eq(statement.P), "Inner product equality check failure.");
 
         return true;
     }

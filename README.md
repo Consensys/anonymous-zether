@@ -22,7 +22,7 @@ Anonymous Zether can be deployed and tested easily using [Truffle](https://www.t
 
 ### Required utilities
 * [Yarn](https://yarnpkg.com/en/docs/install#mac-stable), tested with version v1.22.4.
-* [Node.js](https://nodejs.org/en/download/), tested with version v12.18.3. (Unfortunately, currently, Node.js v14 has certain incompatibilities with Truffle; see [this issue](https://github.com/trufflesuite/ganache-cli/issues/732).)
+* [Node.js](https://nodejs.org/en/download/), tested with version v12.18.3. (Unfortunately, currently, Node.js v14 has [certain incompatibilities](https://github.com/trufflesuite/ganache-cli/issues/732) with Truffle; you can use `nvm use 12` to temporarily downgrade.)
 
 Run the following commands:
 ```bash
@@ -37,7 +37,7 @@ Navigate to the [protocol](./packages/protocol) directory. Type `yarn`.
 
 Now, in one window, type
 ```bash
-ganache-cli --gasPrice 0 --gasLimit 8000000
+ganache-cli --gasPrice 0
 ```
 In a second window, type
 ```bash

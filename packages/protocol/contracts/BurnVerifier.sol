@@ -101,12 +101,12 @@ contract BurnVerifier {
             burnAuxiliaries.k = burnAuxiliaries.k.add(burnAuxiliaries.ys[i]);
         }
         burnAuxiliaries.z = uint256(keccak256(abi.encode(burnAuxiliaries.y))).mod();
-        burnAuxiliaries.zs = [burnAuxiliaries.z.exp(2)];
+        burnAuxiliaries.zs[0] = burnAuxiliaries.z.mul(burnAuxiliaries.z);
         burnAuxiliaries.zSum = burnAuxiliaries.zs[0].mul(burnAuxiliaries.z); // trivial sum
-        burnAuxiliaries.k = burnAuxiliaries.k.mul(burnAuxiliaries.z.sub(burnAuxiliaries.zs[0])).sub(burnAuxiliaries.zSum.mul(2 ** 32).sub(burnAuxiliaries.zSum));
+        burnAuxiliaries.k = burnAuxiliaries.k.mul(burnAuxiliaries.z.sub(burnAuxiliaries.zs[0])).sub(burnAuxiliaries.zSum.mul(1 << 32).sub(burnAuxiliaries.zSum));
         burnAuxiliaries.t = proof.tHat.sub(burnAuxiliaries.k);
         for (uint256 i = 0; i < 32; i++) {
-            burnAuxiliaries.twoTimesZSquared[i] = burnAuxiliaries.zs[0].mul(2 ** i);
+            burnAuxiliaries.twoTimesZSquared[i] = burnAuxiliaries.zs[0].mul(1 << i);
         }
 
         burnAuxiliaries.x = uint256(keccak256(abi.encode(burnAuxiliaries.z, proof.T_1, proof.T_2))).mod();
@@ -153,11 +153,11 @@ contract BurnVerifier {
         proof.s_tau = uint256(Utils.slice(arr, 416));
 
         InnerProductVerifier.InnerProductProof memory ipProof;
-        ipProof.ls = new Utils.G1Point[](5);
-        ipProof.rs = new Utils.G1Point[](5);
+        ipProof.L = new Utils.G1Point[](5);
+        ipProof.R = new Utils.G1Point[](5);
         for (uint256 i = 0; i < 5; i++) { // 2^5 = 32.
-            ipProof.ls[i] = Utils.G1Point(Utils.slice(arr, 448 + i * 64), Utils.slice(arr, 480 + i * 64));
-            ipProof.rs[i] = Utils.G1Point(Utils.slice(arr, 448 + (5 + i) * 64), Utils.slice(arr, 480 + (5 + i) * 64));
+            ipProof.L[i] = Utils.G1Point(Utils.slice(arr, 448 + i * 64), Utils.slice(arr, 480 + i * 64));
+            ipProof.R[i] = Utils.G1Point(Utils.slice(arr, 448 + (5 + i) * 64), Utils.slice(arr, 480 + (5 + i) * 64));
         }
         ipProof.a = uint256(Utils.slice(arr, 448 + 5 * 128));
         ipProof.b = uint256(Utils.slice(arr, 480 + 5 * 128));

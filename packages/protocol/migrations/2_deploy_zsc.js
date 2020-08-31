@@ -7,9 +7,9 @@ var ZSC = artifacts.require("ZSC");
 module.exports = (deployer) => {
     return Promise.all([
         deployer.deploy(CashToken),
-        deployer.deploy(InnerProductVerifier, { gas: 4700000 }).then(() => Promise.all([
-            deployer.deploy(ZetherVerifier, InnerProductVerifier.address, { gas: 8000000 }),
-            deployer.deploy(BurnVerifier, InnerProductVerifier.address, { gas: 4700000 })
+        deployer.deploy(InnerProductVerifier, { gas: 6721975 }).then(() => Promise.all([
+            deployer.deploy(ZetherVerifier, InnerProductVerifier.address, { gas: 6721975 }),
+            deployer.deploy(BurnVerifier, InnerProductVerifier.address, { gas: 6721975 })
         ]))
     ]).then(() => deployer.deploy(ZSC, CashToken.address, ZetherVerifier.address, BurnVerifier.address, 6));
 }

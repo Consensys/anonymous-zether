@@ -52,8 +52,5 @@ contract("ZSC", async (accounts) => {
             10,
             "Transfer failed"
         );
-        // bob (and carol and dave) won't actually receive the transfer, because truffle uses HttpProvider
-        // can't use websocket providers at this point, because of geth bugs. will fix
-        // https://github.com/trufflesuite/truffle/issues/1699
     });
 });

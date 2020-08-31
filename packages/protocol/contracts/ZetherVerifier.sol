@@ -10,6 +10,8 @@ contract ZetherVerifier {
     using Utils for Utils.G1Point;
 
     uint256 constant UNITY = 0x14a3074b02521e3b1ed9852e5028452693e87be4e910500c7ba9bbddb2f46edd; // primitive 2^28th root of unity modulo q.
+    uint256 constant UNITY_INV = 0x26e5d943cd2c53aced15060255c58a5581bb6108161239002a021f09b39972c9; // UNITY^{-1} modulo q
+    uint256 constant TWO_INV = 0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000001; // 2^{-1} modulo q
 
     InnerProductVerifier ip;
 
@@ -134,7 +136,7 @@ contract ZetherVerifier {
         anonAuxiliaries.v = uint256(keccak256(abi.encode(statementHash, proof.BA, proof.BS, proof.A, proof.B))).mod();
         anonAuxiliaries.w = uint256(keccak256(abi.encode(anonAuxiliaries.v, proof.CLnG, proof.CRnG, proof.C_0G, proof.DG, proof.y_0G, proof.gG, proof.C_XG, proof.y_XG))).mod();
         anonAuxiliaries.m = proof.f.length / 2;
-        anonAuxiliaries.N = 2 ** anonAuxiliaries.m;
+        anonAuxiliaries.N = 1 << anonAuxiliaries.m;
         anonAuxiliaries.f = new uint256[2][](2 * anonAuxiliaries.m);
         for (uint256 k = 0; k < 2 * anonAuxiliaries.m; k++) {
             anonAuxiliaries.f[k][1] = proof.f[k];
@@ -189,13 +191,14 @@ contract ZetherVerifier {
             zetherAuxiliaries.k = zetherAuxiliaries.k.add(zetherAuxiliaries.ys[i]);
         }
         zetherAuxiliaries.z = uint256(keccak256(abi.encode(zetherAuxiliaries.y))).mod();
-        zetherAuxiliaries.zs = [zetherAuxiliaries.z.exp(2), zetherAuxiliaries.z.exp(3)];
+        zetherAuxiliaries.zs[0] = zetherAuxiliaries.z.mul(zetherAuxiliaries.z);
+        zetherAuxiliaries.zs[1] = zetherAuxiliaries.zs[0].mul(zetherAuxiliaries.z);
         zetherAuxiliaries.zSum = zetherAuxiliaries.zs[0].add(zetherAuxiliaries.zs[1]).mul(zetherAuxiliaries.z);
-        zetherAuxiliaries.k = zetherAuxiliaries.k.mul(zetherAuxiliaries.z.sub(zetherAuxiliaries.zs[0])).sub(zetherAuxiliaries.zSum.mul(2 ** 32).sub(zetherAuxiliaries.zSum));
+        zetherAuxiliaries.k = zetherAuxiliaries.k.mul(zetherAuxiliaries.z.sub(zetherAuxiliaries.zs[0])).sub(zetherAuxiliaries.zSum.mul(1 << 32).sub(zetherAuxiliaries.zSum));
         zetherAuxiliaries.t = proof.tHat.sub(zetherAuxiliaries.k); // t = tHat - delta(y, z)
         for (uint256 i = 0; i < 32; i++) {
-            zetherAuxiliaries.twoTimesZSquared[i] = zetherAuxiliaries.zs[0].mul(2 ** i);
-            zetherAuxiliaries.twoTimesZSquared[i + 32] = zetherAuxiliaries.zs[1].mul(2 ** i);
+            zetherAuxiliaries.twoTimesZSquared[i] = zetherAuxiliaries.zs[0].mul(1 << i);
+            zetherAuxiliaries.twoTimesZSquared[i + 32] = zetherAuxiliaries.zs[1].mul(1 << i);
         }
 
         zetherAuxiliaries.x = uint256(keccak256(abi.encode(zetherAuxiliaries.z, proof.T_1, proof.T_2))).mod();
@@ -226,13 +229,12 @@ contract ZetherVerifier {
         ipAuxiliaries.P = ipAuxiliaries.P.add(ipAuxiliaries.u_x.mul(proof.tHat));
         require(ip.verifyInnerProduct(ipAuxiliaries.hPrimes, ipAuxiliaries.u_x, ipAuxiliaries.P, proof.ipProof, ipAuxiliaries.o), "Inner product proof verification failed.");
 
-
         return true;
     }
 
     function assemblePolynomials(uint256[2][] memory f) internal view returns (uint256[2][] memory result) {
         uint256 m = f.length / 2;
-        uint256 N = 2 ** m;
+        uint256 N = 1 << m;
         result = new uint256[2][](N);
         for (uint256 i = 0; i < 2; i++) {
             uint256[] memory half = recursivePolynomials(i * m, (i + 1) * m, 1, f);
@@ -244,7 +246,7 @@ contract ZetherVerifier {
 
     function recursivePolynomials(uint256 baseline, uint256 current, uint256 accum, uint256[2][] memory f) internal view returns (uint256[] memory result) {
         // have to do a bunch of re-allocating because solidity won't let me have something which is internal and also modifies (internal) state. (?)
-        uint256 size = 2 ** (current - baseline); // size is at least 2...
+        uint256 size = 1 << (current - baseline); // size is at least 2...
         result = new uint256[](size);
 
         if (current == baseline) {
@@ -279,8 +281,7 @@ contract ZetherVerifier {
 
             exponent_fft = fft(exponent_fft);
             Utils.G1Point[] memory inverse_fft = new Utils.G1Point[](half);
-            uint256 compensation = 2;
-            compensation = compensation.inv();
+            uint256 compensation = TWO_INV;
             for (uint256 j = 0; j < half; j++) { // Hadamard
                 inverse_fft[j] = base_fft[j].mul(exponent_fft[j]).add(base_fft[j + half].mul(exponent_fft[j + half])).mul(compensation);
             }
@@ -294,18 +295,17 @@ contract ZetherVerifier {
 
     function fft(Utils.G1Point[] memory input, bool inverse) internal view returns (Utils.G1Point[] memory result) {
         uint256 size = input.length;
-        if (size == 1) {
-            return input;
-        }
+        if (size == 1) return input;
         require(size % 2 == 0, "Input size is not a power of 2!");
 
-        uint256 omega = UNITY.exp(2**28 / size);
+        uint256 omega;
         uint256 compensation = 1;
         if (inverse) {
-            omega = omega.inv();
-            compensation = 2;
+            omega = UNITY_INV.exp((1 << 28) / size); // wasteful of gas: could pass fewer bits to the precompile...
+            compensation = TWO_INV;
+        } else {
+            omega = UNITY.exp((1 << 28) / size); // same here
         }
-        compensation = compensation.inv();
         Utils.G1Point[] memory even = fft(extract(input, 0), inverse);
         Utils.G1Point[] memory odd = fft(extract(input, 1), inverse);
         uint256 omega_run = 1;
@@ -332,7 +332,7 @@ contract ZetherVerifier {
         }
         require(size % 2 == 0, "Input size is not a power of 2!");
 
-        uint256 omega = UNITY.exp(2**28 / size);
+        uint256 omega = UNITY.exp((1 << 28) / size);
         uint256[] memory even = fft(extract(input, 0));
         uint256[] memory odd = fft(extract(input, 1));
         uint256 omega_run = 1;
@@ -395,11 +395,11 @@ contract ZetherVerifier {
         proof.s_tau = uint256(Utils.slice(arr, 608 + starting));
 
         InnerProductVerifier.InnerProductProof memory ipProof;
-        ipProof.ls = new Utils.G1Point[](6);
-        ipProof.rs = new Utils.G1Point[](6);
+        ipProof.L = new Utils.G1Point[](6);
+        ipProof.R = new Utils.G1Point[](6);
         for (uint256 i = 0; i < 6; i++) { // 2^6 = 64.
-            ipProof.ls[i] = Utils.G1Point(Utils.slice(arr, 640 + starting + i * 64), Utils.slice(arr, 672 + starting + i * 64));
-            ipProof.rs[i] = Utils.G1Point(Utils.slice(arr, 640 + starting + (6 + i) * 64), Utils.slice(arr, 672 + starting + (6 + i) * 64));
+            ipProof.L[i] = Utils.G1Point(Utils.slice(arr, 640 + starting + i * 64), Utils.slice(arr, 672 + starting + i * 64));
+            ipProof.R[i] = Utils.G1Point(Utils.slice(arr, 640 + starting + (6 + i) * 64), Utils.slice(arr, 672 + starting + (6 + i) * 64));
         }
         ipProof.a = uint256(Utils.slice(arr, 640 + starting + 6 * 128));
         ipProof.b = uint256(Utils.slice(arr, 672 + starting + 6 * 128));
