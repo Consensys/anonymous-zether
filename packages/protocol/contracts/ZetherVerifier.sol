@@ -256,42 +256,46 @@ contract ZetherVerifier {
         uint256 half = size / 2;
         result = new Utils.G1Point[2][](half); // assuming that this is necessary even when return is declared up top
         uint256 omega = UNITY.exp((1 << 28) / size); // wasteful: using exp for all 256-bits, though we only need 28 (at most!)
-        uint256 omega_inverse = omega.mul(omega).inv(); // also square it. inverse fft will be half as big
-        Utils.G1Point[] memory base_fft = fft(base, omega, false); // could precompute UNITY.inv(), but... have to exp it anyway
+        uint256 omega_inv = omega.mul(omega).inv(); // also square it. inverse fft will be half as big
+        uint256[] memory omegas = new uint256[](half);
+        uint256[] memory inverses = new uint256[](half / 2); // if it's not an integer, will this still work nicely?
+        omegas[0] = 1;
+        inverses[0] = 1;
+        for (uint256 i = 1; i < half; i++) omegas[i] = omegas[i - 1].mul(omega);
+        for (uint256 i = 1; i < half / 2; i++) inverses[i] = inverses[i - 1].mul(omega_inv);
+        Utils.G1Point[] memory base_fft = fft(base, omegas, false); // could precompute UNITY.inv(), but... have to exp it anyway
         uint256[] memory exponent_fft = new uint256[](size);
-        for (uint256 i = 0; i < 2; i++) {
-            for (uint256 j = 0; j < size; j++) exponent_fft[j] = exponent[(size - j) % size][i]; // convolutional flip plus copy
+        for (uint256 j = 0; j < 2; j++) {
+            for (uint256 i = 0; i < size; i++) exponent_fft[i] = exponent[(size - i) % size][j]; // convolutional flip plus copy
 
-            exponent_fft = fft(exponent_fft, omega);
+            exponent_fft = fft(exponent_fft, omegas);
             Utils.G1Point[] memory inverse_fft = new Utils.G1Point[](half);
-            for (uint256 j = 0; j < half; j++) { // break up into two statements for ease of reading
-                inverse_fft[j] = inverse_fft[j].add(base_fft[j].mul(exponent_fft[j].mul(TWO_INV)));
-                inverse_fft[j] = inverse_fft[j].add(base_fft[j + half].mul(exponent_fft[j + half].mul(TWO_INV)));
+            for (uint256 i = 0; i < half; i++) { // break up into two statements for ease of reading
+                inverse_fft[i] = inverse_fft[i].add(base_fft[i].mul(exponent_fft[i].mul(TWO_INV)));
+                inverse_fft[i] = inverse_fft[i].add(base_fft[i + half].mul(exponent_fft[i + half].mul(TWO_INV)));
             }
 
-            inverse_fft = fft(inverse_fft, omega_inverse, true); // square, because half as big.
-            for (uint256 j = 0; j < half; j++) result[j][i] = inverse_fft[j];
+            inverse_fft = fft(inverse_fft, inverses, true); // square, because half as big.
+            for (uint256 i = 0; i < half; i++) result[i][j] = inverse_fft[i];
         }
     }
 
-    function fft(Utils.G1Point[] memory input, uint256 omega, bool inverse) internal view returns (Utils.G1Point[] memory result) {
+    function fft(Utils.G1Point[] memory input, uint256[] memory omegas, bool inverse) internal view returns (Utils.G1Point[] memory result) {
         uint256 size = input.length;
         if (size == 1) return input;
         require(size % 2 == 0, "Input size is not a power of 2!");
 
-        Utils.G1Point[] memory even = fft(extract(input, 0), omega.mul(omega), inverse);
-        Utils.G1Point[] memory odd = fft(extract(input, 1), omega.mul(omega), inverse);
-        uint256 omega_run = 1;
+        Utils.G1Point[] memory even = fft(extract(input, 0), extract(omegas, 0), inverse);
+        Utils.G1Point[] memory odd = fft(extract(input, 1), extract(omegas, 0), inverse);
         result = new Utils.G1Point[](size);
         for (uint256 i = 0; i < size / 2; i++) {
-            Utils.G1Point memory temp = odd[i].mul(omega_run);
+            Utils.G1Point memory temp = odd[i].mul(omegas[i]);
             result[i] = even[i].add(temp);
             result[i + size / 2] = even[i].add(temp.neg());
             if (inverse) { // could probably "delay" the successive multiplications by 2 up the recursion.
                 result[i] = result[i].mul(TWO_INV);
                 result[i + size / 2] = result[i + size / 2].mul(TWO_INV);
             }
-            omega_run = omega_run.mul(omega);
         }
     }
 
@@ -302,20 +306,18 @@ contract ZetherVerifier {
         }
     }
 
-    function fft(uint256[] memory input, uint256 omega) internal view returns (uint256[] memory result) {
+    function fft(uint256[] memory input, uint256[] memory omegas) internal view returns (uint256[] memory result) {
         uint256 size = input.length;
         if (size == 1) return input;
         require(size % 2 == 0, "Input size is not a power of 2!");
 
-        uint256[] memory even = fft(extract(input, 0), omega.mul(omega));
-        uint256[] memory odd = fft(extract(input, 1), omega.mul(omega));
-        uint256 omega_run = 1;
+        uint256[] memory even = fft(extract(input, 0), extract(omegas, 0));
+        uint256[] memory odd = fft(extract(input, 1), extract(omegas, 0));
         result = new uint256[](size);
         for (uint256 i = 0; i < size / 2; i++) {
-            uint256 temp = odd[i].mul(omega_run);
+            uint256 temp = odd[i].mul(omegas[i]);
             result[i] = even[i].add(temp);
             result[i + size / 2] = even[i].sub(temp);
-            omega_run = omega_run.mul(omega);
         }
     }
 

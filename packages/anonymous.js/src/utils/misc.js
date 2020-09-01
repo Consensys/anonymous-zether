@@ -42,30 +42,42 @@ class FieldVectorPolynomial {
 }
 
 class Convolver {
-    constructor() {
-        const unity = new BN("14a3074b02521e3b1ed9852e5028452693e87be4e910500c7ba9bbddb2f46edd", 16).toRed(bn128.q);
-        // this can technically be "static" (as in the "module pattern", like bn128), but...
+    static unity = new BN("14a3074b02521e3b1ed9852e5028452693e87be4e910500c7ba9bbddb2f46edd", 16).toRed(bn128.q); // can it be both static and const?
+    static unity_inv = new BN("26e5d943cd2c53aced15060255c58a5581bb6108161239002a021f09b39972c9", 16).toRed(bn128.q);
+    static two_inv = new BN("183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000001", 16).toRed(bn128.q);
 
-        const fft = (input, inverse) => { // crazy... i guess this will work for both points and scalars?
-            const length = input.length();
-            if (length === 1) return input;
-            if (length % 2 !== 0) throw "Input size must be a power of 2!";
-            let omega = unity.redPow(new BN(1).shln(28).div(new BN(length)));
-            if (inverse) omega = omega.redInvm();
-            const even = fft(input.extract(0), inverse);
-            const odd = fft(input.extract(1), inverse);
-            let omegas = [new BN(1).toRed(bn128.q)];
-            for (let i = 1; i < length / 2; i++) omegas.push(omegas[i - 1].redMul(omega));
-            omegas = new FieldVector(omegas);
-            let result = even.add(odd.hadamard(omegas)).concat(even.add(odd.hadamard(omegas).negate()));
-            if (inverse) result = result.times(new BN(2).toRed(bn128.q).redInvm());
+    constructor() {
+        let base_fft;
+        let omegas;
+        let inverses;
+
+        const fft = (input, omegas, inverse) => { // crazy... i guess this will work for both points and scalars?
+            const size = input.length();
+            if (size === 1) return input;
+            if (size % 2 !== 0) throw "Input size must be a power of 2!";
+            const even = fft(input.extract(0), omegas.extract(0), inverse);
+            const odd = fft(input.extract(1), omegas.extract(0), inverse);
+            const temp = odd.hadamard(omegas);
+            let result = even.add(temp).concat(even.add(temp.negate()));
+            if (inverse) result = result.times(Convolver.two_inv);
             return result;
         };
 
-        this.convolution = (exponent, base) => { // returns only even-indexed outputs of convolution!
+        this.prepare = (base) => {
             const size = base.length();
-            const temp = fft(base, false).hadamard(fft(exponent.flip(), false));
-            return fft(temp.slice(0, size / 2).add(temp.slice(size / 2)).times(new BN(2).toRed(bn128.q).redInvm()), true);
+            const omega = Convolver.unity.redPow(new BN(1).shln(28).div(new BN(size))); // can i right-shift?
+            const omega_inv = Convolver.unity_inv.redPow(new BN(1).shln(28).div(new BN(size / 2))); // can i right-shift?
+            omegas = new FieldVector([new BN(1).toRed(bn128.q)]);
+            inverses = new FieldVector([new BN(1).toRed(bn128.q)]);
+            for (let i = 1; i < size / 2; i++) omegas.push(omegas.getVector()[i - 1].redMul(omega));
+            for (let i = 1; i < size / 4; i++) inverses.push(inverses.getVector()[i - 1].redMul(omega_inv));
+            base_fft = fft(base, omegas, false);
+        };
+
+        this.convolution = (exponent) => { // returns only even-indexed outputs of convolution!
+            const size = exponent.length();
+            const temp = base_fft.hadamard(fft(exponent.flip(), omegas, false));
+            return fft(temp.slice(0, size / 2).add(temp.slice(size / 2)).times(Convolver.two_inv), inverses, true);
         }; // using the optimization described here https://dsp.stackexchange.com/a/30699
     }
 }

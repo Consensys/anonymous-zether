@@ -65,11 +65,10 @@ class BurnProof {
             bn128.serialize(result.BS.point()),
         ]));
 
-        const temp = [new BN(1).toRed(bn128.q)];
+        const ys = new FieldVector([new BN(1).toRed(bn128.q)]);
         for (let i = 1; i < 32; i++) { // it would be nice to have a nifty functional way of doing this.
-            temp.push(temp[i - 1].redMul(y));
+            ys.push(ys.getVector()[i - 1].redMul(y));
         }
-        const ys = new FieldVector(temp); // could avoid this line by starting ys as a fieldvector and using "plus". not going to bother.
         const z = utils.hash(bn128.bytes(y));
         const zs = [z.redPow(new BN(2))];
         const twos = []

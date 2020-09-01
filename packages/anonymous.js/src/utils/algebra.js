@@ -34,6 +34,7 @@ class FieldVector {
         this.add = (other) => new FieldVector(other.getVector().map((elem, i) => vector[i].redAdd(elem)))
         this.negate = () => new FieldVector(vector.map((elem) => elem.redNeg()));
         this.plus = (constant) => new FieldVector(vector.map((elem) => elem.redAdd(constant)));
+        this.push = (constant) => { vector.push(constant); };
         this.sum = () => vector.reduce((accum, cur) => accum.redAdd(cur), new BN(0).toRed(bn128.q));
         this.hadamard = (other) => new FieldVector(other.getVector().map((elem, i) => vector[i].redMul(elem)));
         this.invert = () => new FieldVector(vector.map((elem) => elem.redInvm()));

@@ -176,22 +176,20 @@ class ZetherProof {
             bn128.bytes(w), // that's it?
         ]));
 
-        let temp = [new BN(1).toRed(bn128.q)];
+        const ys = new FieldVector([new BN(1).toRed(bn128.q)]);
         for (let i = 1; i < 64; i++) { // it would be nice to have a nifty functional way of doing this.
-            temp.push(temp[i - 1].redMul(y));
+            ys.push(ys.getVector()[i - 1].redMul(y));
         }
-        const ys = new FieldVector(temp); // could avoid this line by starting ys as a fieldvector and using "plus". not going to bother.
         const z = utils.hash(bn128.bytes(y));
         const zs = [z.redPow(new BN(2)), z.redPow(new BN(3))];
         const twos = []
         for (let i = 0; i < 32; i++) twos[i] = new BN(1).shln(i).toRed(bn128.q);
-        temp = [];
+        const twoTimesZs = new FieldVector([]);
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 32; j++) {
-                temp.push(zs[i].redMul(twos[j]));
+                twoTimesZs.push(zs[i].redMul(twos[j]));
             }
         }
-        const twoTimesZs = new FieldVector(temp);
 
         const lPoly = new FieldVectorPolynomial(aL.plus(z.redNeg()), sL);
         const rPoly = new FieldVectorPolynomial(ys.hadamard(aR.plus(z)).add(twoTimesZs), sR.hadamard(ys));
@@ -237,8 +235,9 @@ class ZetherProof {
         q = q.add(new FieldVector(Array.from({ length: N }).map((_, i) => i === index[1] ? wPow : new BN().toRed(bn128.q))));
 
         const convolver = new Convolver();
-        const y_p = convolver.convolution(p, statement['y']);
-        const y_q = convolver.convolution(q, statement['y']);
+        convolver.prepare(statement['y']);
+        const y_p = convolver.convolution(p);
+        const y_q = convolver.convolution(q);
         vPow = new BN(1).toRed(bn128.q);
         for (let i = 0; i < N; i++) {
             const y_poly = i % 2 ? y_q : y_p; // this is weird. stumped.
