@@ -13,8 +13,8 @@ contract ZSC {
     using Utils for Utils.G1Point;
 
     CashToken coin;
-    ZetherVerifier zetherverifier;
-    BurnVerifier burnverifier;
+    ZetherVerifier zetherVerifier;
+    BurnVerifier burnVerifier;
     uint256 public epochLength;
 
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
@@ -31,8 +31,8 @@ contract ZSC {
     constructor(address _coin, address _zether, address _burn, uint256 _epochLength) { // visibiility won't be needed in 7.0
         // epoch length, like block.time, is in _seconds_. 4 is the minimum!!! (To allow a withdrawal to go through.)
         coin = CashToken(_coin);
-        zetherverifier = ZetherVerifier(_zether);
-        burnverifier = BurnVerifier(_burn);
+        zetherVerifier = ZetherVerifier(_zether);
+        burnVerifier = BurnVerifier(_burn);
         epochLength = _epochLength;
     }
 
@@ -126,7 +126,7 @@ contract ZSC {
         }
         nonceSet.push(uHash);
 
-        require(zetherverifier.verifyTransfer(CLn, CRn, C, D, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
+        require(zetherVerifier.verifyTransfer(CLn, CRn, C, D, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
         emit TransferOccurred(y);
     }
@@ -148,7 +148,7 @@ contract ZSC {
         }
         nonceSet.push(uHash);
 
-        require(burnverifier.verifyBurn(scratch[0], scratch[1], y, lastGlobalUpdate, u, msg.sender, proof), "Burn proof verification failed!");
+        require(burnVerifier.verifyBurn(scratch[0], scratch[1], y, lastGlobalUpdate, u, msg.sender, proof), "Burn proof verification failed!");
         require(coin.transfer(msg.sender, bTransfer), "This shouldn't fail... Something went severely wrong.");
     }
 }
