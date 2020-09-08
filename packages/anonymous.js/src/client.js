@@ -24,11 +24,11 @@ class Client {
         zsc.events.TransferOccurred({}) // i guess this will just filter for "from here on out."
             // an interesting prospect is whether balance recovery could be eliminated by looking at past events.
             .on('data', (event) => {
-                if (that._transfers.has(event.transactionHash)) {
-                    that._transfers.delete(event.transactionHash);
+                if (this._transfers.has(event.transactionHash)) {
+                    this._transfers.delete(event.transactionHash);
                     return;
                 }
-                const account = that.account;
+                const account = this.account;
                 event.returnValues['parties'].forEach((party, i) => {
                     if (account.keypair['y'].eq(bn128.deserialize(party))) {
                         const blockNumber = event.blockNumber;
@@ -110,38 +110,36 @@ class Client {
         };
 
         this.register = (secret) => {
-            return new Promise((resolve, reject) => {
-                zsc.methods.epochLength().call()
-                    .then((result) => {
-                        that._epochLength = result;
-                        if (secret === undefined) {
-                            const keypair = utils.createAccount();
-                            const [c, s] = utils.sign(zsc._address, keypair);
-                            zsc.methods.register(bn128.serialize(keypair['y']), c, s).send({ 'from': home, 'gas': 6721975 })
-                                .on('transactionHash', (hash) => {
-                                    console.log("Registration submitted (txHash = \"" + hash + "\").");
-                                })
-                                .on('receipt', (receipt) => {
-                                    that.account.keypair = keypair;
-                                    console.log("Registration successful.");
-                                    resolve(receipt);
-                                })
-                                .on('error', (error) => {
-                                    console.log("Registration failed: " + error);
-                                    reject(error);
-                                });
-                        } else {
-                            const x = new BN(secret.slice(2), 16).toRed(bn128.q);
-                            that.account.keypair = { 'x': x, 'y': bn128.curve.g.mul(x) };
-                            zsc.methods.simulateAccounts([bn128.serialize(that.account.keypair['y'])], that._getEpoch() + 1).call()
-                                .then((result) => {
-                                    const simulated = result[0];
-                                    that.account._state.available = utils.readBalance(simulated[0], simulated[1], x);
-                                    console.log("Account recovered successfully.");
-                                    resolve(); // warning: won't register you. assuming you registered when you first created the account.
-                                });
-                        }
-                    });
+            return zsc.methods.epochLength().call().then((result) => {
+                this._epochLength = result;
+                return new Promise((resolve, reject) => {
+                    if (secret === undefined) {
+                        const keypair = utils.createAccount();
+                        const [c, s] = utils.sign(zsc._address, keypair);
+                        zsc.methods.register(bn128.serialize(keypair['y']), c, s).send({ 'from': home, 'gas': 6721975 })
+                            .on('transactionHash', (hash) => {
+                                console.log("Registration submitted (txHash = \"" + hash + "\").");
+                            })
+                            .on('receipt', (receipt) => {
+                                that.account.keypair = keypair;
+                                console.log("Registration successful.");
+                                resolve();
+                            })
+                            .on('error', (error) => {
+                                console.log("Registration failed: " + error);
+                                reject(error);
+                            });
+                    } else {
+                        const x = new BN(secret.slice(2), 16).toRed(bn128.q);
+                        that.account.keypair = { 'x': x, 'y': bn128.curve.g.mul(x) };
+                        zsc.methods.simulateAccounts([bn128.serialize(this.account.keypair['y'])], this._getEpoch() + 1).call().then((result) => {
+                            const simulated = result[0];
+                            that.account._state.available = utils.readBalance(simulated[0], simulated[1], x);
+                            console.log("Account recovered successfully.");
+                            resolve(); // warning: won't register you. assuming you registered when you first created the account.
+                        });
+                    }
+                });
             });
         };
 
@@ -212,7 +210,7 @@ class Client {
                 }
                 throw "Anonset's size (including you and the recipient) must be a power of two. Add " + (next - size) + " or remove " + (size - previous) + ".";
             }
-            const friends = that.friends.show();
+            const friends = this.friends.show();
             if (!(name in friends))
                 throw "Name \"" + name + "\" hasn't been friended yet!";
             if (account.keypair['y'].eq(friends[name]))
