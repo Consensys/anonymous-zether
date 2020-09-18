@@ -132,6 +132,12 @@ In fact, you can see for yourself the perspective of Eve—an eavesdropper, let'
 ```
 You will see a bunch of fields; in particular, `parsed['y']` will contain the list of public keys, while `parsed['C']`, `parsed['D']` and `parsed['proof']` will contain further bytes which reveal nothing about the transaction.
 
-Keep in mind that there are a few obvious situations where information can be determined. For example, if someone who has never deposited before appears in a transaction for the first time (this was the case of Bob earlier above), then it will be clear that this person was not the transaction's originator. Similarly, if a certain person has performed only deposits and withdrawals, then his account balance will obviously be visible.
+Anonymous Zether also supports native transaction fees. The idea is that you can circumvent the "gas linkability" issue by submitting each new transaction from a fresh, randomly generated Ethereum address, and furthermore specifying a gas price of 0. By routing a "tip" to a miner's Zether account, you may induce the miner to process your transaction anyway (see "Paying gas in ZTH through economic abstraction", Appendix F of the [original Zether paper](https://eprint.iacr.org/2019/191.pdf)). To do this, change the value at [this line](./packages/protocol/contracts/ZetherVerifier.sol#L16) before deploying, for example to 1. Finally, include the miner's Zether account as a 4th parameter in your `transfer` call. For example:
+```javascript
+> bob.transfer("Alice", 10, ["Carol", "Dave"], "Miner")
+```
 
-More subtly, some information could be leaked if you choose your anonymity sets poorly. Thus, make sure you know how this works before using it.
+In the miner's console, you should see:
+```javascript
+> Fee of 1 received! Balance now 1.
+```
