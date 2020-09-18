@@ -45,7 +45,7 @@ class ZetherProof {
         };
     }
 
-    static prove(statement, witness) {
+    static prove(statement, witness, fee) {
         const result = new ZetherProof();
 
         const statementHash = utils.hash(ABICoder.encodeParameters([
@@ -139,7 +139,7 @@ class ZetherProof {
         let vPow = new BN(1).toRed(bn128.q);
         for (let i = 0; i < N; i++) { // could turn this into a complicated reduce, but...
             const poly = i % 2 ? Q_poly : P_poly; // clunky, i know, etc. etc.
-            result.C_XG = result.C_XG.map((C_XG_k, k) => C_XG_k.plus(vPow.redMul(witness['bTransfer'].redNeg().redSub(new BN(utils.fee).toRed(bn128.q)).redMul(poly[k].getVector()[(witness['index'][0] + N - (i - i % 2)) % N]).redAdd(witness['bTransfer'].redMul(poly[k].getVector()[(witness['index'][1] + N - (i - i % 2)) % N])))));
+            result.C_XG = result.C_XG.map((C_XG_k, k) => C_XG_k.plus(vPow.redMul(witness['bTransfer'].redNeg().redSub(new BN(fee).toRed(bn128.q)).redMul(poly[k].getVector()[(witness['index'][0] + N - (i - i % 2)) % N]).redAdd(witness['bTransfer'].redMul(poly[k].getVector()[(witness['index'][1] + N - (i - i % 2)) % N])))));
             if (i !== 0)
                 vPow = vPow.redMul(v);
         }

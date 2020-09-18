@@ -110,10 +110,6 @@ library Utils {
         return G1Point(0x01b7de3dcf359928dd19f643d54dc487478b68a5b2634f9f1903c9fb78331aef, 0x2bda7d3ae6a557c716477c108be0d0f94abc6c4dc6b1bd93caccbcceaaa71d6b);
     }
 
-    function fee() internal pure returns (uint256) {
-        return 1;
-    }
-
     function mapInto(uint256 seed) internal view returns (G1Point memory) {
         uint256 y;
         while (true) {

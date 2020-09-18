@@ -22,10 +22,6 @@ contract("ZSC", async (accounts) => {
         const zsc = await ZSC.deployed();
         alice = new Client(web3, zsc.contract, accounts[0]);
         await alice.register();
-        assert.exists(
-            alice._epochLength,
-            "Initialization failed"
-        );
     });
 
     it("should allow funding", async () => {

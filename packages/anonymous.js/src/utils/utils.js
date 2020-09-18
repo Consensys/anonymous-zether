@@ -5,8 +5,6 @@ const ABICoder = require('web3-eth-abi');
 
 const utils = {};
 
-utils.fee = 1; // constant
-
 utils.sign = (address, keypair) => {
     const k = bn128.randomScalar();
     const K = bn128.curve.g.mul(k);

@@ -2,7 +2,7 @@ const ZetherProof = require('../prover/zether.js');
 const BurnProof = require('../prover/burn.js');
 
 class Service {
-    static proveTransfer(Cn, C, y, epoch, sk, r, bTransfer, bDiff, index) {
+    static proveTransfer(Cn, C, y, epoch, sk, r, bTransfer, bDiff, index, fee) {
         const statement = {};
         statement['Cn'] = Cn;
         statement['C'] = C;
@@ -16,7 +16,7 @@ class Service {
         witness['bDiff'] = bDiff;
         witness['index'] = index;
 
-        return ZetherProof.prove(statement, witness).serialize();
+        return ZetherProof.prove(statement, witness, fee).serialize();
     };
 
     static proveBurn(Cn, y, epoch, sender, sk, bDiff) {

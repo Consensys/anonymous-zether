@@ -16,6 +16,7 @@ contract ZSC {
     ZetherVerifier zetherVerifier;
     BurnVerifier burnVerifier;
     uint256 public epochLength;
+    uint256 public fee;
 
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
     mapping(bytes32 => Utils.G1Point[2]) acc; // main account mapping
@@ -34,6 +35,7 @@ contract ZSC {
         zetherVerifier = ZetherVerifier(_zether);
         burnVerifier = BurnVerifier(_burn);
         epochLength = _epochLength;
+        fee = zetherVerifier.fee();
     }
 
     function simulateAccounts(Utils.G1Point[] memory y, uint256 epoch) view public returns (Utils.G1Point[2][] memory accounts) {
@@ -108,7 +110,7 @@ contract ZSC {
 
         bytes32 beneficiaryHash = keccak256(abi.encode(beneficiary));
         rollOver(beneficiaryHash);
-        pending[beneficiaryHash][0] = pending[beneficiaryHash][0].add(Utils.g().mul(Utils.fee()));
+        pending[beneficiaryHash][0] = pending[beneficiaryHash][0].add(Utils.g().mul(fee));
 
         for (uint256 i = 0; i < size; i++) {
             bytes32 yHash = keccak256(abi.encode(y[i]));
