@@ -50,6 +50,10 @@ class Client {
                         });
                     }
                 });
+                if (account.keypair['y'].eq(bn128.deserialize(event.returnValues['beneficiary']))) {
+                    account._state.pending += utils.fee;
+                    console.log("Fee of " + utils.fee + " received! Balance now " + (account._state.available + account._state.pending) + ".");
+                }
             })
             .on('error', (error) => {
                 console.log(error); // when will this be called / fired...?! confusing. also, test this.
@@ -174,24 +178,24 @@ class Client {
             // the 20-millisecond buffer is designed to give the callback time to fire (see below).
         };
 
-        this.transfer = (name, value, decoys) => {
+        this.transfer = (name, value, decoys, beneficiary) => { // todo: make sure the beneficiary is registered.
             if (this.account.keypair === undefined)
                 throw "Client's account is not yet registered!";
             decoys = decoys ? decoys : [];
             const account = this.account;
             const state = account._simulate();
-            if (value > state.available + state.pending)
-                throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
+            if (value + utils.fee > state.available + state.pending)
+                throw "Requested transfer amount of " + value + " (plus fee of " + utils.fee + ") exceeds account balance of " + (state.available + state.pending) + ".";
             const wait = this._away();
             const seconds = Math.ceil(wait / 1000);
             const plural = seconds === 1 ? "" : "s";
             if (value > state.available) {
                 console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...");
-                return sleep(wait).then(() => this.transfer(name, value, decoys));
+                return sleep(wait).then(() => this.transfer(name, value, decoys, beneficiary));
             }
             if (state.nonceUsed) {
                 console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
-                return sleep(wait).then(() => this.transfer(name, value, decoys));
+                return sleep(wait).then(() => this.transfer(name, value, decoys, beneficiary));
             }
             const size = 2 + decoys.length;
             const estimated = estimate(size, false); // see notes above
@@ -199,7 +203,7 @@ class Client {
                 throw "The anonset size (" + size + ") you've requested might take longer than the epoch length (" + this._epochLength + " seconds) to prove. Consider re-deploying, with an epoch length at least " + Math.ceil(estimate(size, true) / 1000) + " seconds.";
             if (estimated > wait) {
                 console.log(wait < 3100 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
-                return sleep(wait).then(() => this.transfer(name, value, decoys));
+                return sleep(wait).then(() => this.transfer(name, value, decoys, beneficiary));
             }
             if (size & (size - 1)) {
                 let previous = 1;
@@ -246,14 +250,14 @@ class Client {
                         const r = bn128.randomScalar();
                         const D = bn128.curve.g.mul(r);
                         const C = y.map((party, i) => {
-                            const left = ElGamal.base['g'].mul(new BN(i === index[0] ? -value : i === index[1] ? value : 0)).add(party.mul(r))
+                            const left = ElGamal.base['g'].mul(new BN(i === index[0] ? -value - utils.fee : i === index[1] ? value : 0)).add(party.mul(r))
                             return new ElGamal(left, D)
                         });
                         const Cn = deserialized.map((account, i) => account.add(C[i]));
-                        const proof = Service.proveTransfer(Cn, C, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
+                        const proof = Service.proveTransfer(Cn, C, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value - utils.fee, index);
                         const u = utils.u(state.lastRollOver, account.keypair['x']);
                         const throwaway = web3.eth.accounts.create();
-                        const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof).encodeABI();
+                        const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof, bn128.serialize(friends[beneficiary])).encodeABI();
                         const tx = { 'to': zsc._address, 'data': encoded, 'gas': 6721975, 'nonce': 0 };
                         web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                             web3.eth.sendSignedTransaction(signed.rawTransaction)
@@ -264,8 +268,8 @@ class Client {
                                 .on('receipt', (receipt) => {
                                     account._state = account._simulate(); // have to freshly call it
                                     account._state.nonceUsed = true;
-                                    account._state.pending -= value;
-                                    console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                                    account._state.pending -= value + utils.fee;
+                                    console.log("Transfer of " + value + " (with fee of " + utils.fee + ") was successful. Balance now " + (account._state.available + account._state.pending) + ".");
                                     resolve(receipt);
                                 })
                                 .on('error', (error) => {
