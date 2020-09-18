@@ -138,9 +138,8 @@ class ZetherProof {
 
         let vPow = new BN(1).toRed(bn128.q);
         for (let i = 0; i < N; i++) { // could turn this into a complicated reduce, but...
-            let temp = witness['bTransfer'].redMul(vPow);
             const poly = i % 2 ? Q_poly : P_poly; // clunky, i know, etc. etc.
-            result.C_XG = result.C_XG.map((C_XG_k, k) => C_XG_k.plus(temp.redMul(poly[k].getVector()[(witness['index'][0] + N - (i - i % 2)) % N].redNeg().redAdd(poly[k].getVector()[(witness['index'][1] + N - (i - i % 2)) % N]))));
+            result.C_XG = result.C_XG.map((C_XG_k, k) => C_XG_k.plus(witness['bTransfer'].redMul(vPow).redMul(poly[k].getVector()[(witness['index'][0] + N - (i - i % 2)) % N].redNeg().redAdd(poly[k].getVector()[(witness['index'][1] + N - (i - i % 2)) % N]))));
             if (i !== 0)
                 vPow = vPow.redMul(v);
         }
