@@ -36,6 +36,8 @@ contract ZSC {
         burnVerifier = BurnVerifier(_burn);
         epochLength = _epochLength;
         fee = zetherVerifier.fee();
+        Utils.G1Point memory empty;
+        pending[keccak256(abi.encode(empty))][1] = Utils.g(); // "register" the empty account...
     }
 
     function simulateAccounts(Utils.G1Point[] memory y, uint256 epoch) view public returns (Utils.G1Point[2][] memory accounts) {
