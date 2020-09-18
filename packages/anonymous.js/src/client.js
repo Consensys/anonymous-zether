@@ -229,6 +229,8 @@ class Client {
                     throw "Decoy \"" + decoy + "\" is unknown in friends directory!";
                 y.push(friends[decoy]);
             });
+            if (beneficiary !== undefined && !(beneficiary in friends))
+                throw "Beneficiary \"" + beneficiary + "\" is not known!";
             const index = [];
             let m = y.length;
             while (m !== 0) { // https://bost.ocks.org/mike/shuffle/
@@ -260,7 +262,8 @@ class Client {
                     const proof = Service.proveTransfer(Cn, C, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value - fee, index, fee);
                     const u = utils.u(state.lastRollOver, account.keypair['x']);
                     const throwaway = web3.eth.accounts.create();
-                    const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof, bn128.serialize(friends[beneficiary])).encodeABI();
+                    const beneficiaryKey = beneficiary === undefined ? bn128.zero : friends[beneficiary];
+                    const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof.serialize(), bn128.serialize(beneficiaryKey)).encodeABI();
                     const tx = { 'to': zsc._address, 'data': encoded, 'gas': 6721975, 'nonce': 0 };
                     web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                         web3.eth.sendSignedTransaction(signed.rawTransaction)
@@ -313,7 +316,7 @@ class Client {
                         const C = deserialized.plus(new BN(-value));
                         const proof = Service.proveBurn(C, account.keypair['y'], state.lastRollOver, home, account.keypair['x'], state.available - value);
                         const u = utils.u(state.lastRollOver, account.keypair['x']);
-                        zsc.methods.burn(bn128.serialize(account.keypair['y']), value, bn128.serialize(u), proof).send({ 'from': home, 'gas': 6721975 })
+                        zsc.methods.burn(bn128.serialize(account.keypair['y']), value, bn128.serialize(u), proof.serialize()).send({ 'from': home, 'gas': 6721975 })
                             .on('transactionHash', (hash) => {
                                 console.log("Withdrawal submitted (txHash = \"" + hash + "\").");
                             })

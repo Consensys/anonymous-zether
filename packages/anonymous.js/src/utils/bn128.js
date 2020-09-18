@@ -26,11 +26,11 @@ bn128.q = BN.red(bn128.curve.n);
 bn128.randomScalar = () => new BN(crypto.randomBytes(32), 16).toRed(bn128.q);
 bn128.bytes = (i) => "0x" + i.toString(16, 64);
 bn128.serialize = (point) => { // differs from point.encode('hex'). ethereum-compatible
-    if (point.x === undefined && point.y === undefined) return [empty, empty];
+    if (point.x === null && point.y === null) return [empty, empty];
     return [bn128.bytes(point.getX()), bn128.bytes(point.getY())];
 };
 bn128.representation = (point) => { // essentially for serializing proofs...
-    if (point.x === undefined && point.y === undefined) return empty + empty.slice(2);
+    if (point.x === null && point.y === null) return empty + empty.slice(2);
     return bn128.bytes(point.getX()) + bn128.bytes(point.getY()).slice(2);
 };
 bn128.deserialize = (serialization) => {

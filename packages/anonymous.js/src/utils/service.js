@@ -16,7 +16,7 @@ class Service {
         witness['bDiff'] = bDiff;
         witness['index'] = index;
 
-        return ZetherProof.prove(statement, witness, fee).serialize();
+        return ZetherProof.prove(statement, witness, fee);
     };
 
     static proveBurn(Cn, y, epoch, sender, sk, bDiff) {
@@ -30,7 +30,7 @@ class Service {
         witness['sk'] = sk;
         witness['bDiff'] = bDiff;
 
-        return BurnProof.prove(statement, witness).serialize();
+        return BurnProof.prove(statement, witness);
     }
 }
 

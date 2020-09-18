@@ -109,6 +109,7 @@ contract ZSC {
         require(C.length == size, "Input array length mismatch!");
 
         bytes32 beneficiaryHash = keccak256(abi.encode(beneficiary));
+        require(registered(beneficiaryHash), "Miner's account is not yet registered."); // necessary so that receiving a fee can't "backdoor" you into registration.
         rollOver(beneficiaryHash);
         pending[beneficiaryHash][0] = pending[beneficiaryHash][0].add(Utils.g().mul(fee));
 

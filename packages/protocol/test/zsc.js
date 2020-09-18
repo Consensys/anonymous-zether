@@ -50,9 +50,10 @@ contract("ZSC", async (accounts) => {
             10,
             "Transfer failed"
         );
+        const fee = await zsc.fee.call();
         assert.equal(
             miner.account.balance(),
-            1,
+            fee,
             "Fees failed"
         );
     });
