@@ -20,12 +20,32 @@ class Client {
         web3.transactionConfirmationBlocks = 1;
         const that = this;
 
-        this._transfers = new Set();
+        const transfers = new Set();
+        let epochLength = undefined;
+        let fee = undefined;
+
+        const getEpoch = (timestamp) => {
+            return Math.floor((timestamp === undefined ? (new Date).getTime() / 1000 : timestamp) / epochLength);
+        };
+
+        const away = () => { // returns ms away from next epoch change
+            const current = (new Date).getTime();
+            return Math.ceil(current / (epochLength * 1000)) * (epochLength * 1000) - current;
+        };
+
+        const estimate = (size, contract) => {
+            // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size
+            // this function should hopefully give you good epoch lengths also for 8, 16, 32, etc... if you have very heavy traffic, may need to bump it up (many verifications)
+            // i calibrated this on _my machine_. if you are getting transfer failures, you might need to bump up the constants, recalibrate yourself, etc.
+            return Math.ceil(size * Math.log(size) / Math.log(2) * 20 + 5200) + (contract ? 20 : 0);
+            // the 20-millisecond buffer is designed to give the callback time to fire (see below).
+        };
+
         zsc.events.TransferOccurred({}) // i guess this will just filter for "from here on out."
             // an interesting prospect is whether balance recovery could be eliminated by looking at past events.
             .on('data', (event) => {
-                if (this._transfers.has(event.transactionHash)) {
-                    this._transfers.delete(event.transactionHash);
+                if (transfers.has(event.transactionHash)) {
+                    transfers.delete(event.transactionHash);
                     return;
                 }
                 const account = this.account;
@@ -50,19 +70,14 @@ class Client {
                         });
                     }
                 });
+                if (account.keypair['y'].eq(bn128.deserialize(event.returnValues['beneficiary']))) {
+                    account._state.pending += fee;
+                    console.log("Fee of " + fee + " received! Balance now " + (account._state.available + account._state.pending) + ".");
+                }
             })
             .on('error', (error) => {
                 console.log(error); // when will this be called / fired...?! confusing. also, test this.
             });
-
-        this._epochLength = undefined;
-        this._getEpoch = (timestamp) => {
-            return Math.floor((timestamp === undefined ? (new Date).getTime() / 1000 : timestamp) / this._epochLength);
-        };
-        this._away = () => { // returns ms away from next epoch change
-            const current = (new Date).getTime();
-            return Math.ceil(current / (this._epochLength * 1000)) * (this._epochLength * 1000) - current;
-        };
 
         this.account = new function() {
             this.keypair = undefined;
@@ -78,7 +93,7 @@ class Client {
                 updated.available = this._state.available;
                 updated.pending = this._state.pending;
                 updated.nonceUsed = this._state.nonceUsed;
-                updated.lastRollOver = that._getEpoch(timestamp);
+                updated.lastRollOver = getEpoch(timestamp);
                 if (this._state.lastRollOver < updated.lastRollOver) {
                     updated.available += updated.pending;
                     updated.pending = 0;
@@ -110,8 +125,9 @@ class Client {
         };
 
         this.register = (secret) => {
-            return zsc.methods.epochLength().call().then((result) => {
-                this._epochLength = result;
+            return Promise.all([zsc.methods.epochLength().call(), zsc.methods.fee().call()]).then((result) => {
+                epochLength = parseInt(result[0]);
+                fee = parseInt(result[1]);
                 return new Promise((resolve, reject) => {
                     if (secret === undefined) {
                         const keypair = utils.createAccount();
@@ -132,7 +148,7 @@ class Client {
                     } else {
                         const x = new BN(secret.slice(2), 16).toRed(bn128.q);
                         that.account.keypair = { 'x': x, 'y': bn128.curve.g.mul(x) };
-                        zsc.methods.simulateAccounts([bn128.serialize(this.account.keypair['y'])], this._getEpoch() + 1).call().then((result) => {
+                        zsc.methods.simulateAccounts([bn128.serialize(this.account.keypair['y'])], getEpoch() + 1).call().then((result) => {
                             const simulated = result[0];
                             that.account._state.available = utils.readBalance(simulated[0], simulated[1], x);
                             console.log("Account recovered successfully.");
@@ -166,40 +182,32 @@ class Client {
             });
         };
 
-        const estimate = (size, contract) => {
-            // this expression is meant to be a relatively close upper bound of the time that proving + a few verifications will take, as a function of anonset size
-            // this function should hopefully give you good epoch lengths also for 8, 16, 32, etc... if you have very heavy traffic, may need to bump it up (many verifications)
-            // i calibrated this on _my machine_. if you are getting transfer failures, you might need to bump up the constants, recalibrate yourself, etc.
-            return Math.ceil(size * Math.log(size) / Math.log(2) * 20 + 5200) + (contract ? 20 : 0);
-            // the 20-millisecond buffer is designed to give the callback time to fire (see below).
-        };
-
-        this.transfer = (name, value, decoys) => {
+        this.transfer = (name, value, decoys, beneficiary) => { // todo: make sure the beneficiary is registered.
             if (this.account.keypair === undefined)
                 throw "Client's account is not yet registered!";
             decoys = decoys ? decoys : [];
             const account = this.account;
             const state = account._simulate();
-            if (value > state.available + state.pending)
-                throw "Requested transfer amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-            const wait = this._away();
+            if (value + fee > state.available + state.pending)
+                throw "Requested transfer amount of " + value + " (plus fee of " + fee + ") exceeds account balance of " + (state.available + state.pending) + ".";
+            const wait = away();
             const seconds = Math.ceil(wait / 1000);
             const plural = seconds === 1 ? "" : "s";
             if (value > state.available) {
                 console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", for the release of your funds...");
-                return sleep(wait).then(() => this.transfer(name, value, decoys));
+                return sleep(wait).then(() => this.transfer(name, value, decoys, beneficiary));
             }
             if (state.nonceUsed) {
                 console.log("Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
-                return sleep(wait).then(() => this.transfer(name, value, decoys));
+                return sleep(wait).then(() => this.transfer(name, value, decoys, beneficiary));
             }
             const size = 2 + decoys.length;
             const estimated = estimate(size, false); // see notes above
-            if (estimated > this._epochLength * 1000)
-                throw "The anonset size (" + size + ") you've requested might take longer than the epoch length (" + this._epochLength + " seconds) to prove. Consider re-deploying, with an epoch length at least " + Math.ceil(estimate(size, true) / 1000) + " seconds.";
+            if (estimated > epochLength * 1000)
+                throw "The anonset size (" + size + ") you've requested might take longer than the epoch length (" + epochLength + " seconds) to prove. Consider re-deploying, with an epoch length at least " + Math.ceil(estimate(size, true) / 1000) + " seconds.";
             if (estimated > wait) {
                 console.log(wait < 3100 ? "Initiating transfer." : "Your transfer has been queued. Please wait " + seconds + " second" + plural + ", until the next epoch...");
-                return sleep(wait).then(() => this.transfer(name, value, decoys));
+                return sleep(wait).then(() => this.transfer(name, value, decoys, beneficiary));
             }
             if (size & (size - 1)) {
                 let previous = 1;
@@ -238,42 +246,41 @@ class Client {
                 index[1] = index[1] + (index[1] % 2 === 0 ? 1 : -1);
             } // make sure you and your friend have opposite parity
             return new Promise((resolve, reject) => {
-                zsc.methods.simulateAccounts(y.map(bn128.serialize), this._getEpoch()).call()
-                    .then((result) => {
-                        const deserialized = result.map((account) => ElGamal.deserialize(account));
-                        if (deserialized.some((account) => account.zero()))
-                            return reject(new Error("Please make sure all parties (including decoys) are registered.")); // todo: better error message, i.e., which friend?
-                        const r = bn128.randomScalar();
-                        const D = bn128.curve.g.mul(r);
-                        const C = y.map((party, i) => {
-                            const left = ElGamal.base['g'].mul(new BN(i === index[0] ? -value : i === index[1] ? value : 0)).add(party.mul(r))
-                            return new ElGamal(left, D)
-                        });
-                        const Cn = deserialized.map((account, i) => account.add(C[i]));
-                        const proof = Service.proveTransfer(Cn, C, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value, index);
-                        const u = utils.u(state.lastRollOver, account.keypair['x']);
-                        const throwaway = web3.eth.accounts.create();
-                        const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof).encodeABI();
-                        const tx = { 'to': zsc._address, 'data': encoded, 'gas': 6721975, 'nonce': 0 };
-                        web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
-                            web3.eth.sendSignedTransaction(signed.rawTransaction)
-                                .on('transactionHash', (hash) => {
-                                    that._transfers.add(hash);
-                                    console.log("Transfer submitted (txHash = \"" + hash + "\").");
-                                })
-                                .on('receipt', (receipt) => {
-                                    account._state = account._simulate(); // have to freshly call it
-                                    account._state.nonceUsed = true;
-                                    account._state.pending -= value;
-                                    console.log("Transfer of " + value + " was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                                    resolve(receipt);
-                                })
-                                .on('error', (error) => {
-                                    console.log("Transfer failed: " + error);
-                                    reject(error);
-                                });
-                        });
+                zsc.methods.simulateAccounts(y.map(bn128.serialize), getEpoch()).call().then((result) => {
+                    const deserialized = result.map((account) => ElGamal.deserialize(account));
+                    if (deserialized.some((account) => account.zero()))
+                        return reject(new Error("Please make sure all parties (including decoys) are registered.")); // todo: better error message, i.e., which friend?
+                    const r = bn128.randomScalar();
+                    const D = bn128.curve.g.mul(r);
+                    const C = y.map((party, i) => {
+                        const left = ElGamal.base['g'].mul(new BN(i === index[0] ? -value - fee : i === index[1] ? value : 0)).add(party.mul(r))
+                        return new ElGamal(left, D)
                     });
+                    const Cn = deserialized.map((account, i) => account.add(C[i]));
+                    const proof = Service.proveTransfer(Cn, C, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value - fee, index, fee);
+                    const u = utils.u(state.lastRollOver, account.keypair['x']);
+                    const throwaway = web3.eth.accounts.create();
+                    const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof, bn128.serialize(friends[beneficiary])).encodeABI();
+                    const tx = { 'to': zsc._address, 'data': encoded, 'gas': 6721975, 'nonce': 0 };
+                    web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
+                        web3.eth.sendSignedTransaction(signed.rawTransaction)
+                            .on('transactionHash', (hash) => {
+                                transfers.add(hash);
+                                console.log("Transfer submitted (txHash = \"" + hash + "\").");
+                            })
+                            .on('receipt', (receipt) => {
+                                account._state = account._simulate(); // have to freshly call it
+                                account._state.nonceUsed = true;
+                                account._state.pending -= value + fee;
+                                console.log("Transfer of " + value + " (with fee of " + fee + ") was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                                resolve(receipt);
+                            })
+                            .on('error', (error) => {
+                                console.log("Transfer failed: " + error);
+                                reject(error);
+                            });
+                    });
+                });
             });
         };
 
@@ -284,7 +291,7 @@ class Client {
             const state = account._simulate();
             if (value > state.available + state.pending)
                 throw "Requested withdrawal amount of " + value + " exceeds account balance of " + (state.available + state.pending) + ".";
-            const wait = this._away();
+            const wait = away();
             const seconds = Math.ceil(wait / 1000);
             const plural = seconds === 1 ? "" : "s";
             if (value > state.available) {
@@ -300,7 +307,7 @@ class Client {
                 return sleep(wait).then(() => this.withdraw(value));
             }
             return new Promise((resolve, reject) => {
-                zsc.methods.simulateAccounts([bn128.serialize(account.keypair['y'])], this._getEpoch()).call()
+                zsc.methods.simulateAccounts([bn128.serialize(account.keypair['y'])], getEpoch()).call()
                     .then((result) => {
                         const deserialized = ElGamal.deserialize(result[0]);
                         const C = deserialized.plus(new BN(-value));

@@ -13,6 +13,7 @@ contract ZetherVerifier {
     uint256 constant TWO_INV = 0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000001; // 2^{-1} modulo q
 
     InnerProductVerifier ip;
+    uint256 public constant fee = 0; // set this to be the "transaction fee". can be any integer under MAX.
 
     struct ZetherStatement {
         Utils.G1Point[] CLn;
@@ -180,6 +181,7 @@ contract ZetherVerifier {
         }
         anonAuxiliaries.DR = anonAuxiliaries.DR.add(statement.D.mul(anonAuxiliaries.wPow));
         anonAuxiliaries.gR = anonAuxiliaries.gR.add(Utils.g().mul(anonAuxiliaries.wPow));
+        anonAuxiliaries.C_XR = anonAuxiliaries.C_XR.add(Utils.g().mul(fee.mul(anonAuxiliaries.wPow)));  // this line is new
 
         ZetherAuxiliaries memory zetherAuxiliaries;
         zetherAuxiliaries.y = uint256(keccak256(abi.encode(anonAuxiliaries.w))).mod();
@@ -206,7 +208,7 @@ contract ZetherVerifier {
         SigmaAuxiliaries memory sigmaAuxiliaries;
         sigmaAuxiliaries.A_y = anonAuxiliaries.gR.mul(proof.s_sk).add(anonAuxiliaries.yR[0][0].mul(proof.c.neg()));
         sigmaAuxiliaries.A_D = Utils.g().mul(proof.s_r).add(statement.D.mul(proof.c.neg())); // add(mul(anonAuxiliaries.gR, proof.s_r), mul(anonAuxiliaries.DR, proof.c.neg()));
-        sigmaAuxiliaries.A_b = Utils.g().mul(proof.s_b).add(anonAuxiliaries.DR.mul(zetherAuxiliaries.zs[0].neg()).add(anonAuxiliaries.CRnR.mul(zetherAuxiliaries.zs[1])).mul(proof.s_sk).add(anonAuxiliaries.CR[0][0].mul(zetherAuxiliaries.zs[0].neg()).add(anonAuxiliaries.CLnR.mul(zetherAuxiliaries.zs[1])).mul(proof.c.neg())));
+        sigmaAuxiliaries.A_b = Utils.g().mul(proof.s_b).add(anonAuxiliaries.DR.mul(zetherAuxiliaries.zs[0].neg()).add(anonAuxiliaries.CRnR.mul(zetherAuxiliaries.zs[1])).mul(proof.s_sk).add(anonAuxiliaries.CR[0][0].add(Utils.g().mul(fee.mul(anonAuxiliaries.wPow))).mul(zetherAuxiliaries.zs[0].neg()).add(anonAuxiliaries.CLnR.mul(zetherAuxiliaries.zs[1])).mul(proof.c.neg())));
         sigmaAuxiliaries.A_X = anonAuxiliaries.y_XR.mul(proof.s_r).add(anonAuxiliaries.C_XR.mul(proof.c.neg()));
         sigmaAuxiliaries.A_t = Utils.g().mul(zetherAuxiliaries.t).add(zetherAuxiliaries.tEval.neg()).mul(proof.c.mul(anonAuxiliaries.wPow)).add(Utils.h().mul(proof.s_tau)).add(Utils.g().mul(proof.s_b.neg()));
         sigmaAuxiliaries.gEpoch = Utils.mapInto("Zether", statement.epoch);

@@ -16,6 +16,7 @@ contract ZSC {
     ZetherVerifier zetherVerifier;
     BurnVerifier burnVerifier;
     uint256 public epochLength;
+    uint256 public fee;
 
     uint256 constant MAX = 4294967295; // 2^32 - 1 // no sload for constants...!
     mapping(bytes32 => Utils.G1Point[2]) acc; // main account mapping
@@ -25,7 +26,7 @@ contract ZSC {
     uint256 lastGlobalUpdate = 0; // will be also used as a proxy for "current epoch", seeing as rollovers will be anticipated
     // not implementing account locking for now...revisit
 
-    event TransferOccurred(Utils.G1Point[] parties); // all parties will be notified, client can determine whether it was real or not.
+    event TransferOccurred(Utils.G1Point[] parties, Utils.G1Point beneficiary);
     // arg is still necessary for transfers---not even so much to know when you received a transfer, as to know when you got rolled over.
 
     constructor(address _coin, address _zether, address _burn, uint256 _epochLength) { // visibiility won't be needed in 7.0
@@ -34,6 +35,7 @@ contract ZSC {
         zetherVerifier = ZetherVerifier(_zether);
         burnVerifier = BurnVerifier(_burn);
         epochLength = _epochLength;
+        fee = zetherVerifier.fee();
     }
 
     function simulateAccounts(Utils.G1Point[] memory y, uint256 epoch) view public returns (Utils.G1Point[2][] memory accounts) {
@@ -100,11 +102,15 @@ contract ZSC {
         require(coin.balanceOf(address(this)) <= MAX, "Fund pushes contract past maximum value.");
     }
 
-    function transfer(Utils.G1Point[] memory C, Utils.G1Point memory D, Utils.G1Point[] memory y, Utils.G1Point memory u, bytes memory proof) public {
+    function transfer(Utils.G1Point[] memory C, Utils.G1Point memory D, Utils.G1Point[] memory y, Utils.G1Point memory u, bytes memory proof, Utils.G1Point memory beneficiary) public {
         uint256 size = y.length;
         Utils.G1Point[] memory CLn = new Utils.G1Point[](size);
         Utils.G1Point[] memory CRn = new Utils.G1Point[](size);
         require(C.length == size, "Input array length mismatch!");
+
+        bytes32 beneficiaryHash = keccak256(abi.encode(beneficiary));
+        rollOver(beneficiaryHash);
+        pending[beneficiaryHash][0] = pending[beneficiaryHash][0].add(Utils.g().mul(fee));
 
         for (uint256 i = 0; i < size; i++) {
             bytes32 yHash = keccak256(abi.encode(y[i]));
@@ -128,7 +134,7 @@ contract ZSC {
 
         require(zetherVerifier.verifyTransfer(CLn, CRn, C, D, y, lastGlobalUpdate, u, proof), "Transfer proof verification failed!");
 
-        emit TransferOccurred(y);
+        emit TransferOccurred(y, beneficiary);
     }
 
     function burn(Utils.G1Point memory y, uint256 bTransfer, Utils.G1Point memory u, bytes memory proof) public {
