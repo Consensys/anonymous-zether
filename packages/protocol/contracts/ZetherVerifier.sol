@@ -13,7 +13,7 @@ contract ZetherVerifier {
     uint256 constant TWO_INV = 0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000001; // 2^{-1} modulo q
 
     InnerProductVerifier ip;
-    uint256 public constant fee = 1;
+    uint256 public constant fee = 0; // set this to be the "transaction fee". can be any integer under MAX.
 
     struct ZetherStatement {
         Utils.G1Point[] CLn;
