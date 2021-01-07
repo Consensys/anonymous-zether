@@ -69,7 +69,7 @@ An example is shown below:
 > const ZSC = contract(ZSCJSON);
 > ZSC.setProvider(provider);
 > ZSC.deployed();
-> var zsc;
+> let zsc;
 > ZSC.at(ZSC.address).then((result) => { zsc = result; });
 ```
 Following the example above, import CashToken:
@@ -78,7 +78,7 @@ Following the example above, import CashToken:
 > const CashToken = contract(CashTokenJSON);
 > CashToken.setProvider(provider);
 > CashToken.deployed();
-> var cash;
+> let cash;
 > CashToken.at(CashToken.address).then((result) => { cash = result; });
 ```
 Before proceeding, you should mint yourself some funds. An example is shown below:
@@ -88,28 +88,28 @@ Before proceeding, you should mint yourself some funds. An example is shown belo
 ```
 Let's assume now that, in four separate `node` consoles, you've imported `Client` and initialized `web3` to an appropriate provider in this way. In each window, type:
 ```javascript
-> var home
-> web3.eth.getAccounts().then((accounts) => { home = accounts[accounts.length - 1]; })
+> var home;
+> web3.eth.getAccounts().then((accounts) => { home = accounts[accounts.length - 1]; });
 ```
 to assign the address of an unlocked account to the variable `home`.
 
 In the first window, Alice's let's say, execute:
 ```javascript
 > const alice = new Client(web3, zsc.contract, home);
-> alice.register()
+> alice.register();
 Promise { <pending> }
 Registration submitted (txHash = "0xe4295b5116eb1fe6c40a40352f4bf609041f93e763b5b27bd28c866f3f4ce2b2").
 Registration successful.
 ```
 and in Bob's,
 ```javascript
-> const bob = new Client(web3, zsc.contract, home)
-> bob.register()
+> const bob = new Client(web3, zsc.contract, home);
+> bob.register();
 ```
 
 The two functions `deposit` and `withdraw` take a single numerical parameter. For example, in Alice's window, type:
 ```javascript
-> alice.deposit(100)
+> alice.deposit(100);
 Initiating deposit.
 Promise { <pending> }
 Deposit submitted (txHash = "0xa6e4c2d415dda9402c6b20a6b1f374939f847c00d7c0f206200142597ff5be7e").
@@ -117,7 +117,7 @@ Deposit of 100 was successful. Balance now 100.
 ```
 Now, type:
 ```javascript
-> alice.withdraw(10)
+> alice.withdraw(10);
 Initiating withdrawal.
 Promise { <pending> }
 Withdrawal submitted (txHash = "0xd7cd5de1680594da89823a18c0b74716b6953e23fe60056cc074df75e94c92c5").
@@ -133,12 +133,12 @@ In Bob's window, use
 ```
 to retrieve his public key and add Bob as a "friend" of Alice, i.e.
 ```javascript
-> alice.friends.add("Bob", ['0x17f5f0daab7218a462dea5f04d47c9db95497833381f502560486d4019aec495', '0x0957b7a0ec24a779f991ea645366b27fe3e93e996f3e7936bdcfb7b18d41a945'])
+> alice.friends.add("Bob", ['0x17f5f0daab7218a462dea5f04d47c9db95497833381f502560486d4019aec495', '0x0957b7a0ec24a779f991ea645366b27fe3e93e996f3e7936bdcfb7b18d41a945']);
 'Friend added.'
 ```
 You can now do:
 ```javascript
-> alice.transfer("Bob", 20)
+> alice.transfer("Bob", 20);
 Initiating transfer.
 Promise { <pending> }
 Transfer submitted (txHash = "0x4c0631483e6ea89d2068c90d5a2f9fa42ad12a102650ff80b887542e18e1d988").
@@ -150,7 +150,7 @@ Transfer of 20 received! Balance now 20.
 ```
 You can also add Alice, Carol and Dave as friends of Bob. Now, you can try:
 ```javascript
-> bob.transfer("Alice", 10, ["Carol", "Dave"])
+> bob.transfer("Alice", 10, ["Carol", "Dave"]);
 Initiating transfer.
 Promise { <pending> }
 Transfer submitted (txHash = "0x9b3f51f3511c6797789862ce745a81d5bdfb00304831a8f25cc8554ea7597860").
@@ -160,10 +160,10 @@ The meaning of this syntax is that Carol and Dave are being included, along with
 
 In fact, you can see for yourself the perspective of Eve—an eavesdropper, let's say. In a new window (if you want), execute:
 ```javascript
-> let inputs
-> zsc.contract._jsonInterface.forEach((element) => { if (element['name'] == "transfer") inputs = element['inputs']; })
-> let parsed
-> web3.eth.getTransaction('0x9b3f51f3511c6797789862ce745a81d5bdfb00304831a8f25cc8554ea7597860').then((transaction) => { parsed = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10)); })
+> let inputs;
+> zsc.contract._jsonInterface.forEach((element) => { if (element['name'] == "transfer") inputs = element['inputs']; });
+> let parsed;
+> web3.eth.getTransaction('0x9b3f51f3511c6797789862ce745a81d5bdfb00304831a8f25cc8554ea7597860').then((transaction) => { parsed = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10)); });
 ```
 You will see a bunch of fields; in particular, `parsed['y']` will contain the list of public keys, while `parsed['C']`, `parsed['D']` and `parsed['proof']` will contain further bytes which reveal nothing about the transaction.
 
