@@ -60,8 +60,6 @@ Now, import `Client`:
 ```
 
 The contracts `ZSC` and `CashToken` should be imported in `node` using Truffle's `@truffle/contract` objects:
-
-An example is shown below:
 ```javascript
 > contract = require("@truffle/contract");
 > path = require('path');
@@ -88,7 +86,7 @@ Before proceeding, you should mint yourself some funds. An example is shown belo
 ```
 Let's assume now that, in four separate `node` consoles, you've imported `Client` and initialized `web3` to an appropriate provider in this way. In each window, type:
 ```javascript
-> var home;
+> let home;
 > web3.eth.getAccounts().then((accounts) => { home = accounts[accounts.length - 1]; });
 ```
 to assign the address of an unlocked account to the variable `home`.
@@ -125,7 +123,7 @@ Withdrawal of 10 was successful. Balance now 90.
 ```
 In Bob's window, use
 ```javascript
-> bob.account.public()
+> bob.account.public();
 [
   '0x17f5f0daab7218a462dea5f04d47c9db95497833381f502560486d4019aec495',
   '0x0957b7a0ec24a779f991ea645366b27fe3e93e996f3e7936bdcfb7b18d41a945'
