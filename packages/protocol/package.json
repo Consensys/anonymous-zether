@@ -4,6 +4,7 @@
   "description": "",
   "main": "./lib",
   "dependencies": {
+    "@truffle/contract": "^4.3.4",
     "bn.js": "^5.1.1",
     "elliptic": "^6.5.1",
     "web3": "^1.2.4"
