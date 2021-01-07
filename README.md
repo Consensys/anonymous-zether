@@ -46,32 +46,31 @@ truffle test
 This command should compile and deploy all necessary contracts, as well as run some example code. You can see this example code in the test file [zsc.js](./packages/protocol/test/zsc.js).
 
 ## Detailed usage example
-First of all you need to navigate in the `packages/protocol` directory and run `truffle migrate` to compile the contracts.
+In case you haven't already, navigate to `packages/protocol` directory and run `truffle migrate` to compile the contracts.
 
-Initialize `__dirname` and `web3` like so:
+In a `node` console, set the variable `__dirname` so that it points to the `packages/protocol` directory. Initialize `web3` in the following way:
 ```javascript
-> __dirname = [your path to anonymous-zether/packages/protocol];
 > Web3 = require('web3');
-> web3 = new Web3('http://localhost:9545'); 
-> const provider = new Web3.providers.WebsocketProvider("ws://localhost:9545");
+> const web3 = new Web3('http://localhost:8545');
+> const provider = new Web3.providers.WebsocketProvider("ws://localhost:8545");
 ```
-
-Then, import `Client`:
+Now, import `Client`:
 ```javascript
 > const Client = require(path.join(__dirname, '../anonymous.js/src/client.js'));
 ```
 
-Contracts ZSC and CashToken must be imported in node using the `contract.at(contract.address)` function where contract is a `@truffle/contract` object,  using the compiled contract.json files.
+The contracts `ZSC` and `CashToken` should be imported in `node` using Truffle's `@truffle/contract` objects:
 
 An example is shown below:
 ```javascript
 > contract = require("@truffle/contract");
 > path = require('path');
-> zscJSON  = require(path.join(__dirname, 'build/contracts/ZSC.json'));
-> const ZSC = contract(zscJSON);
+> const ZSCJSON = require(path.join(__dirname, 'build/contracts/ZSC.json'));
+> const ZSC = contract(ZSCJSON);
 > ZSC.setProvider(provider);
 > ZSC.deployed();
-> ZSC.at(ZSC.address).then(function(result) {zsc = result});
+> var zsc;
+> ZSC.at(ZSC.address).then((result) => { zsc = result; });
 ```
 Following the example above, import CashToken:
 ```javascript
@@ -79,10 +78,15 @@ Following the example above, import CashToken:
 > const CashToken = contract(CashTokenJSON);
 > CashToken.setProvider(provider);
 > CashToken.deployed();
-> CashToken.at(CashToken.address).then(function(result) {cash = result});
+> var cash;
+> CashToken.at(CashToken.address).then((result) => { cash = result; });
 ```
-
-Let's assume that `Client` has been imported and that all contracts have been deployed (using truffle migrate), and that, in four separate `node` consoles, `web3` is initialized with an appropriate provider (make sure to use a WebSocket or IPC provider). In each window, type:
+Before proceeding, you should mint yourself some funds. An example is shown below:
+```javascript
+> cash.mint(home, 1000, { 'from': home });
+> cash.approve(zsc.address, 1000, { 'from': home });
+```
+Let's assume now that, in four separate `node` consoles, you've imported `Client` and initialized `web3` to an appropriate provider in this way. In each window, type:
 ```javascript
 > var home
 > web3.eth.getAccounts().then((accounts) => { home = accounts[accounts.length - 1]; })
@@ -102,13 +106,7 @@ and in Bob's,
 > const bob = new Client(web3, zsc.contract, home)
 > bob.register()
 ```
-Before running the commands alice.deposit() / alice.withdraw() it is necessary to mint funds, otherwise it will trigger an ERC20 revert error (insufficient funds). An example is shown below:
-```javascript
-> cash.mint(home, 150, {from: home}).then(console.log)
-> cash.approve(zsc.address, 150, {from: home}).then(console.log)
-> cash.balanceOf.call(home).then(function(result) {balance = result});
-> assert.equal(balance, 150, "Minting failed");
-```
+
 The two functions `deposit` and `withdraw` take a single numerical parameter. For example, in Alice's window, type:
 ```javascript
 > alice.deposit(100)
