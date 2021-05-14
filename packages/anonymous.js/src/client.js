@@ -49,6 +49,7 @@ class Client {
                     return;
                 }
                 const account = this.account;
+                if (event.returnValues['parties'] === null) return; // truffle is sometimes emitting spurious empty events??? have to avoid this case manually.
                 event.returnValues['parties'].forEach((party, i) => {
                     if (account.keypair['y'].eq(bn128.deserialize(party))) {
                         const blockNumber = event.blockNumber;
