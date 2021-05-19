@@ -262,32 +262,30 @@ class Client {
                     const Cn = deserialized.map((account, i) => account.add(C[i]));
                     const proof = Service.proveTransfer(Cn, C, y, state.lastRollOver, account.keypair['x'], r, value, state.available - value - fee, index, fee);
                     const u = utils.u(state.lastRollOver, account.keypair['x']);
-                    const throwaway = web3.eth.accounts.create();
                     const beneficiaryKey = beneficiary === undefined ? bn128.zero : friends[beneficiary];
-                    const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof.serialize(), bn128.serialize(beneficiaryKey)).encodeABI();
-                    const tx = { 'to': zsc._address, 'data': encoded, 'gas': 6721975, 'nonce': 0 };
-                    web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
-                        web3.eth.sendSignedTransaction(signed.rawTransaction)
-                            .on('transactionHash', (hash) => {
-                                transfers.add(hash);
-                                console.log("Transfer submitted (txHash = \"" + hash + "\").");
-                            })
-                            .on('receipt', (receipt) => {
-                                account._state = account._simulate(); // have to freshly call it
-                                account._state.nonceUsed = true;
-                                account._state.pending -= value + fee;
-                                console.log("Transfer of " + value + " (with fee of " + fee + ") was successful. Balance now " + (account._state.available + account._state.pending) + ".");
-                                resolve(receipt);
-                            })
-                            .on('error', (error) => {
-                                console.log("Transfer failed: " + error);
-                                reject(error);
-                            });
-                    });
+
+                    zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof.serialize(), bn128.serialize(beneficiaryKey)).send({ 'from': home, 'gas': 6721975 })
+                        .on('transactionHash', (hash) => {
+                            transfers.add(hash);
+                            console.log("Transfer submitted (txHash = \"" + hash + "\").");
+                        })
+                        .on('receipt', (receipt) => {
+                            account._state = account._simulate(); // have to freshly call it
+                            account._state.nonceUsed = true;
+                            account._state.pending -= value + fee;
+                            console.log("Transfer of " + value + " (with fee of " + fee + ") was successful. Balance now " + (account._state.available + account._state.pending) + ".");
+                            resolve(receipt);
+                        })
+                        .on('error', (error) => {
+                            console.log("Transfer failed: ");
+                            console.log(error)
+                            reject(error);
+                        });
                 });
             });
-        };
-
+        };        
+        
+        
         this.withdraw = (value) => {
             if (this.account.keypair === undefined)
                 throw "Client's account is not yet registered!";
