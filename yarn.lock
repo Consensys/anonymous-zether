@@ -1003,10 +1003,10 @@
   dependencies:
     "@octokit/openapi-types" "^7.0.0"
 
-"@openzeppelin/contracts@3.1.0-solc-0.7":
-  version "3.1.0-solc-0.7"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-3.1.0-solc-0.7.tgz#c6c937d402abaefd2d541178e4c0b1131bf06b9f"
-  integrity sha512-b3DjBHKn74XC9spvQEmn6t7dRZRN7pkeZ9IlDzkMgib09FUE3CDpKmtFCIUDYSLd8lkgSmB9Ig7Chctg8GWUiA==
+"@openzeppelin/contracts@4.4.2":
+  version "4.4.2"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.4.2.tgz#4e889c9c66e736f7de189a53f8ba5b8d789425c2"
+  integrity sha512-NyJV7sJgoGYqbtNUWgzzOGW4T6rR19FmX1IJgXGdapGPWsuMelGJn9h03nos0iqfforCbCB0iYIR0MtIuIFLLw==
 
 "@sindresorhus/is@^0.14.0":
   version "0.14.0"
