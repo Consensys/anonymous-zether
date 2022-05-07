@@ -23,10 +23,11 @@ Anonymous Zether can be deployed and tested easily using [Truffle](https://www.t
 ### Required utilities
 * [Yarn](https://yarnpkg.com/en/docs/install#mac-stable), tested with version v1.22.4.
 * [Node.js](https://nodejs.org/en/download/), tested with version v12.18.3. (Unfortunately, currently, Node.js v14 has [certain incompatibilities](https://github.com/trufflesuite/ganache-cli/issues/732) with Truffle; you can use `nvm use 12` to temporarily downgrade.)
+* [Truffle](https://trufflesuite.com/docs/truffle/), tested with version v5.1.63.
 
 Run the following commands:
 ```bash
-npm install -g truffle
+npm install -g truffle@5.1.63
 npm install -g ganache-cli
 ```
 In the main directory, type `yarn`.
