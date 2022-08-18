@@ -29,6 +29,8 @@ Run the following commands:
 npm install -g truffle
 npm install -g ganache
 ```
+**Note:** last tested with truffle v5.5.27 and ganache v7.3.2.
+
 In the main directory, type `yarn`.
 
 ## Running Tests
