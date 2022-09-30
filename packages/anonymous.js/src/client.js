@@ -265,7 +265,7 @@ class Client {
                     const throwaway = web3.eth.accounts.create();
                     const beneficiaryKey = beneficiary === undefined ? bn128.zero : friends[beneficiary];
                     const encoded = zsc.methods.transfer(C.map((ciphertext) => bn128.serialize(ciphertext.left())), bn128.serialize(D), y.map(bn128.serialize), bn128.serialize(u), proof.serialize(), bn128.serialize(beneficiaryKey)).encodeABI();
-                    const tx = { 'to': zsc._address, 'data': encoded, 'gas': 6721975, 'nonce': 0 };
+                    const tx = { 'to': zsc._address, 'data': encoded, 'gas': 7721975, 'nonce': 0 };
                     web3.eth.accounts.signTransaction(tx, throwaway.privateKey).then((signed) => {
                         web3.eth.sendSignedTransaction(signed.rawTransaction)
                             .on('transactionHash', (hash) => {
