@@ -21,14 +21,16 @@ Our theoretical contribution is a zero-knowledge proof protocol for the anonymou
 Anonymous Zether can be deployed and tested easily using [Truffle](https://www.trufflesuite.com/truffle) and [Ganache](https://www.trufflesuite.com/ganache).
 
 ### Required utilities
-* [Yarn](https://yarnpkg.com/en/docs/install#mac-stable), tested with version v1.22.4.
-* [Node.js](https://nodejs.org/en/download/), tested with version v12.18.3. (Unfortunately, currently, Node.js v14 has [certain incompatibilities](https://github.com/trufflesuite/ganache-cli/issues/732) with Truffle; you can use `nvm use 12` to temporarily downgrade.)
+* [Yarn](https://yarnpkg.com/en/docs/install#mac-stable), tested with version v1.22.19.
+* [Node.js](https://nodejs.org/en/download/), tested with version v16.15.1.
 
 Run the following commands:
 ```bash
 npm install -g truffle
-npm install -g ganache-cli
+npm install -g ganache
 ```
+**Note:** last tested with truffle v5.5.27 and ganache v7.3.2.
+
 In the main directory, type `yarn`.
 
 ## Running Tests
@@ -37,8 +39,10 @@ Navigate to the [protocol](./packages/protocol) directory. Type `yarn`.
 
 Now, in one window, type
 ```bash
-ganache-cli --gasPrice 0
+ganache-cli --gasPrice 0 -k berlin
 ```
+**Note:** the `-k berlin` fork is required due to an externally signed transaction (by a random account with no balance) which is part of the transfer flow. The london fork introduces minimum pricing for gas. 
+
 In a second window, type
 ```bash
 truffle test

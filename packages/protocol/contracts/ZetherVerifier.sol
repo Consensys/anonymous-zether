@@ -260,11 +260,16 @@ contract ZetherVerifier {
         uint256 omega = UNITY.exp((1 << 28) / size); // wasteful: using exp for all 256-bits, though we only need 28 (at most!)
         uint256 omega_inv = omega.mul(omega).inv(); // also square it. inverse fft will be half as big
         uint256[] memory omegas = new uint256[](half);
-        uint256[] memory inverses = new uint256[](half / 2); // if it's not an integer, will this still work nicely?
+        // TODO edge case when there are no decoys - size = 2
+        // The inverses array is only used for the fft call with inverse=true however since the inverse_fft array has
+        // size=1 the fft call returns the input array (without any further processing). Maybe size=2 should be treated
+        // separately (and possibly simplified).
+        uint256 halfHalf = half == 1 ? 1 : half / 2;
+        uint256[] memory inverses = new uint256[](halfHalf); // if it's not an integer, will this still work nicely?
         omegas[0] = 1;
         inverses[0] = 1;
         for (uint256 i = 1; i < half; i++) omegas[i] = omegas[i - 1].mul(omega);
-        for (uint256 i = 1; i < half / 2; i++) inverses[i] = inverses[i - 1].mul(omega_inv);
+        for (uint256 i = 1; i < halfHalf; i++) inverses[i] = inverses[i - 1].mul(omega_inv);
         Utils.G1Point[] memory base_fft = fft(base, omegas, false); // could precompute UNITY.inv(), but... have to exp it anyway
         uint256[] memory exponent_fft = new uint256[](size);
         for (uint256 j = 0; j < 2; j++) {

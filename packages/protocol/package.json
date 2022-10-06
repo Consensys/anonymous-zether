@@ -4,15 +4,14 @@
   "description": "",
   "main": "./lib",
   "dependencies": {
-    "@truffle/contract": "^4.3.4",
+    "@truffle/contract": "^4.5.21",
     "bn.js": "^5.1.1",
     "elliptic": "^6.5.1",
     "eslint-import-resolver-lerna": "^1.1.0",
-    "web3": "^1.2.4"
+    "web3": "^1.7.4"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "3.1.0-solc-0.7",
-    "eslint": "^5.16.0",
-    "ganache-core": "^2.11.2"
+    "eslint": "^5.16.0"
   }
 }
