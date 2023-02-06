@@ -2,3 +2,5 @@ build
 node_modules
 package-lock.json
 yarn-error.log
+artifacts/
+cache/
