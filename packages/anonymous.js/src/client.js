@@ -63,6 +63,9 @@ class Client {
                                 });
                                 const parameters = web3.eth.abi.decodeParameters(inputs, "0x" + transaction.input.slice(10));
                                 const value = utils.readBalance(parameters['C'][i], parameters['D'], account.keypair['x']);
+                                // INFO: Only the receiver of the transfer will have a value greather than 0
+                                // the sender that will have a value less than 0 that is -value
+                                // Every other party will have a value equal to 0
                                 if (value > 0) {
                                     account._state.pending += value;
                                     console.log("Transfer of " + value + " received! Balance now " + (account._state.available + account._state.pending) + ".");

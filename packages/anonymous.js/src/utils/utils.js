@@ -32,10 +32,13 @@ utils.readBalance = (CL, CR, x) => {
     CL = bn128.deserialize(CL);
     CR = bn128.deserialize(CR);
     const gB = CL.add(CR.mul(x.redNeg()));
+    const gB_neg = CL.add(CR.mul(x.redNeg())).neg();
+    // Should be null for [null,null] for decoys,  not processed for sender in the client example
 
     let accumulator = bn128.zero;
     for (let i = 0; i < bn128.B_MAX; i++) {
         if (accumulator.eq(gB)) return i;
+        if (accumulator.eq(gB_neg)) return -i;
         accumulator = accumulator.add(bn128.curve.g);
     }
 };
